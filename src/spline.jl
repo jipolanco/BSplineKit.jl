@@ -118,6 +118,8 @@ function Base.diff(S::Spline, ::Val{Ndiff} = Val(1)) where {Ndiff}
     Spline(B, view(du, (1 + Ndiff):N))
 end
 
+# Zeroth derivative: return S itself.
+@inline Base.diff(S::Spline, ::Val{0}) = S
 @inline Base.diff(S::Spline, Ndiff::Integer) = diff(S, Val(Ndiff))
 
 function get_knot_interval(t::AbstractVector, x)

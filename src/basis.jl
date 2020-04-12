@@ -61,36 +61,65 @@ order(::Type{<:BSplineBasis{k}}) where {k} = k
 order(b::BSplineBasis) = order(typeof(b))
 
 """
-    evaluate_bspline(B::BSplineBasis, i::Integer, x, [T=Float64])
+    evaluate_bspline(
+        B::BSplineBasis, i::Integer, x, [T=Float64];
+        Ndiff::Val = Val(0),
+    )
 
 Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a
 vector of coordinates).
 
+The `N`-th derivative of bᵢ(x) may be evaluated by passing `Ndiff = Val(N)`.
+
 See also [`evaluate_bspline!`](@ref).
 """
 function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
-                          ::Type{T} = Float64) where {T}
+                          ::Type{T} = Float64;
+                          Ndiff::Val{D} = Val(0)) where {T,D}
     N = length(B)
     if !(1 <= i <= N)
         throw(DomainError(i, "B-spline index must be in 1:$N"))
     end
-    evaluate_bspline(Val(order(B)), knots(B), i, x, T)
+    k = order(B)
+    t = knots(B)
+    evaluate_bspline_diff(Ndiff, Val(k), t, i, x, T)
 end
 
-evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...) =
-    evaluate_bspline.(B, i, x, args...)
+# No derivative
+evaluate_bspline_diff(::Val{0}, ::Val{k}, t, i, x, ::Type{T}) where {k,T} =
+    evaluate_bspline(Val(k), t, i, x, T)
+
+# N-th derivative
+function evaluate_bspline_diff(::Val{N}, ::Val{k}, t, i, x,
+                               ::Type{T}) where {N,k,T}
+    @assert N > 0
+    y = zero(T)
+    dt = t[i + k - 1] - t[i]
+    if !iszero(dt)
+        # Recursively evaluate derivative `N - 1` of B-spline of order `k - 1`.
+        y += evaluate_bspline_diff(Val(N - 1), Val(k - 1), t, i, x, T) / dt
+    end
+    dt = t[i + k] - t[i + 1]
+    if !iszero(dt)
+        y -= evaluate_bspline_diff(Val(N - 1), Val(k - 1), t, i + 1, x, T) / dt
+    end
+    y * (k - 1)
+end
+
+evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...; kwargs...) =
+    evaluate_bspline.(B, i, x, args...; kwargs...)
 
 """
     evaluate_bspline!(b::AbstractVector, B::BSplineBasis, i::Integer,
-                      x::AbstractVector)
+                      x::AbstractVector; kwargs...)
 
 Evaluate i-th B-spline at positions `x` and write result to `b`.
 
 See also [`evaluate_bspline`](@ref).
 """
 function evaluate_bspline!(b::AbstractVector{T}, B::BSplineBasis, i,
-                           x::AbstractVector) where {T}
-    broadcast!(x -> evaluate_bspline(B, i, x, T), b, x)
+                           x::AbstractVector; kwargs...) where {T}
+    broadcast!(x -> evaluate_bspline(B, i, x, T; kwargs...), b, x)
 end
 
 # Specialisation for first order B-splines.
