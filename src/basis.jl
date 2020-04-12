@@ -63,7 +63,7 @@ order(b::BSplineBasis) = order(typeof(b))
 """
     evaluate_bspline(
         B::BSplineBasis, i::Integer, x, [T=Float64];
-        Ndiff::Val = Val(0),
+        Ndiff::{Integer, Val} = Val(0),
     )
 
 Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a
@@ -75,19 +75,23 @@ See also [`evaluate_bspline!`](@ref).
 """
 function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
                           ::Type{T} = Float64;
-                          Ndiff::Val{D} = Val(0)) where {T,D}
+                          Ndiff::Union{Val,Integer} = Val(0)) where {T,D}
     N = length(B)
     if !(1 <= i <= N)
         throw(DomainError(i, "B-spline index must be in 1:$N"))
     end
     k = order(B)
     t = knots(B)
-    evaluate_bspline_diff(Ndiff, Val(k), t, i, x, T)
+    Ndiff_val = _make_val(Ndiff)
+    evaluate_bspline_diff(Ndiff_val, Val(k), t, i, x, T)
 end
+
+@inline _make_val(x) = Val(x)
+@inline _make_val(x::Val) = x
 
 # No derivative
 evaluate_bspline_diff(::Val{0}, ::Val{k}, t, i, x, ::Type{T}) where {k,T} =
-    evaluate_bspline(Val(k), t, i, x, T)
+    _evaluate_bspline(Val(k), t, i, x, T)
 
 # N-th derivative
 function evaluate_bspline_diff(::Val{N}, ::Val{k}, t, i, x,
@@ -123,8 +127,8 @@ function evaluate_bspline!(b::AbstractVector{T}, B::BSplineBasis, i,
 end
 
 # Specialisation for first order B-splines.
-function evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
-                          ::Type{T}) where {T}
+function _evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
+                           ::Type{T}) where {T}
     # Local support of the B-spline.
     @inbounds ta = t[i]
     @inbounds tb = t[i + 1]
@@ -133,8 +137,8 @@ function evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
 end
 
 # General case of order k >= 2.
-function evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
-                          ::Type{T}) where {T,k}
+function _evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
+                           ::Type{T}) where {T,k}
     k::Int
     @assert k >= 2
 
@@ -153,11 +157,13 @@ function evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
     y = zero(T)
 
     if tb1 != ta
-        y += evaluate_bspline(Val(k - 1), t, i, x, T) * (x - ta) / (tb1 - ta)
+        y += _evaluate_bspline(Val(k - 1), t, i, x, T) *
+            (x - ta) / (tb1 - ta)
     end
 
     if ta1 != tb
-        y += evaluate_bspline(Val(k - 1), t, i + 1, x, T) * (tb - x) / (tb - ta1)
+        y += _evaluate_bspline(Val(k - 1), t, i + 1, x, T) *
+            (tb - x) / (tb - ta1)
     end
 
     y

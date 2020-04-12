@@ -89,12 +89,14 @@ function collocation_points!(::AvgKnots, x, B)
     t = knots(B)
     j = 0
     T = eltype(x)
+
     v::T = inv(k - 1)
     a::T, b::T = t[k], t[N + 1]  # domain boundaries
+
     for i in eachindex(x)
         j += 1  # generally i = j, unless x has weird indexation
-
         xi = zero(T)
+
         for n = 1:k-1
             xi += T(t[j + n])
         end
@@ -113,11 +115,10 @@ function collocation_points!(::S, x, B) where {S <: SelectionMethod}
     x
 end
 
-# TODO
-# - support derivatives
 """
     collocation_matrix(B::BSplineBasis, x::AbstractVector,
-                       [MatrixType=BandedMatrix{Float64}])
+                       [MatrixType=BandedMatrix{Float64}];
+                       Ndiff::Val = Val(0))
 
 Return banded collocation matrix used to obtain B-spline coefficients from data
 at the collocation points `x`.
@@ -135,12 +136,15 @@ returned.
 This assumes that the collocation points are "well" distributed
 The type of the returned matrix can be changed via the `MatrixType` argument.
 
+To obtain a matrix associated to a B-spline derivative, set the `Ndiff` argument.
+
 See also [`collocation_matrix!`](@ref).
 """
 function collocation_matrix(B::BSplineBasis, x::AbstractVector,
-        ::Type{MatrixType} = BandedMatrix{Float64}) where {MatrixType}
+        ::Type{MatrixType} = BandedMatrix{Float64};
+        kwargs...) where {MatrixType}
     C = allocate_collocation_matrix(MatrixType, length(B), order(B))
-    collocation_matrix!(C, B, x)
+    collocation_matrix!(C, B, x; kwargs...)
 end
 
 allocate_collocation_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
@@ -148,32 +152,48 @@ allocate_collocation_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
 
 function allocate_collocation_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
     # Number of upper and lower diagonal bands.
-    #  - for even k: Nb = k / 2       (total = k + 1 bands)
-    #  - for odd  k: Nb = (k + 1) / 2 (total = k + 2 bands)
-    Nb = div(k + 1, 2)
+    #
+    # The matrices **almost** have the following number of upper/lower bands (as
+    # cited sometimes in the literature):
+    #
+    #  - for even k: Nb = (k - 2) / 2 (total = k - 1 bands)
+    #  - for odd  k: Nb = (k - 1) / 2 (total = k bands)
+    #
+    # However, near the boundaries U/L bands can become much larger.
+    # Specifically for the second and second-to-last collocation points (j = 2
+    # and N - 1). For instance, the point j = 2 sees B-splines in 1:k, leading
+    # to an upper band of size k - 2.
+    #
+    # TODO is there a way to reduce the number of bands??
+    Nb = k - 2
     M(undef, (N, N), (Nb, Nb))
 end
 
 """
-    collocation_matrix!(C::AbstractMatrix, B::BSplineBasis, x::AbstractVector)
+    collocation_matrix!(C::AbstractMatrix{T}, B::BSplineBasis,
+                        x::AbstractVector; Ndiff::Val = Val(0))
 
 Fill preallocated collocation matrix.
 
-See also [`collocation_matrix`](@ref).
+See [`collocation_matrix`](@ref) for details.
 """
 function collocation_matrix!(C::AbstractMatrix{T}, B::BSplineBasis,
-                             x::AbstractVector) where {T}
+                             x::AbstractVector; Ndiff::Val = Val(0)) where {T}
     checkdims(B, x)
     N, N2 = size(C)
     if !(N == N2 == length(B))
         throw(ArgumentError("wrong dimensions of collocation matrix"))
     end
     fill!(C, 0)
+    b_lo, b_hi = bandwidths(C)
     for j = 1:N, i = 1:N
-        b = evaluate_bspline(B, j, x[i], T)
-        # This will fail if C is a BandedMatrix, b is non-zero, and (i, j) is
-        # outside the allowed bands. That will happen if the collocation points
-        # are not properly distributed.
+        b = evaluate_bspline(B, j, x[i], T, Ndiff=Ndiff)
+        if !iszero(b) && ((i > j && i - j > b_lo) || (i < j && j - i > b_hi))
+            # This can happen if C is a BandedMatrix, and (i, j) is outside
+            # the allowed bands. This may be the case if the collocation
+            # points are not properly distributed.
+            @warn "Non-zero value outside of matrix bands: b[$j](x[$i]) = $b"
+        end
         C[i, j] = b
     end
     C
