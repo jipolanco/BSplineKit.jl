@@ -1,6 +1,6 @@
 module Collocation
 
-using ..BSplines
+using ..BasisSplines
 
 using BandedMatrices
 using SparseArrays

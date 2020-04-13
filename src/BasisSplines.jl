@@ -1,5 +1,5 @@
 """
-    module BSplines
+    module BasisSplines
 
 Approximate and interpolate functions using B-splines.
 
@@ -11,7 +11,7 @@ Here we use the definition used by de Boor (2003), where a B-spline of order `k`
 is a piecewise polynomial of degree `k - 1`.
 Hence, for instance, cubic splines correspond to `k = 4`.
 """
-module BSplines
+module BasisSplines
 
 export Collocation
 

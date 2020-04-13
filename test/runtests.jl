@@ -1,4 +1,4 @@
-using BSplines
+using BasisSplines
 
 using BandedMatrices
 using LinearAlgebra
@@ -23,7 +23,7 @@ function test_splines(B::BSplineBasis, knots_in)
     t = knots(B)
 
     @testset "Knots (k = $k)" begin
-        let (ka, kb) = BSplines.multiplicity.(Ref(t), (1, length(t)))
+        let (ka, kb) = BasisSplines.multiplicity.(Ref(t), (1, length(t)))
             @test ka == kb == k
         end
 
