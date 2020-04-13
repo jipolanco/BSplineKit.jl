@@ -155,22 +155,17 @@ have a "good" distribution. Therefore, it makes sense to store it in a
 `BandedMatrix` (from the
 [BandedMatrices](https://github.com/JuliaMatrices/BandedMatrices.jl) package),
 as this will lead to memory savings and especially to time savings if
-the matrix needs to be inverted. However, at this point, the produced banded
-matrices still contain many zeros since, near the boundaries, bands are
-typically larger. In practice, standard sparse arrays (of `SparseMatrixCSC`
-type) seem to perform better than banded matrices.
+the matrix needs to be inverted.
 
 ### Supported matrix types
 
-- `SparseMatrixCSC{T}`: this is the default. Currently, it performs better for
-all operations, including inversion of linear systems.
+- `SparseMatrixCSC{T}`: this is the default, as it correctly handles any matrix
+shape.
 
-- `BandedMatrix{T}`: should perform similarly to sparse matrices. Ideally it
-should be faster, but collocation points near the boundaries of the domain
-increase the effective bandwidth of the matrix, leading to many zeros.
-This may be improved in the future.
-With this kind of matrix, an error may be thrown if `C` is not square
-(i.e. if `Nx ≠ Nb`).
+- `BandedMatrix{T}`: usually performs better than sparse matrices for inversion
+of linear systems. May not work for non-square matrix shapes, or if the
+distribution of collocation points is not adapted. In these cases, the effective
+bandwidth of the matrix may be larger than the expected bandwidth.
 
 - `Matrix{T}`: a regular dense matrix. Generally performs worse than the
 alternatives, especially for large problems.
