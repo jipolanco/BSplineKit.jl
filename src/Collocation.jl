@@ -35,16 +35,6 @@ The resulting collocation points are sometimes called Greville sites
 """
 struct AvgKnots <: SelectionMethod end
 
-# Check dimensions of collocation points.
-function checkdims(B::BSplineBasis, x::AbstractVector)
-    N = length(B)
-    if N != length(x)
-        throw(ArgumentError(
-            "number of collocation points must match number $N of B-splines"))
-    end
-    nothing
-end
-
 """
     collocation_points(B::BSplineBasis; method=Collocation.AvgKnots())
 
@@ -229,15 +219,14 @@ See [`collocation_matrix`](@ref) for details.
 function collocation_matrix!(
         C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector;
         Ndiff::Val = Val(0), clip_threshold = eps(T)) where {T}
-    checkdims(B, x)
-    N, N2 = size(C)
-    if !(N == N2 == length(B))
+    Nx, Nb = size(C)
+    if Nx != length(x) || Nb != length(B)
         throw(ArgumentError("wrong dimensions of collocation matrix"))
     end
     fill!(C, 0)
     b_lo, b_hi = bandwidths(C)
 
-    for j = 1:N, i = 1:N
+    for j = 1:Nb, i = 1:Nx
         b = evaluate_bspline(B, j, x[i], T, Ndiff=Ndiff)
 
         # Skip very small values (and zeros).
