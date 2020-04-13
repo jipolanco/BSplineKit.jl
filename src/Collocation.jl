@@ -69,7 +69,11 @@ See [`collocation_points`](@ref) for details.
 function collocation_points!(
         x::AbstractVector, B::BSplineBasis;
         method::SelectionMethod=AvgKnots())
-    checkdims(B, x)
+    N = length(B)
+    if N != length(x)
+        throw(ArgumentError(
+            "number of collocation points must match number of B-splines"))
+    end
     collocation_points!(method, x, B)
 end
 
