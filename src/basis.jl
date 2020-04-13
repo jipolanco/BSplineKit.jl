@@ -61,6 +61,45 @@ order(::Type{<:BSplineBasis{k}}) where {k} = k
 order(b::BSplineBasis) = order(typeof(b))
 
 """
+    BSpline{B <: BSplineBasis}
+
+Describes a single B-spline in the given basis.
+
+---
+
+    BSpline(basis::BSplineBasis, i::Int, [T = Float64])
+
+Construct i-th B-spline in the given basis.
+
+The constructed BSpline can be evaluated as `b(x)`, returning a value of type
+`T`.
+"""
+struct BSpline{Basis <: BSplineBasis, T}
+    basis :: Basis
+    i     :: Int
+    function BSpline(b::BSplineBasis, i, ::Type{T} = Float64) where {T}
+        Basis = typeof(b)
+        new{Basis, T}(b, i)
+    end
+end
+
+basis(b::BSpline) = b.basis
+knots(b::BSpline) = knots(basis(b))
+order(b::BSpline) = order(basis(b))
+Base.eltype(::Type{BSpline{B,T}}) where {B,T} = T
+
+"""
+    (b::BSpline)(x, [Ndiff = Val(0)])
+
+Evaluate B-spline at coordinate `x`.
+
+To evaluate a derivative, pass the `Ndiff` parameter with the wanted
+differentiation order.
+"""
+(b::BSpline)(x, Ndiff=Val(0)) =
+    evaluate_bspline(basis(b), b.i, x, eltype(b), Ndiff=Ndiff)
+
+"""
     evaluate_bspline(
         B::BSplineBasis, i::Integer, x, [T=Float64];
         Ndiff::{Integer, Val} = Val(0),

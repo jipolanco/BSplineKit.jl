@@ -11,7 +11,7 @@ Construct a spline from a B-spline basis and a vector of B-spline coefficients.
 """
 struct Spline{k,  # B-spline order
               Basis <: BSplineBasis,
-              T <: AbstractFloat,
+              T,  # type of coefficient (e.g. Float64, ComplexF64)
               CoefVector <: AbstractVector{T}}
     basis :: Basis
     coefs :: CoefVector

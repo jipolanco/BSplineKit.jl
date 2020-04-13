@@ -15,7 +15,7 @@ module BasisSplines
 
 export Collocation
 
-export BSplineBasis, Spline
+export BSplineBasis, Spline, BSpline
 export knots, order, coefficients
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
