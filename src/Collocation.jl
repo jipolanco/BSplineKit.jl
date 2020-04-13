@@ -112,8 +112,12 @@ end
 
 """
     collocation_matrix(
-        B::BSplineBasis, x::AbstractVector, [MatrixType=SparseMatrixCSC{Float64}];
-        Ndiff::Val = Val(0), clip_threshold = eps(eltype(MatrixType)))
+        B::BSplineBasis,
+        x::AbstractVector,
+        [MatrixType=SparseMatrixCSC{Float64}];
+        Ndiff::Val = Val(0),
+        clip_threshold = eps(eltype(MatrixType)),
+    )
 
 Return banded collocation matrix mapping B-spline coefficients to spline values
 at the collocation points `x`.
@@ -219,9 +223,11 @@ function collocation_matrix!(
         C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector;
         Ndiff::Val = Val(0), clip_threshold = eps(T)) where {T}
     Nx, Nb = size(C)
+
     if Nx != length(x) || Nb != length(B)
         throw(ArgumentError("wrong dimensions of collocation matrix"))
     end
+
     fill!(C, 0)
     b_lo, b_hi = bandwidths(C)
 

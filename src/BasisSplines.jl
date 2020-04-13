@@ -21,12 +21,15 @@ export augment_knots
 export evaluate_bspline, evaluate_bspline!
 export integral
 
+using BandedMatrices
 using Reexport
+using LinearAlgebra: Symmetric
 using StaticArrays: MVector
 
 include("knots.jl")
 include("basis.jl")
 include("spline.jl")
+include("galerkin.jl")
 
 include("Collocation.jl")
 
