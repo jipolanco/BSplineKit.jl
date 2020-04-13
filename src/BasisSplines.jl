@@ -16,10 +16,10 @@ module BasisSplines
 export Collocation
 
 export BSplineBasis, Spline
-export knots, order
+export knots, order, coefficients
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
-export coefficients
+export integral
 
 using Reexport
 using StaticArrays: MVector

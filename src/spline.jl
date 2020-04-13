@@ -93,7 +93,6 @@ function Base.diff(S::Spline, ::Val{Ndiff} = Val(1)) where {Ndiff}
 
     @assert Base.require_one_based_indexing(u)
     du = copy(u)
-    T = eltype(du)
 
     @inbounds for m = 1:Ndiff, i in Iterators.Reverse(eachindex(du))
         dt = t[i + k - m] - t[i]
@@ -108,7 +107,7 @@ function Base.diff(S::Spline, ::Val{Ndiff} = Val(1)) where {Ndiff}
     end
 
     # Finally, create lower-order spline with the given coefficients.
-    # Note that the spline has `2k * Ndiff` fewer knots, and `k * Ndiff` fewer
+    # Note that the spline has `2 * Ndiff` fewer knots, and `Ndiff` fewer
     # B-splines.
     N = length(u)
     Nt = length(t)
@@ -121,6 +120,43 @@ end
 # Zeroth derivative: return S itself.
 @inline Base.diff(S::Spline, ::Val{0}) = S
 @inline Base.diff(S::Spline, Ndiff::Integer) = diff(S, Val(Ndiff))
+
+"""
+    integral(S::Spline)
+
+Returns an antiderivative of the given spline as a new spline.
+
+See de Boor 2001, p. 127.
+"""
+function integral(S::Spline)
+    u = coefficients(S)
+    t = knots(S)
+    k = order(S)
+    @assert Base.require_one_based_indexing(u)
+
+    Nt = length(t)
+    N = length(u)
+
+    # Note that the new spline has 2 more knots and 1 more B-spline.
+    t_int = similar(t, Nt + 2)
+    t_int[2:(end - 1)] .= t
+    t_int[1] = t_int[2]
+    t_int[end] = t_int[end - 1]
+
+    β = similar(u, N + 1)
+    β[1] = 0
+
+    @inbounds for i in eachindex(u)
+        m = i + 1
+        β[m] = 0
+        for j = 1:i
+            β[m] += u[j] * (t[j + k] - t[j]) / k
+        end
+    end
+
+    B = BSplineBasis(Val(k + 1), t_int, augment=false)
+    Spline(B, β)
+end
 
 function get_knot_interval(t::AbstractVector, x)
     # The result is such that t[n] <= x < t[n + 1]
