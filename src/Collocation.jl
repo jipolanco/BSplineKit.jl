@@ -3,6 +3,7 @@ module Collocation
 using ..BSplines
 
 using BandedMatrices
+using SparseArrays
 
 export collocation_points, collocation_points!
 export collocation_matrix, collocation_matrix!
@@ -116,41 +117,88 @@ function collocation_points!(::S, x, B) where {S <: SelectionMethod}
 end
 
 """
-    collocation_matrix(B::BSplineBasis, x::AbstractVector,
-                       [MatrixType=BandedMatrix{Float64}];
-                       Ndiff::Val = Val(0))
+    collocation_matrix(
+        B::BSplineBasis, x::AbstractVector, [MatrixType=SparseMatrixCSC{Float64}];
+        Ndiff::Val = Val(0), clip_threshold = eps(eltype(MatrixType)))
 
-Return banded collocation matrix used to obtain B-spline coefficients from data
+Return banded collocation matrix mapping B-spline coefficients to spline values
 at the collocation points `x`.
 
 The matrix elements are given by the B-splines evaluated at the collocation
 points:
 
-    C[i, j] = bⱼ(x[i]).
+    C[i, j] = bⱼ(x[i])  for  i = 1:Nx and j = 1:Nb,
+
+where `Nx = length(x)` is the number of collocation points, and
+`Nb = length(B)` is the number of B-splines in `B`.
+
+To obtain a matrix associated to the B-spline derivatives, set the `Ndiff`
+argument to the order of the derivative.
+
+Given the B-spline coefficients `{u[j], j = 1:Nb}`, one can recover the values
+(or derivatives) of the spline at the collocation points as `v = C * u`.
+Conversely, if one knows the values `v[i]` at the collocation points,
+the coefficients `u` can be obtained by inversion of the linear system
+`u = C \\ v`.
+
+The `clip_threshold` argument allows to ignore spurious, very small values
+obtained when evaluating B-splines. These values are typically unwanted, as they
+artificially increase the number of elements (and sometimes the bandwidth) of
+the matrix.
+They may appear when a collocation point is located on a knot.
+By default, `clip_threshold` is set to the machine epsilon associated to the
+matrix element type (see
+[`eps`](https://docs.julialang.org/en/v1/base/base/#Base.eps-Tuple{Type{#s4}%20where%20#s4%3C:AbstractFloat})).
+Set it to zero to disable this behaviour.
+
+## Matrix types
+
+The `MatrixType` optional argument allows to select the type of returned matrix.
 
 Due to the compact support of B-splines, the collocation matrix is
-[banded](https://en.wikipedia.org/wiki/Band_matrix) if the collocation points are
-By default, a `BandedMatrix` (from the
-[BandedMatrices](https://github.com/JuliaMatrices/BandedMatrices.jl) package) is
-returned.
-This assumes that the collocation points are "well" distributed
-The type of the returned matrix can be changed via the `MatrixType` argument.
+[banded](https://en.wikipedia.org/wiki/Band_matrix) if the collocation points
+have a "good" distribution. Therefore, it makes sense to store it in a
+`BandedMatrix` (from the
+[BandedMatrices](https://github.com/JuliaMatrices/BandedMatrices.jl) package),
+as this will lead to memory savings and especially to time savings if
+the matrix needs to be inverted. However, at this point, the produced banded
+matrices still contain many zeros since, near the boundaries, bands are
+typically larger. In practice, standard sparse arrays (of `SparseMatrixCSC`
+type) seem to perform better than banded matrices.
 
-To obtain a matrix associated to a B-spline derivative, set the `Ndiff` argument.
+### Supported matrix types
+
+- `SparseMatrixCSC{T}`: this is the default. Currently, it performs better for
+all operations, including inversion of linear systems.
+
+- `BandedMatrix{T}`: should perform similarly to sparse matrices. Ideally it
+should be faster, but collocation points near the boundaries of the domain
+increase the effective bandwidth of the matrix, leading to many zeros.
+This may be improved in the future.
+With this kind of matrix, an error may be thrown if `C` is not square
+(i.e. if `Nx ≠ Nb`).
+
+- `Matrix{T}`: a regular dense matrix. Generally performs worse than the
+alternatives, especially for large problems.
 
 See also [`collocation_matrix!`](@ref).
 """
 function collocation_matrix(B::BSplineBasis, x::AbstractVector,
-        ::Type{MatrixType} = BandedMatrix{Float64};
+        ::Type{MatrixType} = SparseMatrixCSC{Float64};
         kwargs...) where {MatrixType}
-    C = allocate_collocation_matrix(MatrixType, length(B), order(B))
+    Nx = length(x)
+    Nb = length(B)
+    C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B))
     collocation_matrix!(C, B, x; kwargs...)
 end
 
-allocate_collocation_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
-    M(undef, N, N)
+allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
+    M(undef, dims...)
 
-function allocate_collocation_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
+allocate_collocation_matrix(::Type{SparseMatrixCSC{T}}, dims, k) where {T} =
+    spzeros(T, dims...)
+
+function allocate_collocation_matrix(::Type{M}, dims, k) where {M <: BandedMatrix}
     # Number of upper and lower diagonal bands.
     #
     # The matrices **almost** have the following number of upper/lower bands (as
@@ -166,19 +214,21 @@ function allocate_collocation_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
     #
     # TODO is there a way to reduce the number of bands??
     Nb = k - 2
-    M(undef, (N, N), (Nb, Nb))
+    M(undef, dims, (Nb, Nb))
 end
 
 """
-    collocation_matrix!(C::AbstractMatrix{T}, B::BSplineBasis,
-                        x::AbstractVector; Ndiff::Val = Val(0))
+    collocation_matrix!(
+        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector;
+        Ndiff::Val = Val(0), clip_threshold = eps(T))
 
 Fill preallocated collocation matrix.
 
 See [`collocation_matrix`](@ref) for details.
 """
-function collocation_matrix!(C::AbstractMatrix{T}, B::BSplineBasis,
-                             x::AbstractVector; Ndiff::Val = Val(0)) where {T}
+function collocation_matrix!(
+        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector;
+        Ndiff::Val = Val(0), clip_threshold = eps(T)) where {T}
     checkdims(B, x)
     N, N2 = size(C)
     if !(N == N2 == length(B))
@@ -186,16 +236,25 @@ function collocation_matrix!(C::AbstractMatrix{T}, B::BSplineBasis,
     end
     fill!(C, 0)
     b_lo, b_hi = bandwidths(C)
+
     for j = 1:N, i = 1:N
         b = evaluate_bspline(B, j, x[i], T, Ndiff=Ndiff)
-        if !iszero(b) && ((i > j && i - j > b_lo) || (i < j && j - i > b_hi))
-            # This can happen if C is a BandedMatrix, and (i, j) is outside
-            # the allowed bands. This may be the case if the collocation
+
+        # Skip very small values (and zeros).
+        # This is important for SparseMatrixCSC, which also stores explicit
+        # zeros.
+        abs(b) <= clip_threshold && continue
+
+        if (i > j && i - j > b_lo) || (i < j && j - i > b_hi)
+            # This will cause problems if C is a BandedMatrix, and (i, j) is
+            # outside the allowed bands. This may be the case if the collocation
             # points are not properly distributed.
             @warn "Non-zero value outside of matrix bands: b[$j](x[$i]) = $b"
         end
+
         C[i, j] = b
     end
+
     C
 end
 
