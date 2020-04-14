@@ -1,3 +1,29 @@
+"""
+    galerkin_matrix(B::BSplineBasis, [MatrixType = BandedMatrix{Float64}])
+
+Compute Galerkin mass matrix.
+
+Definition:
+
+    M[i, j] = ⟨ bᵢ(x), bⱼ(x) ⟩  for  i = 1:N and j = 1:N,
+
+where `bᵢ` is the i-th B-spline and `N = length(B)` is the number of B-splines
+in the basis `B`.
+Here, ⟨⋅,⋅⟩ is the [L² inner
+product](https://en.wikipedia.org/wiki/Square-integrable_function#Properties)
+between functions.
+
+Note that the Galerkin matrix is symmetric, positive definite and banded,
+with `k + 1` and `k + 2` for `k` even and odd, respectively.
+This function always returns a
+[`Symmetric`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
+view of an underlying matrix.
+
+By default, the underlying matrix holding the data is a `BandedMatrix` that
+defines the upper part of the symmetric matrix.
+Other types of container are also supported, including regular sparse matrices
+(`SparseMatrixCSC`) and dense arrays (`Matrix`).
+"""
 function galerkin_matrix(
         B::BSplineBasis,
         ::Type{M} = BandedMatrix{Float64}
@@ -10,6 +36,9 @@ end
 allocate_galerkin_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
     Symmetric(M(undef, N, N))
 
+allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, N, k) where {T} =
+    spzeros(T, N, N)
+
 function allocate_galerkin_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
     # The upper/lower bandwidths are:
     # - for even k: Nb = k / 2       (total = k + 1 bands)
@@ -20,6 +49,19 @@ function allocate_galerkin_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
     Symmetric(A)
 end
 
+"""
+    galerkin_matrix!(S::Symmetric, B::BSplineBasis)
+
+Fill preallocated Galerkin mass matrix.
+
+It is assumed that the `Symmetric` view looks at the data in the upper part of
+its parent. In other words, it was constructed with the `uplo = :U` option,
+which is the default in Julia. See the [Julia
+docs](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
+for details.
+
+See also [`galerkin_matrix`](@ref).
+"""
 function galerkin_matrix!(S::Symmetric, B::BSplineBasis)
     N = size(S, 1)
 

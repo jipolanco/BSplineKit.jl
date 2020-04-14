@@ -114,7 +114,7 @@ end
     collocation_matrix(
         B::BSplineBasis,
         x::AbstractVector,
-        [MatrixType=SparseMatrixCSC{Float64}];
+        [MatrixType = SparseMatrixCSC{Float64}];
         Ndiff::Val = Val(0),
         clip_threshold = eps(eltype(MatrixType)),
     )
