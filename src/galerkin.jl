@@ -1,17 +1,24 @@
 """
-    galerkin_matrix(B::BSplineBasis, [MatrixType = BandedMatrix{Float64}])
+    galerkin_matrix(
+        B::BSplineBasis, [MatrixType = BandedMatrix{Float64}];
+        Ndiff::Val = Val(0),
+    )
 
 Compute Galerkin mass matrix.
 
 Definition:
 
-    M[i, j] = ⟨ bᵢ(x), bⱼ(x) ⟩  for  i = 1:N and j = 1:N,
+    M[i, j] = ⟨ bᵢ, bⱼ ⟩  for  i = 1:N and j = 1:N,
 
 where `bᵢ` is the i-th B-spline and `N = length(B)` is the number of B-splines
 in the basis `B`.
 Here, ⟨⋅,⋅⟩ is the [L² inner
 product](https://en.wikipedia.org/wiki/Square-integrable_function#Properties)
 between functions.
+
+To obtain a matrix associated to the B-spline derivatives, set the `Ndiff`
+argument to the order of the derivative.
+For instance, if `Ndiff = Val(1)`, this returns the matrix `⟨ bᵢ', bⱼ' ⟩`.
 
 Note that the Galerkin matrix is symmetric, positive definite and banded,
 with `k + 1` and `k + 2` for `k` even and odd, respectively.
@@ -26,11 +33,12 @@ Other types of container are also supported, including regular sparse matrices
 """
 function galerkin_matrix(
         B::BSplineBasis,
-        ::Type{M} = BandedMatrix{Float64}
+        ::Type{M} = BandedMatrix{Float64};
+        Ndiff::Val = Val(0),
     ) where {M <: AbstractMatrix}
     N = length(B)
     A = allocate_galerkin_matrix(M, N, order(B))
-    galerkin_matrix!(A, B)
+    galerkin_matrix!(A, B, Ndiff=Ndiff)
 end
 
 allocate_galerkin_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
@@ -50,7 +58,7 @@ function allocate_galerkin_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
 end
 
 """
-    galerkin_matrix!(S::Symmetric, B::BSplineBasis)
+    galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
 
 Fill preallocated Galerkin mass matrix.
 
@@ -62,7 +70,7 @@ for details.
 
 See also [`galerkin_matrix`](@ref).
 """
-function galerkin_matrix!(S::Symmetric, B::BSplineBasis)
+function galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
     N = size(S, 1)
 
     if N != length(B)
@@ -89,14 +97,14 @@ function galerkin_matrix!(S::Symmetric, B::BSplineBasis)
         # We're only visiting the elements that have non-zero values.
         # In other words, we know that S[i, j] = 0 outside the chosen interval.
         istart = clamp(j - h, 1, N)
-        bj = BSpline(B, j)
+        bj = x -> BSpline(B, j)(x, Ndiff)
         tj = j:(j + k)  # support of b_j (knot indices)
         for i = istart:j
             ti = i:(i + k)  # support of b_i
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
             @assert length(t_inds) == k + 1 - (j - i)
-            bi = BSpline(B, i)
+            bi = x -> BSpline(B, i)(x, Ndiff)
             A[i, j] = _integrate_prod(bi, bj, t, t_inds, quad)
         end
     end
