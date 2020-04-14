@@ -22,10 +22,11 @@ export evaluate_bspline, evaluate_bspline!
 export integral
 export galerkin_matrix, galerkin_matrix!
 
-using BandedMatrices
-using FastGaussQuadrature
+using BandedMatrices: BandedMatrix
+using FastGaussQuadrature: gausslegendre
 using Reexport
 using LinearAlgebra: Symmetric
+using SparseArrays
 using StaticArrays: MVector
 
 include("knots.jl")

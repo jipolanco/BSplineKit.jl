@@ -18,6 +18,21 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
     @test C_banded == C_sparse
 end
 
+function test_galerkin()
+    # Compare Galerkin mass matrix against analytical integrals for k = 2
+    # (easy!).
+    # Test with non-uniform grid (Chebyshev points).
+    N = 40
+    knots_base = [-cos(2pi * n / N) for n = 0:N]
+    B = BSplineBasis(2, knots_base)
+    t = knots(B)
+    G = galerkin_matrix(B)
+    let i = 8
+        @test G[i, i] ≈ (t[i + 2] - t[i]) / 3
+        @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
+    end
+end
+
 function test_splines(B::BSplineBasis, knots_in)
     k = order(B)
     t = knots(B)
@@ -81,6 +96,9 @@ end
 function main()
     test_splines(Val(3))
     test_splines(Val(4))
+    @testset "Galerkin" begin
+        test_galerkin()
+    end
 end
 
 main()
