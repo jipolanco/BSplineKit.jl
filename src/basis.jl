@@ -89,6 +89,31 @@ order(b::BSpline) = order(basis(b))
 Base.eltype(::Type{BSpline{B,T}}) where {B,T} = T
 
 """
+    support(b::BSpline) -> UnitRange{Int}
+
+Get range of knots supported by the B-spline.
+
+Returns the range `i:j` if the B-spline is non-zero between knots `t[i]` and
+`t[j]`.
+"""
+function support(b::BSpline)
+    k = order(b)
+    i = b.i
+    i:(i + k)
+end
+
+"""
+    common_support(b1::BSpline, b2::BSpline, ...) -> UnitRange{Int}
+
+Get range of knots commonly supported by different B-splines.
+
+If the supports don't intersect, an empty range is returned (e.g. `6:5`),
+following the behaviour of `intersect`. The lack of intersection can be checked
+using `isempty`, which returns `true` for such a range.
+"""
+common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
+
+"""
     (b::BSpline)(x, [Ndiff = Val(0)])
 
 Evaluate B-spline at coordinate `x`.

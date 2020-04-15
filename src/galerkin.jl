@@ -38,11 +38,12 @@ function galerkin_matrix(
     ) where {M <: AbstractMatrix}
     N = length(B)
     A = allocate_galerkin_matrix(M, N, order(B))
-    galerkin_matrix!(A, B, Ndiff=Ndiff)
+    S = Symmetric(A)
+    galerkin_matrix!(S, B, Ndiff=Ndiff)
 end
 
 allocate_galerkin_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
-    Symmetric(M(undef, N, N))
+    M(undef, N, N)
 
 allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, N, k) where {T} =
     spzeros(T, N, N)
@@ -53,8 +54,7 @@ function allocate_galerkin_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
     # - for odd  k: Nb = (k + 1) / 2 (total = k + 2 bands)
     # Note that the matrix is also symmetric, so we only need the upper band.
     Nb = (k + 1) >> 1
-    A = M(undef, (N, N), (0, Nb))
-    Symmetric(A)
+    M(undef, (N, N), (0, Nb))
 end
 
 """
@@ -97,15 +97,17 @@ function galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
         # We're only visiting the elements that have non-zero values.
         # In other words, we know that S[i, j] = 0 outside the chosen interval.
         istart = clamp(j - h, 1, N)
-        bj = x -> BSpline(B, j)(x, Ndiff)
-        tj = j:(j + k)  # support of b_j (knot indices)
+        bj = BSpline(B, j)
+        tj = support(bj)
+        fj = x -> bj(x, Ndiff)
         for i = istart:j
-            ti = i:(i + k)  # support of b_i
+            bi = BSpline(B, i)
+            ti = support(bi)
+            fi = x -> bi(x, Ndiff)
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
             @assert length(t_inds) == k + 1 - (j - i)
-            bi = x -> BSpline(B, i)(x, Ndiff)
-            A[i, j] = _integrate_prod(bi, bj, t, t_inds, quad)
+            A[i, j] = _integrate_prod(fi, fj, t, t_inds, quad)
         end
     end
 
