@@ -1,12 +1,12 @@
 """
     galerkin_matrix(
         B::BSplineBasis, [MatrixType = BandedMatrix{Float64}];
-        Ndiff::Val = Val(0),
+        Ndiff::Val = (Val(0), Val(0)),
     )
 
-Compute Galerkin mass matrix.
+Compute Galerkin mass or stiffness matrix.
 
-Definition:
+Definition of mass matrix:
 
     M[i, j] = ⟨ bᵢ, bⱼ ⟩  for  i = 1:N and j = 1:N,
 
@@ -18,13 +18,16 @@ between functions.
 
 To obtain a matrix associated to the B-spline derivatives, set the `Ndiff`
 argument to the order of the derivative.
-For instance, if `Ndiff = Val(1)`, this returns the matrix `⟨ bᵢ', bⱼ' ⟩`.
+For instance, if `Ndiff = (Val(0), Val(2))`, this returns the matrix
+`⟨ bᵢ, bⱼ'' ⟩`.
 
-Note that the Galerkin matrix is symmetric, positive definite and banded,
+Note that the Galerkin matrix is banded,
 with `k + 1` and `k + 2` for `k` even and odd, respectively.
-This function always returns a
+Moreover, if both derivative orders are the same, the matrix is
+symmetric and positive definite.
+In those cases, a
 [`Symmetric`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
-view of an underlying matrix.
+view of an underlying matrix is returned.
 
 By default, the underlying matrix holding the data is a `BandedMatrix` that
 defines the upper part of the symmetric matrix.
@@ -34,43 +37,52 @@ Other types of container are also supported, including regular sparse matrices
 function galerkin_matrix(
         B::BSplineBasis,
         ::Type{M} = BandedMatrix{Float64};
-        Ndiff::Val = Val(0),
+        Ndiff = (Val(0), Val(0)),
     ) where {M <: AbstractMatrix}
     N = length(B)
-    A = allocate_galerkin_matrix(M, N, order(B))
-    S = Symmetric(A)
-    galerkin_matrix!(S, B, Ndiff=Ndiff)
+    deriv = _galerkin_make_Ndiff(Ndiff)
+    symmetry = deriv[1] === deriv[2]
+
+    A = allocate_galerkin_matrix(M, N, order(B), symmetry)
+
+    # Make the matrix symmetric if possible.
+    S = symmetry ? Symmetric(A) : A
+
+    galerkin_matrix!(S, B, Ndiff=deriv)
 end
 
-allocate_galerkin_matrix(::Type{M}, N, k) where {M <: AbstractMatrix} =
+allocate_galerkin_matrix(::Type{M}, N, etc...) where {M <: AbstractMatrix} =
     M(undef, N, N)
 
-allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, N, k) where {T} =
+allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, N, etc...) where {T} =
     spzeros(T, N, N)
 
-function allocate_galerkin_matrix(::Type{M}, N, k) where {M <: BandedMatrix}
+function allocate_galerkin_matrix(::Type{M}, N, k,
+                                  symmetry) where {M <: BandedMatrix}
     # The upper/lower bandwidths are:
     # - for even k: Nb = k / 2       (total = k + 1 bands)
     # - for odd  k: Nb = (k + 1) / 2 (total = k + 2 bands)
-    # Note that the matrix is also symmetric, so we only need the upper band.
+    # Note that if the matrix is also symmetric, then we only need the upper
+    # band.
     Nb = (k + 1) >> 1
-    M(undef, (N, N), (0, Nb))
+    bands = symmetry ? (0, Nb) : (Nb, Nb)
+    M(undef, (N, N), bands)
 end
 
 """
-    galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
+    galerkin_matrix!(A::AbstractMatrix, B::BSplineBasis;
+                     Ndiff::Val = (Val(0), Val(0)))
 
-Fill preallocated Galerkin mass matrix.
+Fill preallocated Galerkin matrix.
 
-It is assumed that the `Symmetric` view looks at the data in the upper part of
-its parent. In other words, it was constructed with the `uplo = :U` option,
-which is the default in Julia. See the [Julia
-docs](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
-for details.
+The matrix may be a `Symmetric` view, in which case only one half of the matrix
+will be filled. Note that, for the matrix to be symmetric, both derivative orders
+in `Ndiff` must be the same.
 
 See also [`galerkin_matrix`](@ref).
 """
-function galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
+function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis;
+                          Ndiff = (Val(0), Val(0)))
     N = size(S, 1)
 
     if N != length(B)
@@ -78,11 +90,6 @@ function galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
     end
 
     fill!(S, 0)
-
-    # The matrix is symmetric, so we fill only the upper part.
-    # For now we assume that S uses the upper part of its parent.
-    @assert S.uplo === 'U'
-    A = parent(S)
 
     k = order(B)
     t = knots(B)
@@ -92,27 +99,43 @@ function galerkin_matrix!(S::Symmetric, B::BSplineBasis; Ndiff::Val = Val(0))
     # Quadrature information (weights, nodes).
     quad = _quadrature_prod(k)
 
-    # Upper part: j >= i
+    deriv = _galerkin_make_Ndiff(Ndiff)
+
+    if S isa Symmetric
+        deriv[1] === deriv[2] || error("matrix will not be symmetric with Ndiff = $Ndiff")
+        fill_upper = S.uplo === 'U'
+        fill_lower = S.uplo === 'L'
+        A = parent(S)
+    else
+        fill_upper = true
+        fill_lower = true
+        A = S
+    end
+
     for j = 1:N
         # We're only visiting the elements that have non-zero values.
         # In other words, we know that S[i, j] = 0 outside the chosen interval.
-        istart = clamp(j - h, 1, N)
+        istart = fill_upper ? clamp(j - h, 1, N) : j
+        iend = fill_lower ? clamp(j + h, 1, N) : j
         bj = BSpline(B, j)
         tj = support(bj)
-        fj = x -> bj(x, Ndiff)
-        for i = istart:j
+        fj = x -> bj(x, deriv[2])
+        for i = istart:iend
             bi = BSpline(B, i)
             ti = support(bi)
-            fi = x -> bi(x, Ndiff)
+            fi = x -> bi(x, deriv[1])
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
-            @assert length(t_inds) == k + 1 - (j - i)
+            @assert length(t_inds) == k + 1 - abs(j - i)
             A[i, j] = _integrate_prod(fi, fj, t, t_inds, quad)
         end
     end
 
     S
 end
+
+_galerkin_make_Ndiff(v::Val) = (v, v)
+_galerkin_make_Ndiff(v::Tuple{Vararg{<:Val,2}}) = v
 
 # Generate quadrature information for B-spline product.
 # Returns weights and nodes for integration in [-1, 1].
