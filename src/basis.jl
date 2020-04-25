@@ -114,80 +114,77 @@ using `isempty`, which returns `true` for such a range.
 common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
 
 """
-    (b::BSpline)(x, [Ndiff = Val(0)])
+    (b::BSpline)(x, [deriv = Derivative(0)])
 
 Evaluate B-spline at coordinate `x`.
 
-To evaluate a derivative, pass the `Ndiff` parameter with the wanted
+To evaluate a derivative, pass the `deriv` parameter with the wanted
 differentiation order.
 """
-(b::BSpline)(x, Ndiff=Val(0)) =
-    evaluate_bspline(basis(b), b.i, x, eltype(b), Ndiff=Ndiff)
+(b::BSpline)(x, deriv=Derivative(0)) =
+    evaluate_bspline(basis(b), b.i, x, deriv, eltype(b))
 
 """
     evaluate_bspline(
-        B::BSplineBasis, i::Integer, x, [T=Float64];
-        Ndiff::{Integer, Val} = Val(0),
+        B::BSplineBasis, i::Integer, x, [deriv=Derivative(0)], [T=Float64]
     )
 
 Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a
 vector of coordinates).
 
-The `N`-th derivative of bᵢ(x) may be evaluated by passing `Ndiff = Val(N)`.
+The `N`-th derivative of bᵢ(x) may be evaluated by passing `Derivative(N)`.
 
 See also [`evaluate_bspline!`](@ref).
 """
 function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
-                          ::Type{T} = Float64;
-                          Ndiff::Union{Val,Integer} = Val(0)) where {T,D}
+                          deriv::Derivative = Derivative(0),
+                          ::Type{T} = Float64) where {T}
     N = length(B)
     if !(1 <= i <= N)
         throw(DomainError(i, "B-spline index must be in 1:$N"))
     end
     k = order(B)
     t = knots(B)
-    Ndiff_val = _make_val(Ndiff)
-    evaluate_bspline_diff(Ndiff_val, Val(k), t, i, x, T)
+    evaluate_bspline_diff(deriv, Val(k), t, i, x, T)
 end
 
-@inline _make_val(x) = Val(x)
-@inline _make_val(x::Val) = x
-
 # No derivative
-evaluate_bspline_diff(::Val{0}, ::Val{k}, t, i, x, ::Type{T}) where {k,T} =
+evaluate_bspline_diff(::Derivative{0}, ::Val{k}, t, i, x, ::Type{T}) where {k,T} =
     _evaluate_bspline(Val(k), t, i, x, T)
 
 # N-th derivative
-function evaluate_bspline_diff(::Val{N}, ::Val{k}, t, i, x,
+function evaluate_bspline_diff(::Derivative{N}, ::Val{k}, t, i, x,
                                ::Type{T}) where {N,k,T}
     @assert N > 0
     y = zero(T)
     dt = t[i + k - 1] - t[i]
     if !iszero(dt)
         # Recursively evaluate derivative `N - 1` of B-spline of order `k - 1`.
-        y += evaluate_bspline_diff(Val(N - 1), Val(k - 1), t, i, x, T) / dt
+        y += evaluate_bspline_diff(
+            Derivative(N - 1), Val(k - 1), t, i, x, T) / dt
     end
     dt = t[i + k] - t[i + 1]
     if !iszero(dt)
-        y -= evaluate_bspline_diff(Val(N - 1), Val(k - 1), t, i + 1, x, T) / dt
+        y -= evaluate_bspline_diff(
+            Derivative(N - 1), Val(k - 1), t, i + 1, x, T) / dt
     end
     y * (k - 1)
 end
 
-evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...; kwargs...) =
-    evaluate_bspline.(B, i, x, args...; kwargs...)
+evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...) =
+    evaluate_bspline.(B, i, x, args...)
 
 """
     evaluate_bspline!(b::AbstractVector, B::BSplineBasis, i::Integer,
-                      x::AbstractVector; kwargs...)
+                      x::AbstractVector, args...)
 
 Evaluate i-th B-spline at positions `x` and write result to `b`.
 
 See also [`evaluate_bspline`](@ref).
 """
 function evaluate_bspline!(b::AbstractVector{T}, B::BSplineBasis, i,
-                           x::AbstractVector; kwargs...) where {T}
-    broadcast!(x -> evaluate_bspline(B, i, x, T; kwargs...), b, x)
+                           x::AbstractVector, args...) where {T}
+    broadcast!(x -> evaluate_bspline(B, i, x, args..., T), b, x)
 end
 
 # Specialisation for first order B-splines.

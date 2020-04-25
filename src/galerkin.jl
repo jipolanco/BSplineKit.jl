@@ -1,7 +1,8 @@
 """
     galerkin_matrix(
-        B::BSplineBasis, [MatrixType = BandedMatrix{Float64}];
-        Ndiff::Val = (Val(0), Val(0)),
+        B::BSplineBasis,
+        [deriv = (Derivative(0), Derivative(0))],
+        [MatrixType = BandedMatrix{Float64}]
     )
 
 Compute Galerkin mass or stiffness matrix.
@@ -16,10 +17,10 @@ Here, ⟨⋅,⋅⟩ is the [L² inner
 product](https://en.wikipedia.org/wiki/Square-integrable_function#Properties)
 between functions.
 
-To obtain a matrix associated to the B-spline derivatives, set the `Ndiff`
-argument to the order of the derivative.
-For instance, if `Ndiff = (Val(0), Val(2))`, this returns the matrix
-`⟨ bᵢ, bⱼ'' ⟩`.
+To obtain a matrix associated to the B-spline derivatives, set the `deriv`
+argument to the order of the derivatives.
+For instance, if `deriv = (Derivative(0), Derivative(2))`, this returns the
+matrix `⟨ bᵢ, bⱼ'' ⟩`.
 
 Note that the Galerkin matrix is banded,
 with `k + 1` and `k + 2` for `k` even and odd, respectively.
@@ -36,11 +37,10 @@ Other types of container are also supported, including regular sparse matrices
 """
 function galerkin_matrix(
         B::BSplineBasis,
-        ::Type{M} = BandedMatrix{Float64};
-        Ndiff = (Val(0), Val(0)),
+        deriv = Derivative.((0, 0)),
+        ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
     N = length(B)
-    deriv = _galerkin_make_Ndiff(Ndiff)
     symmetry = deriv[1] === deriv[2]
 
     A = allocate_galerkin_matrix(M, N, order(B), symmetry)
@@ -48,8 +48,11 @@ function galerkin_matrix(
     # Make the matrix symmetric if possible.
     S = symmetry ? Symmetric(A) : A
 
-    galerkin_matrix!(S, B, Ndiff=deriv)
+    galerkin_matrix!(S, B, deriv)
 end
+
+galerkin_matrix(B, ::Type{M}) where {M} =
+    galerkin_matrix(B, Derivative.((0, 0)), M)
 
 allocate_galerkin_matrix(::Type{M}, N, etc...) where {M <: AbstractMatrix} =
     M(undef, N, N)
@@ -70,19 +73,19 @@ function allocate_galerkin_matrix(::Type{M}, N, k,
 end
 
 """
-    galerkin_matrix!(A::AbstractMatrix, B::BSplineBasis;
-                     Ndiff::Val = (Val(0), Val(0)))
+    galerkin_matrix!(A::AbstractMatrix, B::BSplineBasis,
+                     deriv = (Derivative(0), Derivative(0)))
 
 Fill preallocated Galerkin matrix.
 
 The matrix may be a `Symmetric` view, in which case only one half of the matrix
 will be filled. Note that, for the matrix to be symmetric, both derivative orders
-in `Ndiff` must be the same.
+in `deriv` must be the same.
 
 See also [`galerkin_matrix`](@ref).
 """
-function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis;
-                          Ndiff = (Val(0), Val(0)))
+function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis,
+                          deriv = Derivative.((0, 0)))
     N = size(S, 1)
 
     if N != length(B)
@@ -99,10 +102,8 @@ function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis;
     # Quadrature information (weights, nodes).
     quad = _quadrature_prod(k)
 
-    deriv = _galerkin_make_Ndiff(Ndiff)
-
     if S isa Symmetric
-        deriv[1] === deriv[2] || error("matrix will not be symmetric with Ndiff = $Ndiff")
+        deriv[1] === deriv[2] || error("matrix will not be symmetric with deriv = $deriv")
         fill_upper = S.uplo === 'U'
         fill_lower = S.uplo === 'L'
         A = parent(S)
@@ -133,9 +134,6 @@ function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis;
 
     S
 end
-
-_galerkin_make_Ndiff(v::Val) = (v, v)
-_galerkin_make_Ndiff(v::Tuple{Vararg{<:Val,2}}) = v
 
 # Generate quadrature information for B-spline product.
 # Returns weights and nodes for integration in [-1, 1].

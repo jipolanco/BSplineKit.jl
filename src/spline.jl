@@ -74,11 +74,12 @@ function (S::Spline)(x)
 end
 
 """
-    diff(S::Spline, [N::Union{Val, Integer} = Val(1)]) -> Spline
+    diff(S::Spline, [deriv::Derivative = Derivative(1)]) -> Spline
 
 Return `N`-th derivative of spline `S` as a new spline.
 """
-function Base.diff(S::Spline, ::Val{Ndiff} = Val(1)) where {Ndiff}
+function Base.diff(S::Spline,
+                   ::Derivative{Ndiff} = Derivative(1)) where {Ndiff}
     Ndiff :: Integer
     @assert Ndiff >= 1
 
@@ -118,8 +119,7 @@ function Base.diff(S::Spline, ::Val{Ndiff} = Val(1)) where {Ndiff}
 end
 
 # Zeroth derivative: return S itself.
-@inline Base.diff(S::Spline, ::Val{0}) = S
-@inline Base.diff(S::Spline, Ndiff::Integer) = diff(S, Val(Ndiff))
+@inline Base.diff(S::Spline, ::Derivative{0}) = S
 
 """
     integral(S::Spline)

@@ -1,6 +1,8 @@
 module Collocation
 
 using ..BasisSplines
+import BSplines
+using BSplines: Derivative
 
 using BandedMatrices
 using SparseArrays
@@ -114,8 +116,8 @@ end
     collocation_matrix(
         B::BSplineBasis,
         x::AbstractVector,
+        [deriv::Derivative = Derivative(0)],
         [MatrixType = SparseMatrixCSC{Float64}];
-        Ndiff::Val = Val(0),
         clip_threshold = eps(eltype(MatrixType)),
     )
 
@@ -130,7 +132,7 @@ points:
 where `Nx = length(x)` is the number of collocation points, and
 `Nb = length(B)` is the number of B-splines in `B`.
 
-To obtain a matrix associated to the B-spline derivatives, set the `Ndiff`
+To obtain a matrix associated to the B-spline derivatives, set the `deriv`
 argument to the order of the derivative.
 
 Given the B-spline coefficients `{u[j], j = 1:Nb}`, one can recover the values
@@ -176,14 +178,19 @@ alternatives, especially for large problems.
 
 See also [`collocation_matrix!`](@ref).
 """
-function collocation_matrix(B::BSplineBasis, x::AbstractVector,
+function collocation_matrix(
+        B::BSplineBasis, x::AbstractVector,
+        deriv::Derivative = Derivative(0),
         ::Type{MatrixType} = SparseMatrixCSC{Float64};
         kwargs...) where {MatrixType}
     Nx = length(x)
     Nb = length(B)
     C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B))
-    collocation_matrix!(C, B, x; kwargs...)
+    collocation_matrix!(C, B, x, deriv; kwargs...)
 end
+
+collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
+    collocation_matrix(B, x, Derivative(0), M; kwargs...)
 
 allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
     M(undef, dims...)
@@ -212,16 +219,18 @@ end
 
 """
     collocation_matrix!(
-        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector;
-        Ndiff::Val = Val(0), clip_threshold = eps(T))
+        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector,
+        [deriv::Derivative = Derivative(0)];
+        clip_threshold = eps(T))
 
 Fill preallocated collocation matrix.
 
 See [`collocation_matrix`](@ref) for details.
 """
 function collocation_matrix!(
-        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector;
-        Ndiff::Val = Val(0), clip_threshold = eps(T)) where {T}
+        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector,
+        deriv::Derivative = Derivative(0),
+        clip_threshold = eps(T)) where {T}
     Nx, Nb = size(C)
 
     if Nx != length(x) || Nb != length(B)
@@ -232,7 +241,7 @@ function collocation_matrix!(
     b_lo, b_hi = bandwidths(C)
 
     for j = 1:Nb, i = 1:Nx
-        b = evaluate_bspline(B, j, x[i], T, Ndiff=Ndiff)
+        b = evaluate_bspline(B, j, x[i], deriv, T)
 
         # Skip very small values (and zeros).
         # This is important for SparseMatrixCSC, which also stores explicit

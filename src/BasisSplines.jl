@@ -29,6 +29,11 @@ using LinearAlgebra: Symmetric
 using SparseArrays
 using StaticArrays: MVector
 
+# We're transitioning to using the registered BSplines package...
+import BSplines
+using BSplines: Derivative
+export Derivative
+
 include("knots.jl")
 include("basis.jl")
 include("spline.jl")
