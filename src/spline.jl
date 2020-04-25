@@ -113,7 +113,7 @@ function Base.diff(S::Spline,
     N = length(u)
     Nt = length(t)
     t_new = view(t, (1 + Ndiff):(Nt - Ndiff))
-    B = BSplineBasis(Val(k - Ndiff), t_new, augment=false)
+    B = BSplineBasis(BSplineOrder(k - Ndiff), t_new, augment=false)
 
     Spline(B, view(du, (1 + Ndiff):N))
 end
@@ -154,7 +154,7 @@ function integral(S::Spline)
         end
     end
 
-    B = BSplineBasis(Val(k + 1), t_int, augment=false)
+    B = BSplineBasis(BSplineOrder(k + 1), t_int, augment=false)
     Spline(B, β)
 end
 

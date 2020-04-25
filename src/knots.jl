@@ -1,5 +1,5 @@
 """
-    augment_knots(knots::AbstractVector, k::Integer)
+    augment_knots(knots::AbstractVector, k::Union{Integer,BSplineOrder})
 
 Modifies the input knots to make sure that the first and last knot have
 the multiplicity `k` for splines of order `k`.
@@ -32,6 +32,8 @@ function augment_knots(knots::AbstractVector{T},
 
     t
 end
+
+augment_knots(knots, ::BSplineOrder{k}) where {k} = augment_knots(knots, k)
 
 """
     multiplicity(knots, i)

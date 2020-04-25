@@ -7,7 +7,7 @@ The basis is defined by a set of knots and by the B-spline order.
 
 ---
 
-    BSplineBasis(k::Union{Val,Integer}, knots::Vector; augment=true)
+    BSplineBasis(k::Union{BSplineOrder,Integer}, knots::Vector; augment=true)
 
 Create B-spline basis of order `k` with the given knots.
 
@@ -17,7 +17,7 @@ have multiplicity `k`. See also [`augment_knots`](@ref).
 struct BSplineBasis{k, T}  # k: B-spline order
     N :: Int             # number of B-splines ("resolution")
     t :: Vector{T}       # knots (length = N + k)
-    function BSplineBasis(::Val{k}, knots::AbstractVector{T};
+    function BSplineBasis(::BSplineOrder{k}, knots::AbstractVector{T};
                           augment=true) where {k,T}
         k :: Integer
         if k <= 0
@@ -30,7 +30,7 @@ struct BSplineBasis{k, T}  # k: B-spline order
 end
 
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
-    BSplineBasis(Val(k), args...; kwargs...)
+    BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
 # Make BSplineBasis behave as scalar when broadcasting.
 Broadcast.broadcastable(B::BSplineBasis) = Ref(B)
@@ -52,8 +52,8 @@ Returns the knots of the spline grid.
 knots(g::BSplineBasis) = g.t
 
 """
-    order(::Type{BSplineBasis})
-    order(::Type{Spline})
+    order(::Type{BSplineBasis}) -> Int
+    order(::Type{Spline}) -> Int
 
 Returns order of B-splines.
 """
@@ -145,15 +145,16 @@ function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
     end
     k = order(B)
     t = knots(B)
-    evaluate_bspline_diff(deriv, Val(k), t, i, x, T)
+    evaluate_bspline_diff(deriv, BSplineOrder(k), t, i, x, T)
 end
 
 # No derivative
-evaluate_bspline_diff(::Derivative{0}, ::Val{k}, t, i, x, ::Type{T}) where {k,T} =
-    _evaluate_bspline(Val(k), t, i, x, T)
+evaluate_bspline_diff(::Derivative{0}, ::BSplineOrder{k}, t, i, x,
+                      ::Type{T}) where {k,T} =
+    _evaluate_bspline(BSplineOrder(k), t, i, x, T)
 
 # N-th derivative
-function evaluate_bspline_diff(::Derivative{N}, ::Val{k}, t, i, x,
+function evaluate_bspline_diff(::Derivative{N}, ::BSplineOrder{k}, t, i, x,
                                ::Type{T}) where {N,k,T}
     @assert N > 0
     y = zero(T)
@@ -161,12 +162,12 @@ function evaluate_bspline_diff(::Derivative{N}, ::Val{k}, t, i, x,
     if !iszero(dt)
         # Recursively evaluate derivative `N - 1` of B-spline of order `k - 1`.
         y += evaluate_bspline_diff(
-            Derivative(N - 1), Val(k - 1), t, i, x, T) / dt
+            Derivative(N - 1), BSplineOrder(k - 1), t, i, x, T) / dt
     end
     dt = t[i + k] - t[i + 1]
     if !iszero(dt)
         y -= evaluate_bspline_diff(
-            Derivative(N - 1), Val(k - 1), t, i + 1, x, T) / dt
+            Derivative(N - 1), BSplineOrder(k - 1), t, i + 1, x, T) / dt
     end
     y * (k - 1)
 end
@@ -188,8 +189,8 @@ function evaluate_bspline!(b::AbstractVector{T}, B::BSplineBasis, i,
 end
 
 # Specialisation for first order B-splines.
-function _evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
-                           ::Type{T}) where {T}
+function _evaluate_bspline(::BSplineOrder{1}, t::AbstractVector, i::Integer,
+                           x::Real, ::Type{T}) where {T}
     # Local support of the B-spline.
     @inbounds ta = t[i]
     @inbounds tb = t[i + 1]
@@ -198,8 +199,8 @@ function _evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
 end
 
 # General case of order k >= 2.
-function _evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
-                           ::Type{T}) where {T,k}
+function _evaluate_bspline(::BSplineOrder{k}, t::AbstractVector, i::Integer,
+                           x::Real, ::Type{T}) where {T,k}
     k::Int
     @assert k >= 2
 
@@ -218,12 +219,12 @@ function _evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
     y = zero(T)
 
     if tb1 != ta
-        y += _evaluate_bspline(Val(k - 1), t, i, x, T) *
+        y += _evaluate_bspline(BSplineOrder(k - 1), t, i, x, T) *
             (x - ta) / (tb1 - ta)
     end
 
     if ta1 != tb
-        y += _evaluate_bspline(Val(k - 1), t, i + 1, x, T) *
+        y += _evaluate_bspline(BSplineOrder(k - 1), t, i + 1, x, T) *
             (tb - x) / (tb - ta1)
     end
 
