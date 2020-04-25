@@ -54,11 +54,13 @@ knots(g::BSplineBasis) = g.t
 """
     order(::Type{BSplineBasis}) -> Int
     order(::Type{Spline}) -> Int
+    order(::BSplineOrder) -> Int
 
-Returns order of B-splines.
+Returns order of B-splines as an integer.
 """
 order(::Type{<:BSplineBasis{k}}) where {k} = k
 order(b::BSplineBasis) = order(typeof(b))
+order(::BSplineOrder{k}) where {k} = k
 
 """
     BSpline{B <: BSplineBasis}
