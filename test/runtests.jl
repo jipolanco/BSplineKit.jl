@@ -78,12 +78,12 @@ function test_splines(B::BSplineBasis, knots_in)
     nothing
 end
 
-function test_splines(::Val{k}) where {k}
+function test_splines(::BSplineOrder{k}) where {k}
     knots_in = let N = 10 + k
         [-cos(n * π / N) for n = 0:N]
     end
 
-    @inferred BSplineBasis(Val(k), knots_in)
+    @inferred BSplineBasis(BSplineOrder(k), knots_in)
     @inferred (() -> BSplineBasis(k, knots_in))()
 
     g = BSplineBasis(k, knots_in)
@@ -94,8 +94,8 @@ function test_splines(::Val{k}) where {k}
 end
 
 function main()
-    test_splines(Val(3))
-    test_splines(Val(4))
+    test_splines(BSplineOrder(3))
+    test_splines(BSplineOrder(4))
     @testset "Galerkin" begin
         test_galerkin()
     end

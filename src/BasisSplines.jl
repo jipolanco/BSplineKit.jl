@@ -15,7 +15,7 @@ module BasisSplines
 
 export Collocation
 
-export BSplineBasis, Spline, BSpline
+export BSplineBasis, Spline, BSpline, BSplineOrder, Derivative
 export knots, order, coefficients
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
@@ -29,8 +29,25 @@ using LinearAlgebra: Symmetric
 using SparseArrays
 using StaticArrays: MVector
 
+# We're transitioning to using the registered BSplines package...
+import BSplines
+using BSplines: Derivative
+import BSplines: order, knots
+
+"""
+    BSplineOrder(k::Integer)
+
+Specifies the B-spline order `k`.
+"""
+struct BSplineOrder{k} end
+
+BSplineOrder(k::Integer) = BSplineOrder{k}()
+
 include("knots.jl")
 include("basis.jl")
+
+const AnyBSplineBasis = Union{BSplineBasis, BSplines.BSplineBasis}
+
 include("spline.jl")
 include("galerkin.jl")
 

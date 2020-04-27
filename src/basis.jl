@@ -7,7 +7,7 @@ The basis is defined by a set of knots and by the B-spline order.
 
 ---
 
-    BSplineBasis(k::Union{Val,Integer}, knots::Vector; augment=true)
+    BSplineBasis(k::Union{BSplineOrder,Integer}, knots::Vector; augment=true)
 
 Create B-spline basis of order `k` with the given knots.
 
@@ -17,7 +17,7 @@ have multiplicity `k`. See also [`augment_knots`](@ref).
 struct BSplineBasis{k, T}  # k: B-spline order
     N :: Int             # number of B-splines ("resolution")
     t :: Vector{T}       # knots (length = N + k)
-    function BSplineBasis(::Val{k}, knots::AbstractVector{T};
+    function BSplineBasis(::BSplineOrder{k}, knots::AbstractVector{T};
                           augment=true) where {k,T}
         k :: Integer
         if k <= 0
@@ -30,7 +30,7 @@ struct BSplineBasis{k, T}  # k: B-spline order
 end
 
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
-    BSplineBasis(Val(k), args...; kwargs...)
+    BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
 # Make BSplineBasis behave as scalar when broadcasting.
 Broadcast.broadcastable(B::BSplineBasis) = Ref(B)
@@ -52,13 +52,15 @@ Returns the knots of the spline grid.
 knots(g::BSplineBasis) = g.t
 
 """
-    order(::Type{BSplineBasis})
-    order(::Type{Spline})
+    order(::Type{BSplineBasis}) -> Int
+    order(::Type{Spline}) -> Int
+    order(::BSplineOrder) -> Int
 
-Returns order of B-splines.
+Returns order of B-splines as an integer.
 """
 order(::Type{<:BSplineBasis{k}}) where {k} = k
 order(b::BSplineBasis) = order(typeof(b))
+order(::BSplineOrder{k}) where {k} = k
 
 """
     BSpline{B <: BSplineBasis}
@@ -114,85 +116,83 @@ using `isempty`, which returns `true` for such a range.
 common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
 
 """
-    (b::BSpline)(x, [Ndiff = Val(0)])
+    (b::BSpline)(x, [deriv = Derivative(0)])
 
 Evaluate B-spline at coordinate `x`.
 
-To evaluate a derivative, pass the `Ndiff` parameter with the wanted
+To evaluate a derivative, pass the `deriv` parameter with the wanted
 differentiation order.
 """
-(b::BSpline)(x, Ndiff=Val(0)) =
-    evaluate_bspline(basis(b), b.i, x, eltype(b), Ndiff=Ndiff)
+(b::BSpline)(x, deriv=Derivative(0)) =
+    evaluate_bspline(basis(b), b.i, x, deriv, eltype(b))
 
 """
     evaluate_bspline(
-        B::BSplineBasis, i::Integer, x, [T=Float64];
-        Ndiff::{Integer, Val} = Val(0),
+        B::BSplineBasis, i::Integer, x, [deriv=Derivative(0)], [T=Float64]
     )
 
 Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a
 vector of coordinates).
 
-The `N`-th derivative of bᵢ(x) may be evaluated by passing `Ndiff = Val(N)`.
+The `N`-th derivative of bᵢ(x) may be evaluated by passing `Derivative(N)`.
 
 See also [`evaluate_bspline!`](@ref).
 """
 function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
-                          ::Type{T} = Float64;
-                          Ndiff::Union{Val,Integer} = Val(0)) where {T,D}
+                          deriv::Derivative = Derivative(0),
+                          ::Type{T} = Float64) where {T}
     N = length(B)
     if !(1 <= i <= N)
         throw(DomainError(i, "B-spline index must be in 1:$N"))
     end
     k = order(B)
     t = knots(B)
-    Ndiff_val = _make_val(Ndiff)
-    evaluate_bspline_diff(Ndiff_val, Val(k), t, i, x, T)
+    evaluate_bspline_diff(deriv, BSplineOrder(k), t, i, x, T)
 end
 
-@inline _make_val(x) = Val(x)
-@inline _make_val(x::Val) = x
-
 # No derivative
-evaluate_bspline_diff(::Val{0}, ::Val{k}, t, i, x, ::Type{T}) where {k,T} =
-    _evaluate_bspline(Val(k), t, i, x, T)
+evaluate_bspline_diff(::Derivative{0}, ::BSplineOrder{k}, t, i, x,
+                      ::Type{T}) where {k,T} =
+    _evaluate_bspline(BSplineOrder(k), t, i, x, T)
 
 # N-th derivative
-function evaluate_bspline_diff(::Val{N}, ::Val{k}, t, i, x,
+function evaluate_bspline_diff(::Derivative{N}, ::BSplineOrder{k}, t, i, x,
                                ::Type{T}) where {N,k,T}
     @assert N > 0
     y = zero(T)
     dt = t[i + k - 1] - t[i]
     if !iszero(dt)
         # Recursively evaluate derivative `N - 1` of B-spline of order `k - 1`.
-        y += evaluate_bspline_diff(Val(N - 1), Val(k - 1), t, i, x, T) / dt
+        y += evaluate_bspline_diff(
+            Derivative(N - 1), BSplineOrder(k - 1), t, i, x, T) / dt
     end
     dt = t[i + k] - t[i + 1]
     if !iszero(dt)
-        y -= evaluate_bspline_diff(Val(N - 1), Val(k - 1), t, i + 1, x, T) / dt
+        y -= evaluate_bspline_diff(
+            Derivative(N - 1), BSplineOrder(k - 1), t, i + 1, x, T) / dt
     end
     y * (k - 1)
 end
 
-evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...; kwargs...) =
-    evaluate_bspline.(B, i, x, args...; kwargs...)
+evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...) =
+    evaluate_bspline.(B, i, x, args...)
 
 """
     evaluate_bspline!(b::AbstractVector, B::BSplineBasis, i::Integer,
-                      x::AbstractVector; kwargs...)
+                      x::AbstractVector, args...)
 
 Evaluate i-th B-spline at positions `x` and write result to `b`.
 
 See also [`evaluate_bspline`](@ref).
 """
 function evaluate_bspline!(b::AbstractVector{T}, B::BSplineBasis, i,
-                           x::AbstractVector; kwargs...) where {T}
-    broadcast!(x -> evaluate_bspline(B, i, x, T; kwargs...), b, x)
+                           x::AbstractVector, args...) where {T}
+    broadcast!(x -> evaluate_bspline(B, i, x, args..., T), b, x)
 end
 
 # Specialisation for first order B-splines.
-function _evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
-                           ::Type{T}) where {T}
+function _evaluate_bspline(::BSplineOrder{1}, t::AbstractVector, i::Integer,
+                           x::Real, ::Type{T}) where {T}
     # Local support of the B-spline.
     @inbounds ta = t[i]
     @inbounds tb = t[i + 1]
@@ -201,8 +201,8 @@ function _evaluate_bspline(::Val{1}, t::AbstractVector, i::Integer, x::Real,
 end
 
 # General case of order k >= 2.
-function _evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
-                           ::Type{T}) where {T,k}
+function _evaluate_bspline(::BSplineOrder{k}, t::AbstractVector, i::Integer,
+                           x::Real, ::Type{T}) where {T,k}
     k::Int
     @assert k >= 2
 
@@ -221,12 +221,12 @@ function _evaluate_bspline(::Val{k}, t::AbstractVector, i::Integer, x::Real,
     y = zero(T)
 
     if tb1 != ta
-        y += _evaluate_bspline(Val(k - 1), t, i, x, T) *
+        y += _evaluate_bspline(BSplineOrder(k - 1), t, i, x, T) *
             (x - ta) / (tb1 - ta)
     end
 
     if ta1 != tb
-        y += _evaluate_bspline(Val(k - 1), t, i + 1, x, T) *
+        y += _evaluate_bspline(BSplineOrder(k - 1), t, i + 1, x, T) *
             (tb - x) / (tb - ta1)
     end
 
