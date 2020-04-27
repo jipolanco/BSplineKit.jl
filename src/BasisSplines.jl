@@ -32,6 +32,7 @@ using StaticArrays: MVector
 # We're transitioning to using the registered BSplines package...
 import BSplines
 using BSplines: Derivative
+import BSplines: order, knots
 
 """
     BSplineOrder(k::Integer)
