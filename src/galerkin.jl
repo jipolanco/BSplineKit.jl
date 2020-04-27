@@ -51,7 +51,7 @@ function galerkin_matrix(
     galerkin_matrix!(S, B, deriv)
 end
 
-galerkin_matrix(B, ::Type{M}) where {M} =
+galerkin_matrix(B::AnyBSplineBasis, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
 
 allocate_galerkin_matrix(::Type{M}, N, etc...) where {M <: AbstractMatrix} =
