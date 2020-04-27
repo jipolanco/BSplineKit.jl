@@ -22,10 +22,10 @@ argument to the order of the derivatives.
 For instance, if `deriv = (Derivative(0), Derivative(2))`, this returns the
 matrix `⟨ bᵢ, bⱼ'' ⟩`.
 
-Note that the Galerkin matrix is banded,
-with `k + 1` and `k + 2` for `k` even and odd, respectively.
+Note that the Galerkin matrix is banded with `2k - 1` bands.
 Moreover, if both derivative orders are the same, the matrix is
-symmetric and positive definite.
+symmetric and positive definite, and only `k` bands are needed to fully describe
+the matrix.
 In those cases, a
 [`Symmetric`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
 view of an underlying matrix is returned.
