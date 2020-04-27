@@ -36,7 +36,7 @@ Other types of container are also supported, including regular sparse matrices
 (`SparseMatrixCSC`) and dense arrays (`Matrix`).
 """
 function galerkin_matrix(
-        B::BSplineBasis,
+        B::AnyBSplineBasis,
         deriv = Derivative.((0, 0)),
         ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
@@ -127,6 +127,76 @@ function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis,
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
             @assert length(t_inds) == k + 1 - abs(j - i)
             A[i, j] = _integrate_prod(fi, fj, t, t_inds, quad)
+        end
+    end
+
+    S
+end
+
+# TODO merge this with other variant!
+function galerkin_matrix!(S::AbstractMatrix, B::BSplines.BSplineBasis,
+                          deriv = Derivative.((0, 0)))
+    N = size(S, 1)
+
+    if N != length(B)
+        throw(ArgumentError("wrong dimensions of Galerkin matrix"))
+    end
+
+    fill!(S, 0)
+
+    k = order(B)
+    t = knots(B)
+    T = eltype(S)
+
+    # Quadrature information (weights, nodes).
+    quad = _quadrature_prod(k)
+
+    same_deriv = deriv[1] === deriv[2]
+
+    if S isa Symmetric
+        same_deriv || error("matrix will not be symmetric with deriv = $deriv")
+        fill_upper = S.uplo === 'U'
+        fill_lower = S.uplo === 'L'
+        A = parent(S)
+    else
+        fill_upper = true
+        fill_lower = true
+        A = S
+    end
+
+    # B-splines evaluated at a given point.
+    bi = zeros(T, k)
+    bj = copy(bi)
+
+    # Integrate over each segment between knots.
+    for l = k:N
+        a, b = t[l], t[l + 1]  # segment (t[l], t[l + 1])
+        α = (b - a) / 2
+        β = (a + b) / 2
+
+        x, w = quad
+        for n in eachindex(w)
+            y = α * x[n] + β
+
+            # Evaluate B-splines at quadrature point.
+            # This evaluates B-splines (i, j) ∈ [(off + 1):(off + k)].
+            off = BSplines.bsplines!(bi, B, y, deriv[1], leftknot=l) :: Int
+            if same_deriv
+                copy!(bj, bi)
+            else
+                δ = BSplines.bsplines!(bj, B, y, deriv[2], leftknot=l) :: Int
+                @assert δ === off
+            end
+
+            @assert off === l - k
+
+            for j = 1:k
+                istart = fill_upper ? 1 : j
+                iend = fill_lower ? k : j
+                for i = istart:iend
+                    A[off + i, off + j] += α * w[n] * bi[i] * bj[j]
+                end
+            end
         end
     end
 
