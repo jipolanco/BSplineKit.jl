@@ -62,12 +62,10 @@ allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, N, etc...) where {T} =
 
 function allocate_galerkin_matrix(::Type{M}, N, k,
                                   symmetry) where {M <: BandedMatrix}
-    # The upper/lower bandwidths are:
-    # - for even k: Nb = k / 2       (total = k + 1 bands)
-    # - for odd  k: Nb = (k + 1) / 2 (total = k + 2 bands)
+    # The upper/lower bandwidths are Nb = k (total = 2k + 1 bands).
     # Note that if the matrix is also symmetric, then we only need the upper
     # band.
-    Nb = (k + 1) >> 1
+    Nb = k
     bands = symmetry ? (0, Nb) : (Nb, Nb)
     M(undef, (N, N), bands)
 end
@@ -96,7 +94,7 @@ function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis,
 
     k = order(B)
     t = knots(B)
-    h = (k + 1) ÷ 2  # k/2 if k is even
+    h = k - 1
     T = eltype(S)
 
     # Quadrature information (weights, nodes).
