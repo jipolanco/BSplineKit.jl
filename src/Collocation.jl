@@ -45,6 +45,10 @@ Define and return adapted collocation points for evaluation of splines.
 The number of returned collocation points is equal to the number of functions in
 the basis.
 
+Note that if `B` is a [`RecombinedBSplineBasis`] (adapted for boundary value
+problems), collocation points are not included at the boundaries, since the
+boundary conditions are implicitly satisfied by the basis.
+
 Collocation points can be selected in different ways.
 The selection method can be chosen via the `method` argument, which accepts the
 following values:
