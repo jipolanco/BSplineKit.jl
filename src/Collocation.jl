@@ -38,12 +38,12 @@ The resulting collocation points are sometimes called Greville sites
 struct AvgKnots <: SelectionMethod end
 
 """
-    collocation_points(B::BSplineBasis; method=Collocation.AvgKnots())
+    collocation_points(B::AbstractBSplineBasis; method=Collocation.AvgKnots())
 
 Define and return adapted collocation points for evaluation of splines.
 
-The number of returned collocation points is equal to the number of B-splines in
-the spline basis.
+The number of returned collocation points is equal to the number of functions in
+the basis.
 
 Collocation points can be selected in different ways.
 The selection method can be chosen via the `method` argument, which accepts the
@@ -55,13 +55,13 @@ following values:
 See also [`collocation_points!`](@ref).
 """
 function collocation_points(
-        B::BSplineBasis; method::SelectionMethod=AvgKnots())
+        B::AbstractBSplineBasis; method::SelectionMethod=AvgKnots())
     x = similar(knots(B), length(B))
     collocation_points!(x, B, method=method)
 end
 
 """
-    collocation_points!(x::AbstractVector, B::BSplineBasis;
+    collocation_points!(x::AbstractVector, B::AbstractBSplineBasis;
                         method::SelectionMethod=AvgKnots())
 
 Fill vector with collocation points for evaluation of splines.
@@ -69,7 +69,7 @@ Fill vector with collocation points for evaluation of splines.
 See [`collocation_points`](@ref) for details.
 """
 function collocation_points!(
-        x::AbstractVector, B::BSplineBasis;
+        x::AbstractVector, B::AbstractBSplineBasis;
         method::SelectionMethod=AvgKnots())
     N = length(B)
     if N != length(x)
@@ -79,6 +79,7 @@ function collocation_points!(
     collocation_points!(method, x, B)
 end
 
+# TODO make this work with RecombinedBSplineBasis (remove boundaries!)
 function collocation_points!(::AvgKnots, x, B)
     N = length(B)
     @assert length(x) == N
@@ -114,7 +115,7 @@ end
 
 """
     collocation_matrix(
-        B::BSplineBasis,
+        B::AbstractBSplineBasis,
         x::AbstractVector,
         [deriv::Derivative = Derivative(0)],
         [MatrixType = SparseMatrixCSC{Float64}];
@@ -212,7 +213,7 @@ extended...). And actually, only the two above choices are available for now!
 See also [`collocation_matrix!`](@ref).
 """
 function collocation_matrix(
-        B::BSplineBasis, x::AbstractVector,
+        B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
         ::Type{MatrixType} = SparseMatrixCSC{Float64};
         bc=nothing, kwargs...) where {MatrixType}
@@ -255,7 +256,7 @@ end
 
 """
     collocation_matrix!(
-        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector,
+        C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
         [deriv::Derivative = Derivative(0)];
         bc = nothing, clip_threshold = eps(T))
 
@@ -264,7 +265,7 @@ Fill preallocated collocation matrix.
 See [`collocation_matrix`](@ref) for details.
 """
 function collocation_matrix!(
-        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector,
+        C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0);
         bc = nothing,
         clip_threshold = eps(T)) where {T}

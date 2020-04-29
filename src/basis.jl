@@ -1,4 +1,14 @@
 """
+    AbstractBSplineBasis{k,T}
+
+Abstract type defining a B-spline basis, or more generally, a functional basis
+defined from B-splines.
+
+The basis is represented by a B-spline order `k` and an element type `T`.
+"""
+abstract type AbstractBSplineBasis{k,T} end
+
+"""
     BSplineBasis{k}
 
 B-spline basis for splines of order `k`.
@@ -14,7 +24,7 @@ Create B-spline basis of order `k` with the given knots.
 If `augment=true` (default), knots will be "augmented" so that both knot ends
 have multiplicity `k`. See also [`augment_knots`](@ref).
 """
-struct BSplineBasis{k, T}  # k: B-spline order
+struct BSplineBasis{k,T} <: AbstractBSplineBasis{k,T}
     N :: Int             # number of B-splines ("resolution")
     t :: Vector{T}       # knots (length = N + k)
     function BSplineBasis(::BSplineOrder{k}, knots::AbstractVector{T};
