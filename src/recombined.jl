@@ -93,7 +93,7 @@ evaluate_bspline(R::RecombinedBSplineBasis{0}, j, args...) =
     evaluate_bspline(parent(R), j + 1, args...)
 
 # Homogeneous Neumann BCs.
-function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
+function evaluate_bspline(R::RecombinedBSplineBasis{1}, j, args...)
     Nb = length(R)  # length of recombined basis
     B = parent(R)
     if j == 1
