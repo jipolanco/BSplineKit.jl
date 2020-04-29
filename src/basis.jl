@@ -73,24 +73,25 @@ order(::Type{<:BSplineBasis{k}}) where {k} = k
 order(b::BSplineBasis) = order(typeof(b))
 order(::BSplineOrder{k}) where {k} = k
 
+# TODO rename to BasisFunction?
 """
-    BSpline{B <: BSplineBasis}
+    BSpline{B <: AbstractBSplineBasis}
 
-Describes a single B-spline in the given basis.
+Describes a single basis function.
 
 ---
 
-    BSpline(basis::BSplineBasis, i::Int, [T = Float64])
+    BSpline(basis::AbstractBSplineBasis, i::Int, [T = Float64])
 
-Construct i-th B-spline in the given basis.
+Construct i-th basis function of the given basis.
 
-The constructed BSpline can be evaluated as `b(x)`, returning a value of type
+The constructed function can be evaluated as `b(x)`, returning a value of type
 `T`.
 """
-struct BSpline{Basis <: BSplineBasis, T}
+struct BSpline{Basis <: AbstractBSplineBasis, T}
     basis :: Basis
     i     :: Int
-    function BSpline(b::BSplineBasis, i, ::Type{T} = Float64) where {T}
+    function BSpline(b::AbstractBSplineBasis, i, ::Type{T} = Float64) where {T}
         Basis = typeof(b)
         new{Basis, T}(b, i)
     end
@@ -109,7 +110,7 @@ Get range of knots supported by the B-spline.
 Returns the range `i:j` if the B-spline is non-zero between knots `t[i]` and
 `t[j]`.
 """
-function support(b::BSpline)
+function support(b::BSpline{<:BSplineBasis})
     k = order(b)
     i = b.i
     i:(i + k)

@@ -24,17 +24,18 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
         # Recombined basis for Dirichlet BCs (u = 0)
         @inferred RecombinedBSplineBasis(Derivative(0), B)
         R0 = RecombinedBSplineBasis(Derivative(0), B)
-        @test length(R0) == N - 2
+        Nr = length(R0)
+        @test Nr == N - 2
 
         # Collocation points for recombined basis, for implicit boundary
         # conditions (points at the boundaries are removed!).
         x = collocation_points(R0)
-        @test length(x) == N - 2
+        @test length(x) == Nr
         @test x == @view xcol[2:end-1]
 
         @inferred collocation_matrix(R0, x)
         C0 = collocation_matrix(R0, x)
-        @test size(C0) == (N - 2, N - 2)
+        @test size(C0) == (Nr, Nr)
 
         # C0 is simply the interior elements of C.
         let r = 2:(N - 1)
@@ -45,12 +46,12 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
         R1 = RecombinedBSplineBasis(Derivative(1), B)
         @test collocation_points(R1) == x  # same as for Dirichlet
         C1 = collocation_matrix(R1, x)
-        @test size(C1) == (N - 2, N - 2)
+        @test size(C1) == (Nr, Nr)
 
         let r = 2:(N - 1)
             @test @views C1[:, 1] == C[r, 1] .+ C[r, 2]
-            @test @views C1[:, N - 2] == C[r, N - 1] .+ C[r, N]
-            @test @views C1[:, 2:(N - 3)] == C[r, 3:(N - 2)]
+            @test @views C1[:, Nr] == C[r, N - 1] .+ C[r, N]
+            @test @views C1[:, 2:(Nr - 1)] == C[r, 3:(N - 2)]
         end
     end
 end
@@ -64,9 +65,48 @@ function test_galerkin()
     B = BSplineBasis(2, knots_base)
     t = knots(B)
     G = galerkin_matrix(B)
+
     let i = 8
         @test G[i, i] ≈ (t[i + 2] - t[i]) / 3
         @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
+    end
+end
+
+function test_galerkin_recombined()
+    @testset "Basis recombination" begin
+        N = 40
+        knots_base = [-cos(2pi * n / N) for n = 0:N]
+
+        B = BSplineBasis(6, knots_base)
+        R0 = RecombinedBSplineBasis(Derivative(0), B)
+        R1 = RecombinedBSplineBasis(Derivative(1), B)
+
+        N = length(B)
+        Ñ = length(R0)
+        @test Ñ == N - 2
+
+        G = galerkin_matrix(B)
+        G0 = galerkin_matrix(R0)
+        G1 = galerkin_matrix(R1)
+
+        @test size(G) == (N, N)
+        @test size(G0) == size(G1) == (Ñ, Ñ)
+
+        let r = 2:(N - 1)
+            # G0 is simply the interior elements of G.
+            @test G0 == @view G[r, r]
+
+            # First row
+            @test G1[1, 1] ≈ G[1, 1] + 2G[1, 2] + G[2, 2]  # (b1b1 + 2b1b2 + b2b2)
+            @test @views G1[1, 2:(Ñ - 1)] ≈ G[1, 3:Ñ] .+ G[2, 3:Ñ]
+
+            # Last row
+            @test G1[Ñ, Ñ] ≈ G[N - 1, N - 1] + 2G[N, N - 1] + G[N, N]
+            @test @views G1[Ñ, 2:(Ñ - 1)] ≈ G[N - 1, 3:Ñ] + G[N, 3:Ñ]
+
+            # Interior
+            @test @views G1[2:(Ñ - 1), 2:(Ñ - 1)] ≈ G[3:Ñ, 3:Ñ]
+        end
     end
 end
 
@@ -137,6 +177,7 @@ function main()
     test_splines(BSplineOrder(4))
     @testset "Galerkin" begin
         test_galerkin()
+        test_galerkin_recombined()
     end
 end
 

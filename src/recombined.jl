@@ -88,6 +88,12 @@ knots(R::RecombinedBSplineBasis) = knots(parent(R))
 order(R::RecombinedBSplineBasis{D,k}) where {D,k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 
+function support(b::BSpline{<:RecombinedBSplineBasis})
+    k = order(b)
+    i = b.i
+    (i + 1):(i + k + 1)  # NOTE: shifted by +1 wrt BSplineBasis
+end
+
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
 evaluate_bspline(R::RecombinedBSplineBasis{0}, j, args...) =
     evaluate_bspline(parent(R), j + 1, args...)

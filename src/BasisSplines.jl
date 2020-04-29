@@ -48,7 +48,7 @@ include("knots.jl")
 include("basis.jl")
 include("recombined.jl")
 
-const AnyBSplineBasis = Union{BSplineBasis, BSplines.BSplineBasis}
+const AnyBSplineBasis = Union{<:AbstractBSplineBasis, BSplines.BSplineBasis}
 
 include("spline.jl")
 include("galerkin.jl")
