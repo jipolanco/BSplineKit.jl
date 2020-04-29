@@ -79,17 +79,20 @@ function collocation_points!(
     collocation_points!(method, x, B)
 end
 
-# TODO make this work with RecombinedBSplineBasis (remove boundaries!)
-function collocation_points!(::AvgKnots, x, B)
-    N = length(B)
+function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
+    N = length(B)           # number of functions in basis
     @assert length(x) == N
     k = order(B)
     t = knots(B)
-    j = 0
     T = eltype(x)
+    j = 0
+
+    if B isa RecombinedBSplineBasis
+        j += 1  # skip boundaries
+    end
 
     v::T = inv(k - 1)
-    a::T, b::T = t[k], t[N + 1]  # domain boundaries
+    a::T, b::T = t[k], t[end - k + 1]  # domain boundaries
 
     for i in eachindex(x)
         j += 1  # generally i = j, unless x has weird indexation
@@ -119,7 +122,6 @@ end
         x::AbstractVector,
         [deriv::Derivative = Derivative(0)],
         [MatrixType = SparseMatrixCSC{Float64}];
-        bc = nothing,
         clip_threshold = eps(eltype(MatrixType)),
     )
 
@@ -178,52 +180,17 @@ bandwidth of the matrix may be larger than the expected bandwidth.
 - `Matrix{T}`: a regular dense matrix. Generally performs worse than the
 alternatives, especially for large problems.
 
-## Boundary conditions
-
-Basis recombination (see Boyd 2000, ch. 6) is a common technique for imposing
-boundary conditions (BCs) in Galerkin methods. In this approach, the basis is
-"recombined" so that each basis function individually satisfies the BCs.
-
-The new basis, `{ϕⱼ(x), j ∈ 1:(N-2)}`, has two fewer functions than the original
-B-spline basis, `{bⱼ(x), j ∈ 1:N}`. Due to this, the number of collocation
-points needed to obtain a square collocation matrix is `N - 2`. In particular,
-for the matrix to be invertible, there must be **no** collocation points at the
-boundaries.
-
-Thanks to the local support of B-splines, basis recombination involves only a
-little portion of the original B-spline basis. For instance, since there is only
-one B-spline that is non-zero at each boundary, removing that function from the
-basis is enough to apply homogeneous Dirichlet BCs. Imposing BCs for derivatives
-is a bit more complex, but not much.
-
-The optional keyword argument `bc` allows specifying homogeneous BCs. It accepts
-a `Derivative` object, which sets the order of the derivative to be imposed with
-homogeneous BCs. Some typical choices are:
-
-- `bc = Derivative(0)` sets homogeneous Dirichlet BCs (`u = 0` at the
-  boundaries) by removing the first and last B-splines, i.e. ϕ₁ = b₂;
-
-- `bc = Derivative(1)` sets homogeneous Neumann BCs (`du/dx = 0` at the
-  boundaries) by adding the two first (and two last) B-splines,
-  i.e. ϕ₁ = b₁ + b₂.
-
-For now, the two boundaries are given the same BC (but this could be easily
-extended...). And actually, only the two above choices are available for now!
-
 See also [`collocation_matrix!`](@ref).
 """
 function collocation_matrix(
         B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
         ::Type{MatrixType} = SparseMatrixCSC{Float64};
-        bc=nothing, kwargs...) where {MatrixType}
+        kwargs...) where {MatrixType}
     Nx = length(x)
     Nb = length(B)
-    if bc !== nothing
-        Nb -= 2  # remove two basis functions if BCs are applied
-    end
     C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B); kwargs...)
-    collocation_matrix!(C, B, x, deriv; bc=bc, kwargs...)
+    collocation_matrix!(C, B, x, deriv; kwargs...)
 end
 
 collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
@@ -257,8 +224,7 @@ end
 """
     collocation_matrix!(
         C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
-        [deriv::Derivative = Derivative(0)];
-        bc = nothing, clip_threshold = eps(T))
+        [deriv::Derivative = Derivative(0)]; clip_threshold = eps(T))
 
 Fill preallocated collocation matrix.
 
@@ -267,12 +233,10 @@ See [`collocation_matrix`](@ref) for details.
 function collocation_matrix!(
         C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0);
-        bc = nothing,
         clip_threshold = eps(T)) where {T}
     Nx, Nb = size(C)
-    with_bc = bc !== nothing
 
-    if Nx != length(x) || Nb != length(B) - 2 * with_bc
+    if Nx != length(x) || Nb != length(B)
         throw(ArgumentError("wrong dimensions of collocation matrix"))
     end
 
@@ -280,7 +244,7 @@ function collocation_matrix!(
     b_lo, b_hi = bandwidths(C)
 
     for j = 1:Nb, i = 1:Nx
-        b = recombine_bspline(bc, B, j, x[i], deriv, T)
+        b = evaluate_bspline(B, j, x[i], deriv, T)
 
         # Skip very small values (and zeros).
         # This is important for SparseMatrixCSC, which also stores explicit
@@ -300,27 +264,4 @@ function collocation_matrix!(
     C
 end
 
-# TODO define RecombinedBSplineBasis?
-# Perform basis recombination for applying homogeneous BCs.
-# No basis recombination.
-recombine_bspline(::Nothing, B, j, args...) =
-    evaluate_bspline(B, j, args...)
-
-# For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
-recombine_bspline(::Derivative{0}, B, j, args...) =
-    evaluate_bspline(B, j + 1, args...)
-
-# Homogeneous Neumann BCs.
-function recombine_bspline(::Derivative{1}, B, j, args...)
-    Nb = length(B) - 2  # length of recombined basis
-    if j == 1
-        evaluate_bspline(B, 1, args...) + evaluate_bspline(B, 2, args...)
-    elseif j == Nb
-        evaluate_bspline(B, Nb + 1, args...) + evaluate_bspline(B, Nb + 2, args...)
-    else
-        # Same as for Dirichlet.
-        recombine_bspline(Derivative(0), B, j, args...)
-    end
-end
-
-end
+end  # module

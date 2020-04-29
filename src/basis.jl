@@ -43,7 +43,7 @@ end
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
 # Make BSplineBasis behave as scalar when broadcasting.
-Broadcast.broadcastable(B::BSplineBasis) = Ref(B)
+Broadcast.broadcastable(B::AbstractBSplineBasis) = Ref(B)
 
 """
     length(g::BSplineBasis)
@@ -51,7 +51,8 @@ Broadcast.broadcastable(B::BSplineBasis) = Ref(B)
 Returns the number of B-splines composing a spline.
 """
 Base.length(g::BSplineBasis) = g.N
-Base.size(g::BSplineBasis) = (g.N, )
+Base.size(g::AbstractBSplineBasis) = (length(g), )
+Base.parent(g::BSplineBasis) = g
 
 """
     knots(g::BSplineBasis)
@@ -138,7 +139,7 @@ differentiation order.
 
 """
     evaluate_bspline(
-        B::BSplineBasis, i::Integer, x, [deriv=Derivative(0)], [T=Float64]
+        B::AbstractBSplineBasis, i::Integer, x, [deriv=Derivative(0)], [T=Float64]
     )
 
 Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a
@@ -195,7 +196,7 @@ Evaluate i-th B-spline at positions `x` and write result to `b`.
 
 See also [`evaluate_bspline`](@ref).
 """
-function evaluate_bspline!(b::AbstractVector{T}, B::BSplineBasis, i,
+function evaluate_bspline!(b::AbstractVector{T}, B::AbstractBSplineBasis, i,
                            x::AbstractVector, args...) where {T}
     broadcast!(x -> evaluate_bspline(B, i, x, args..., T), b, x)
 end

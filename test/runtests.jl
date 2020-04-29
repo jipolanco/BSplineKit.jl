@@ -21,13 +21,19 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
         C = collocation_matrix(B, xcol)
         N = length(B)
 
+        # Recombined basis for Dirichlet BCs (u = 0)
+        @inferred RecombinedBSplineBasis(Derivative(0), B)
+        R0 = RecombinedBSplineBasis(Derivative(0), B)
+        @test length(R0) == N - 2
+
         # Collocation points for recombined basis, for implicit boundary
         # conditions (points at the boundaries are removed!).
-        x = @view xcol[2:end-1]
+        x = collocation_points(R0)
+        @test length(x) == N - 2
+        @test x == @view xcol[2:end-1]
 
-        # Dirichlet BCs (u = 0)
-        @inferred collocation_matrix(B, x, bc=Derivative(0))
-        C0 = collocation_matrix(B, x, bc=Derivative(0))
+        @inferred collocation_matrix(R0, x)
+        C0 = collocation_matrix(R0, x)
         @test size(C0) == (N - 2, N - 2)
 
         # C0 is simply the interior elements of C.
@@ -36,7 +42,9 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
         end
 
         # Neumann BCs (du/dx = 0)
-        C1 = collocation_matrix(B, x, bc=Derivative(1))
+        R1 = RecombinedBSplineBasis(Derivative(1), B)
+        @test collocation_points(R1) == x  # same as for Dirichlet
+        C1 = collocation_matrix(R1, x)
         @test size(C1) == (N - 2, N - 2)
 
         let r = 2:(N - 1)
@@ -87,6 +95,8 @@ function test_splines(B::BSplineBasis, knots_in)
     end
 
     xcol = collocation_points(B, method=Collocation.AvgKnots())
+    @test xcol[1] == knots_in[1]
+    @test xcol[end] == knots_in[end]
 
     @testset "Collocation (k = $k)" begin
         test_collocation(B, xcol)
