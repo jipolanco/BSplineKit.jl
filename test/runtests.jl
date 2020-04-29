@@ -16,6 +16,35 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
 
     @test C_dense == C_banded
     @test C_banded == C_sparse
+
+    @testset "Basis recombination" begin
+        C = collocation_matrix(B, xcol)
+        N = length(B)
+
+        # Collocation points for recombined basis, for implicit boundary
+        # conditions (points at the boundaries are removed!).
+        x = @view xcol[2:end-1]
+
+        # Dirichlet BCs (u = 0)
+        @inferred collocation_matrix(B, x, bc=Derivative(0))
+        C0 = collocation_matrix(B, x, bc=Derivative(0))
+        @test size(C0) == (N - 2, N - 2)
+
+        # C0 is simply the interior elements of C.
+        let r = 2:(N - 1)
+            @test C0 == @view C[r, r]
+        end
+
+        # Neumann BCs (du/dx = 0)
+        C1 = collocation_matrix(B, x, bc=Derivative(1))
+        @test size(C1) == (N - 2, N - 2)
+
+        let r = 2:(N - 1)
+            @test @views C1[:, 1] == C[r, 1] .+ C[r, 2]
+            @test @views C1[:, N - 2] == C[r, N - 1] .+ C[r, N]
+            @test @views C1[:, 2:(N - 3)] == C[r, 3:(N - 2)]
+        end
+    end
 end
 
 function test_galerkin()
