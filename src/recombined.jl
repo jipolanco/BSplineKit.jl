@@ -84,14 +84,16 @@ Returns the number of functions in the recombined basis.
 """
 Base.length(R::RecombinedBSplineBasis) = length(parent(R)) - 2
 
+boundaries(R::RecombinedBSplineBasis) = boundaries(parent(R))
+
 knots(R::RecombinedBSplineBasis) = knots(parent(R))
 order(R::RecombinedBSplineBasis{D,k}) where {D,k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 
 function support(b::BSpline{<:RecombinedBSplineBasis})
     k = order(b)
-    i = b.i
-    (i + 1):(i + k + 1)  # NOTE: shifted by +1 wrt BSplineBasis
+    i = b.i + 1  # NOTE: shifted by +1 wrt BSplineBasis
+    i:(i + k)
 end
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).

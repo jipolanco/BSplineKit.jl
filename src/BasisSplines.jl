@@ -17,7 +17,7 @@ export Collocation
 
 export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
 export Spline, BSpline, BSplineOrder, Derivative
-export knots, order, coefficients
+export knots, order, coefficients, boundaries
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
 export integral

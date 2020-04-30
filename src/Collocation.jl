@@ -96,7 +96,7 @@ function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
     end
 
     v::T = inv(k - 1)
-    a::T, b::T = t[k], t[end - k + 1]  # domain boundaries
+    a::T, b::T = boundaries(B)
 
     for i in eachindex(x)
         j += 1  # generally i = j, unless x has weird indexation

@@ -55,6 +55,19 @@ Base.size(g::AbstractBSplineBasis) = (length(g), )
 Base.parent(g::BSplineBasis) = g
 
 """
+    boundaries(B::AbstractBSplineBasis)
+
+Returns `(xmin, xmax)` tuple with the boundaries of the domain supported by the
+basis.
+"""
+function boundaries(B::BSplineBasis)
+    k = order(B)
+    N = length(B)
+    t = knots(B)
+    t[k], t[N + 1]
+end
+
+"""
     knots(g::BSplineBasis)
     knots(g::Spline)
 
