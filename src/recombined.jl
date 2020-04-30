@@ -53,10 +53,9 @@ More generally, due to the partition of unity property of the B-spline basis:
 
 ``∑ⱼ bⱼ(x) = 1 ⇒ ∑ⱼ \\frac{d^n b_j}{dx^n}(x) = 0 \\text{ for } n ≥ 1.``
 
-Moreover, only the first `n` B-splines have non-zero `n`-th derivative at
-the left boundary. Hence, to enforce a derivative to be zero, the first `n`
-B-splines should be recombined linearly into `n - 1` independent basis
-functions.
+Moreover, only the first `n + 1` B-splines have non-zero `n`-th derivative at
+the left boundary. Hence, to enforce a derivative to be zero, the first `n + 1`
+B-splines should be recombined linearly into `n` independent basis functions.
 
 For now, the two boundaries are given the same BC (but this could be easily
 extended...). Also, only the three options listed above are actually possible at
