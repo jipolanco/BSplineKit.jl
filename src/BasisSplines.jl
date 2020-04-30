@@ -17,7 +17,7 @@ export Collocation
 
 export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
 export Spline, BSpline, BSplineOrder, Derivative
-export knots, order, coefficients, boundaries
+export knots, order, coefficients, boundaries, order_bc
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
 export integral
@@ -53,8 +53,8 @@ include("basis_function.jl")
 include("recombined.jl")
 
 include("spline.jl")
-include("galerkin.jl")
 
+include("galerkin.jl")
 include("Collocation.jl")
 
 @reexport using .Collocation

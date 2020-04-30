@@ -48,12 +48,13 @@ end
 
 # Verify that basis recombination gives the right boundary conditions.
 function test_basis_recombination()
-    N = 40
-    knots_base = [-cos(pi * n / N) for n = 0:N]
+    knots_base = gauss_lobatto_points(40)
     k = 6
     B = BSplineBasis(k, knots_base)
+    @test order_bc(B) === nothing
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
+        @test order_bc(R) === D
         test_recombined(R)
     end
     nothing

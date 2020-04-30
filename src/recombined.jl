@@ -117,6 +117,17 @@ knots(R::RecombinedBSplineBasis) = knots(parent(R))
 order(R::RecombinedBSplineBasis{D,k}) where {D,k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 
+"""
+    order_bc(B::AbstractBSplineBasis) -> Union{Int,Nothing}
+
+Get order of homogeneous boundary conditions satisfied by the basis.
+
+For bases that don't satisfy any particular boundary conditions (like
+[`BSplineBasis`](@ref)), this returns `nothing`.
+"""
+order_bc(::AbstractBSplineBasis) = nothing
+order_bc(::RecombinedBSplineBasis{D}) where {D} = D
+
 function support(b::BSpline{<:RecombinedBSplineBasis})
     k = order(b)
     i = b.i + 1  # NOTE: shifted by +1 wrt BSplineBasis
