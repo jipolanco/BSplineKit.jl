@@ -32,10 +32,27 @@ function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
         # derivative at the border of the first B-spline of the original
         # basis.
         B = parent(R)
-        ϵ = eps(BSpline(B, 1)(a, Derivative(n)))
-        @test (bsum <= ϵ) == (n == D)
+        ε = 2 * eps(BSpline(B, 1)(a, Derivative(n)))
+        if n == D
+            @test bsum <= ε
+        else
+            @test bsum > 1
+        end
     end
 
+    nothing
+end
+
+# Verify that basis recombination gives the right boundary conditions.
+function test_basis_recombination()
+    N = 40
+    knots_base = [-cos(2pi * n / N) for n = 0:N]
+    k = 6
+    B = BSplineBasis(k, knots_base)
+    @testset "Order $D" for D = 0:(k - 1)
+        R = RecombinedBSplineBasis(Derivative(D), B)
+        test_recombined(R)
+    end
     nothing
 end
 
@@ -58,7 +75,6 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
         # Recombined basis for Dirichlet BCs (u = 0)
         @inferred RecombinedBSplineBasis(Derivative(0), B)
         R0 = RecombinedBSplineBasis(Derivative(0), B)
-        test_recombined(R0)
         Nr = length(R0)
         @test Nr == N - 2
 
@@ -79,7 +95,6 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
 
         # Neumann BCs (du/dx = 0)
         R1 = RecombinedBSplineBasis(Derivative(1), B)
-        test_recombined(R1)
         @test collocation_points(R1) == x  # same as for Dirichlet
         C1 = collocation_matrix(R1, x)
         @test size(C1) == (Nr, Nr)
@@ -89,9 +104,6 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
             @test @views C1[:, Nr] == C[r, N - 1] .+ C[r, N]
             @test @views C1[:, 2:(Nr - 1)] == C[r, 3:(N - 2)]
         end
-
-        R2 = RecombinedBSplineBasis(Derivative(2), B)
-        test_recombined(R2)
     end
 
     nothing
@@ -218,11 +230,14 @@ function test_splines(::BSplineOrder{k}) where {k}
 end
 
 function main()
-    test_splines(BSplineOrder(3))
     test_splines(BSplineOrder(4))
+    test_splines(BSplineOrder(5))
     @testset "Galerkin" begin
         test_galerkin()
         test_galerkin_recombined()
+    end
+    @testset "Basis recombination" begin
+        test_basis_recombination()
     end
     nothing
 end

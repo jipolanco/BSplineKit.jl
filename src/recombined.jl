@@ -30,7 +30,7 @@ Evidently, the order of the B-spline needs to be ``k ≥ n + 1``, since a B-spli
 of order ``k`` is a ``C^{k - 1}``-continuous function (except on the knots
 where it is ``C^{k - 1 - p}``, with ``p`` the knot multiplicity).
 
-Some possible choices are:
+Some usual choices are:
 
 - `Derivative(0)` sets homogeneous Dirichlet BCs (``u = 0`` at the
   boundaries) by removing the first and last B-splines, i.e. ``ϕ₁ = b₂``;
@@ -39,17 +39,23 @@ Some possible choices are:
   boundaries) by adding the two first (and two last) B-splines,
   i.e. ``ϕ₁ = b₁ + b₂``.
 
-- `Derivative(2)` recombines the first three B-splines into two basis functions
-  that satisfy ``ϕ₁'' = ϕ₂'' = 0`` at the left boundary, while ensuring that
-  lower and higher-order derivatives keep degrees of freedom at the boundary.
-  Note that simply adding the first three B-splines, as in ``ϕ₁ = b₁ + b₂ +
-  b₃``, makes the first derivative vanish as well as the second one, which is
-  unwanted.
-  The chosen solution is to set ``ϕᵢ = bᵢ - αᵢ b₃`` for ``i ∈ {1, 2}``,
-  with ``αᵢ = bᵢ'' / b₃''``. All these considerations apply similarly to the
-  right boundary.
+Higher order BCs are also possible (although it's probably not very useful in
+real applications!).
+For instance, `Derivative(2)` recombines the first three B-splines into two
+basis functions that satisfy ``ϕ₁'' = ϕ₂'' = 0`` at the left boundary, while
+ensuring that lower and higher-order derivatives keep degrees of freedom at the
+boundary.
+Note that simply adding the first three B-splines, as in ``ϕ₁ = b₁ + b₂ +
+b₃``, makes the first derivative vanish as well as the second one, which is
+unwanted.
+The chosen solution is to set ``ϕᵢ = bᵢ - αᵢ b₃`` for ``i ∈ {1, 2}``,
+with ``αᵢ = bᵢ'' / b₃''``. All these considerations apply similarly to the
+right boundary.
 
-More generally, due to the partition of unity property of the B-spline basis:
+This generalises easily to higher order BCs, and also applies to the lower order
+BCs listed above.
+To understand how this works, note that, due to the partition of unity property
+of the B-spline basis:
 
 ``∑ⱼ bⱼ(x) = 1 ⇒ ∑ⱼ \\frac{d^n b_j}{dx^n}(x) = 0 \\text{ for } n ≥ 1.``
 
@@ -58,9 +64,7 @@ the left boundary. Hence, to enforce a derivative to be zero, the first `n + 1`
 B-splines should be recombined linearly into `n` independent basis functions.
 
 For now, the two boundaries are given the same BC (but this could be easily
-extended...). Also, only the three options listed above are actually possible at
-this moment. In principle, this could be generalised to any derivative order,
-but in practice that's probably not very useful!
+extended...).
 
 ---
 
@@ -137,11 +141,16 @@ function evaluate_bspline(R::RecombinedBSplineBasis{1}, j, args...)
     end
 end
 
-function evaluate_bspline(R::RecombinedBSplineBasis{2}, j, args...)
+# Generalisation for D >= 2
+function evaluate_bspline(R::RecombinedBSplineBasis{D}, j, args...) where {D}
+    @assert D >= 2
     N = length(R)
     B = parent(R)
 
-    if j ∉ (1, 2, N - 1, N)
+    ja = ntuple(identity, Val(D))  # = (1, 2, ..., D)
+    jb = (N + 1) .- ja  # = (N, N - 1, ..., N - D + 1)
+
+    if j ∉ ja && j ∉ jb
         return evaluate_bspline(B, j + 1, args...)
     end
 
@@ -155,19 +164,19 @@ function evaluate_bspline(R::RecombinedBSplineBasis{2}, j, args...)
     #
     # with αᵢ = bᵢ'' / b₃.
 
-    bounds = boundaries(B)
+    a, b = boundaries(B)
 
-    if j ∈ (1, 2)
-        x = bounds[1]
-        js = (j, 3)
-    elseif j ∈ (N - 1, N)
-        x = bounds[2]
-        js = (j + 2, N)
+    if j ∈ ja
+        x = a
+        js = (j, D + 1)
+    elseif j ∈ jb
+        x = b
+        js = (j + 2, N + 2 - D)
     end
 
-    # First, evaluate bⱼ'' at the boundary.
+    # First, evaluate D-th derivatives of bⱼ at the boundary.
     # TODO replace with analytical formula?
-    pj, p3 = evaluate_bspline.(B, js, x, Derivative(2))
+    pj, p3 = evaluate_bspline.(B, js, x, Derivative(D))
     α = pj / p3
 
     bj, b3 = evaluate_bspline.(B, js, args...)
