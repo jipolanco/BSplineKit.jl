@@ -5,6 +5,9 @@ using LinearAlgebra
 using SparseArrays
 using Test
 
+# Chebyshev (Gauss-Lobatto) points.
+gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
+
 function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
     a, b = boundaries(R)
     N = length(R)
@@ -46,7 +49,7 @@ end
 # Verify that basis recombination gives the right boundary conditions.
 function test_basis_recombination()
     N = 40
-    knots_base = [-cos(2pi * n / N) for n = 0:N]
+    knots_base = [-cos(pi * n / N) for n = 0:N]
     k = 6
     B = BSplineBasis(k, knots_base)
     @testset "Order $D" for D = 0:(k - 1)
@@ -113,8 +116,7 @@ function test_galerkin()
     # Compare Galerkin mass matrix against analytical integrals for k = 2
     # (easy!).
     # Test with non-uniform grid (Chebyshev points).
-    N = 40
-    knots_base = [-cos(2pi * n / N) for n = 0:N]
+    knots_base = gauss_lobatto_points(42)
     B = BSplineBasis(2, knots_base)
     t = knots(B)
     G = galerkin_matrix(B)
@@ -129,8 +131,7 @@ end
 
 function test_galerkin_recombined()
     @testset "Basis recombination" begin
-        N = 40
-        knots_base = [-cos(2pi * n / N) for n = 0:N]
+        knots_base = gauss_lobatto_points(41)
 
         B = BSplineBasis(6, knots_base)
         R0 = RecombinedBSplineBasis(Derivative(0), B)
@@ -161,6 +162,25 @@ function test_galerkin_recombined()
 
             # Interior
             @test @views G1[2:(Ñ - 1), 2:(Ñ - 1)] ≈ G[3:Ñ, 3:Ñ]
+        end
+
+        @testset "Integration by parts (Laplacian)" begin
+            # We test the relation between the H = ⟨ ϕᵢ, ϕⱼ'' ⟩ and the
+            # Q = ⟨ ϕᵢ', ϕⱼ' ⟩ matrices, associated to the Laplacian term
+            # for instance in the heat equation. These are clearly related by
+            # integration by parts.
+            # If the (recombined) basis satisfies homogeneous Dirichlet or
+            # Neumann boundary conditions, the term ϕᵢϕⱼ' appearing in the IBP
+            # should vanish at the boundaries, in which case the matrices are
+            # simply related as H = -Q.
+            # We test both boundary conditions.
+            @testset "BC: $D" for D in Derivative.((0, 1))
+                R = RecombinedBSplineBasis(D, B)
+                H = galerkin_matrix(R, Derivative.((0, 2)))
+                Q = galerkin_matrix(R, Derivative.((1, 1)))
+                N = length(R)  # the noise seems to scale as N^2
+                @test norm(H + Q, Inf) < norm(Q, Inf) * N^2 * eps(eltype(Q))
+            end
         end
     end
 
@@ -215,9 +235,7 @@ function test_splines(B::BSplineBasis, knots_in)
 end
 
 function test_splines(::BSplineOrder{k}) where {k}
-    knots_in = let N = 10 + k
-        [-cos(n * π / N) for n = 0:N]
-    end
+    knots_in = gauss_lobatto_points(10 + k)
 
     @inferred BSplineBasis(BSplineOrder(k), knots_in)
     @inferred (() -> BSplineBasis(k, knots_in))()
