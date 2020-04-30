@@ -38,12 +38,16 @@ The resulting collocation points are sometimes called Greville sites
 struct AvgKnots <: SelectionMethod end
 
 """
-    collocation_points(B::BSplineBasis; method=Collocation.AvgKnots())
+    collocation_points(B::AbstractBSplineBasis; method=Collocation.AvgKnots())
 
 Define and return adapted collocation points for evaluation of splines.
 
-The number of returned collocation points is equal to the number of B-splines in
-the spline basis.
+The number of returned collocation points is equal to the number of functions in
+the basis.
+
+Note that if `B` is a [`RecombinedBSplineBasis`] (adapted for boundary value
+problems), collocation points are not included at the boundaries, since the
+boundary conditions are implicitly satisfied by the basis.
 
 Collocation points can be selected in different ways.
 The selection method can be chosen via the `method` argument, which accepts the
@@ -55,13 +59,13 @@ following values:
 See also [`collocation_points!`](@ref).
 """
 function collocation_points(
-        B::BSplineBasis; method::SelectionMethod=AvgKnots())
+        B::AbstractBSplineBasis; method::SelectionMethod=AvgKnots())
     x = similar(knots(B), length(B))
     collocation_points!(x, B, method=method)
 end
 
 """
-    collocation_points!(x::AbstractVector, B::BSplineBasis;
+    collocation_points!(x::AbstractVector, B::AbstractBSplineBasis;
                         method::SelectionMethod=AvgKnots())
 
 Fill vector with collocation points for evaluation of splines.
@@ -69,7 +73,7 @@ Fill vector with collocation points for evaluation of splines.
 See [`collocation_points`](@ref) for details.
 """
 function collocation_points!(
-        x::AbstractVector, B::BSplineBasis;
+        x::AbstractVector, B::AbstractBSplineBasis;
         method::SelectionMethod=AvgKnots())
     N = length(B)
     if N != length(x)
@@ -79,16 +83,20 @@ function collocation_points!(
     collocation_points!(method, x, B)
 end
 
-function collocation_points!(::AvgKnots, x, B)
-    N = length(B)
+function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
+    N = length(B)           # number of functions in basis
     @assert length(x) == N
     k = order(B)
     t = knots(B)
-    j = 0
     T = eltype(x)
+    j = 0
+
+    if B isa RecombinedBSplineBasis
+        j += 1  # skip boundaries
+    end
 
     v::T = inv(k - 1)
-    a::T, b::T = t[k], t[N + 1]  # domain boundaries
+    a::T, b::T = boundaries(B)
 
     for i in eachindex(x)
         j += 1  # generally i = j, unless x has weird indexation
@@ -114,7 +122,7 @@ end
 
 """
     collocation_matrix(
-        B::BSplineBasis,
+        B::AbstractBSplineBasis,
         x::AbstractVector,
         [deriv::Derivative = Derivative(0)],
         [MatrixType = SparseMatrixCSC{Float64}];
@@ -179,13 +187,13 @@ alternatives, especially for large problems.
 See also [`collocation_matrix!`](@ref).
 """
 function collocation_matrix(
-        B::BSplineBasis, x::AbstractVector,
+        B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
         ::Type{MatrixType} = SparseMatrixCSC{Float64};
         kwargs...) where {MatrixType}
     Nx = length(x)
     Nb = length(B)
-    C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B))
+    C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B); kwargs...)
     collocation_matrix!(C, B, x, deriv; kwargs...)
 end
 
@@ -219,17 +227,16 @@ end
 
 """
     collocation_matrix!(
-        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector,
-        [deriv::Derivative = Derivative(0)];
-        clip_threshold = eps(T))
+        C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
+        [deriv::Derivative = Derivative(0)]; clip_threshold = eps(T))
 
 Fill preallocated collocation matrix.
 
 See [`collocation_matrix`](@ref) for details.
 """
 function collocation_matrix!(
-        C::AbstractMatrix{T}, B::BSplineBasis, x::AbstractVector,
-        deriv::Derivative = Derivative(0),
+        C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
+        deriv::Derivative = Derivative(0);
         clip_threshold = eps(T)) where {T}
     Nx, Nb = size(C)
 
@@ -261,4 +268,4 @@ function collocation_matrix!(
     C
 end
 
-end
+end  # module

@@ -15,8 +15,9 @@ module BasisSplines
 
 export Collocation
 
-export BSplineBasis, Spline, BSpline, BSplineOrder, Derivative
-export knots, order, coefficients
+export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
+export Spline, BSpline, BSplineOrder, Derivative
+export knots, order, coefficients, boundaries
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
 export integral
@@ -45,8 +46,9 @@ BSplineOrder(k::Integer) = BSplineOrder{k}()
 
 include("knots.jl")
 include("basis.jl")
+include("recombined.jl")
 
-const AnyBSplineBasis = Union{BSplineBasis, BSplines.BSplineBasis}
+const AnyBSplineBasis = Union{<:AbstractBSplineBasis, BSplines.BSplineBasis}
 
 include("spline.jl")
 include("galerkin.jl")

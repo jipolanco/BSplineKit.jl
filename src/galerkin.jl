@@ -1,6 +1,6 @@
 """
     galerkin_matrix(
-        B::BSplineBasis,
+        B::AbstractBSplineBasis,
         [deriv = (Derivative(0), Derivative(0))],
         [MatrixType = BandedMatrix{Float64}]
     )
@@ -71,7 +71,7 @@ function allocate_galerkin_matrix(::Type{M}, N, k,
 end
 
 """
-    galerkin_matrix!(A::AbstractMatrix, B::BSplineBasis,
+    galerkin_matrix!(A::AbstractMatrix, B::AbstractBSplineBasis,
                      deriv = (Derivative(0), Derivative(0)))
 
 Fill preallocated Galerkin matrix.
@@ -82,7 +82,7 @@ in `deriv` must be the same.
 
 See also [`galerkin_matrix`](@ref).
 """
-function galerkin_matrix!(S::AbstractMatrix, B::BSplineBasis,
+function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
                           deriv = Derivative.((0, 0)))
     N = size(S, 1)
 

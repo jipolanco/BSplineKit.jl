@@ -5,6 +5,40 @@ using LinearAlgebra
 using SparseArrays
 using Test
 
+function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
+    a, b = boundaries(R)
+    N = length(R)
+    k = order(R)
+
+    # Verify that all basis functions satisfy the boundary conditions
+    # for the derivative `D`, while they leave at least one degree of freedom
+    # to set the other derivatives.
+
+    # For instance, if D = 1 (Neumann BC), we want:
+    #   (1) ϕⱼ'(a) = 0 ∀j,
+    #   (2) ∑_j |ϕⱼ(a)| > 0,
+    #   (3) ∑_j |ϕⱼ''(a)| > 0 (if k >= 3; otherwise the B-splines are not C²),
+    # etc...
+
+    for n = 0:(k - 1)
+        bsum = sum(1:N) do i
+            f = BSpline(R, i)
+            fa = f(a, Derivative(n))
+            fb = f(b, Derivative(n))
+            abs(fa) + abs(fb)  # each of these must be 0 if n = D
+        end
+        # The sum must be zero if and only if n = D.
+        # We consider that the result is zero, if it is negligible wrt the
+        # derivative at the border of the first B-spline of the original
+        # basis.
+        B = parent(R)
+        ϵ = eps(BSpline(B, 1)(a, Derivative(n)))
+        @test (bsum <= ϵ) == (n == D)
+    end
+
+    nothing
+end
+
 function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
     @inferred collocation_matrix(B, xcol, Matrix{T})
     @inferred collocation_matrix(B, xcol, BandedMatrix{T})
@@ -16,6 +50,51 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
 
     @test C_dense == C_banded
     @test C_banded == C_sparse
+
+    @testset "Basis recombination" begin
+        C = collocation_matrix(B, xcol)
+        N = length(B)
+
+        # Recombined basis for Dirichlet BCs (u = 0)
+        @inferred RecombinedBSplineBasis(Derivative(0), B)
+        R0 = RecombinedBSplineBasis(Derivative(0), B)
+        test_recombined(R0)
+        Nr = length(R0)
+        @test Nr == N - 2
+
+        # Collocation points for recombined basis, for implicit boundary
+        # conditions (points at the boundaries are removed!).
+        x = collocation_points(R0)
+        @test length(x) == Nr
+        @test x == @view xcol[2:end-1]
+
+        @inferred collocation_matrix(R0, x)
+        C0 = collocation_matrix(R0, x)
+        @test size(C0) == (Nr, Nr)
+
+        # C0 is simply the interior elements of C.
+        let r = 2:(N - 1)
+            @test C0 == @view C[r, r]
+        end
+
+        # Neumann BCs (du/dx = 0)
+        R1 = RecombinedBSplineBasis(Derivative(1), B)
+        test_recombined(R1)
+        @test collocation_points(R1) == x  # same as for Dirichlet
+        C1 = collocation_matrix(R1, x)
+        @test size(C1) == (Nr, Nr)
+
+        let r = 2:(N - 1)
+            @test @views C1[:, 1] == C[r, 1] .+ C[r, 2]
+            @test @views C1[:, Nr] == C[r, N - 1] .+ C[r, N]
+            @test @views C1[:, 2:(Nr - 1)] == C[r, 3:(N - 2)]
+        end
+
+        R2 = RecombinedBSplineBasis(Derivative(2), B)
+        test_recombined(R2)
+    end
+
+    nothing
 end
 
 function test_galerkin()
@@ -27,10 +106,53 @@ function test_galerkin()
     B = BSplineBasis(2, knots_base)
     t = knots(B)
     G = galerkin_matrix(B)
+
     let i = 8
         @test G[i, i] ≈ (t[i + 2] - t[i]) / 3
         @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
     end
+
+    nothing
+end
+
+function test_galerkin_recombined()
+    @testset "Basis recombination" begin
+        N = 40
+        knots_base = [-cos(2pi * n / N) for n = 0:N]
+
+        B = BSplineBasis(6, knots_base)
+        R0 = RecombinedBSplineBasis(Derivative(0), B)
+        R1 = RecombinedBSplineBasis(Derivative(1), B)
+
+        N = length(B)
+        Ñ = length(R0)
+        @test Ñ == N - 2
+
+        G = galerkin_matrix(B)
+        G0 = galerkin_matrix(R0)
+        G1 = galerkin_matrix(R1)
+
+        @test size(G) == (N, N)
+        @test size(G0) == size(G1) == (Ñ, Ñ)
+
+        let r = 2:(N - 1)
+            # G0 is simply the interior elements of G.
+            @test G0 == @view G[r, r]
+
+            # First row
+            @test G1[1, 1] ≈ G[1, 1] + 2G[1, 2] + G[2, 2]  # (b1b1 + 2b1b2 + b2b2)
+            @test @views G1[1, 2:(Ñ - 1)] ≈ G[1, 3:Ñ] .+ G[2, 3:Ñ]
+
+            # Last row
+            @test G1[Ñ, Ñ] ≈ G[N - 1, N - 1] + 2G[N, N - 1] + G[N, N]
+            @test @views G1[Ñ, 2:(Ñ - 1)] ≈ G[N - 1, 3:Ñ] + G[N, 3:Ñ]
+
+            # Interior
+            @test @views G1[2:(Ñ - 1), 2:(Ñ - 1)] ≈ G[3:Ñ, 3:Ñ]
+        end
+    end
+
+    nothing
 end
 
 function test_splines(B::BSplineBasis, knots_in)
@@ -58,6 +180,8 @@ function test_splines(B::BSplineBasis, knots_in)
     end
 
     xcol = collocation_points(B, method=Collocation.AvgKnots())
+    @test xcol[1] == knots_in[1]
+    @test xcol[end] == knots_in[end]
 
     @testset "Collocation (k = $k)" begin
         test_collocation(B, xcol)
@@ -98,7 +222,9 @@ function main()
     test_splines(BSplineOrder(4))
     @testset "Galerkin" begin
         test_galerkin()
+        test_galerkin_recombined()
     end
+    nothing
 end
 
 main()
