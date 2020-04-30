@@ -5,6 +5,17 @@ using LinearAlgebra
 using SparseArrays
 using Test
 
+function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
+    a, b = boundaries(R)
+    N = length(R)
+    # Verify that all basis functions satisfy the boundary conditions.
+    @test all(1:N) do i
+        f = BSpline(R, i)
+        f(a, Derivative(D)) == f(b, Derivative(D)) == 0
+    end
+    nothing
+end
+
 function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
     @inferred collocation_matrix(B, xcol, Matrix{T})
     @inferred collocation_matrix(B, xcol, BandedMatrix{T})
@@ -24,6 +35,7 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
         # Recombined basis for Dirichlet BCs (u = 0)
         @inferred RecombinedBSplineBasis(Derivative(0), B)
         R0 = RecombinedBSplineBasis(Derivative(0), B)
+        test_recombined(R0)
         Nr = length(R0)
         @test Nr == N - 2
 
@@ -44,6 +56,7 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
 
         # Neumann BCs (du/dx = 0)
         R1 = RecombinedBSplineBasis(Derivative(1), B)
+        test_recombined(R1)
         @test collocation_points(R1) == x  # same as for Dirichlet
         C1 = collocation_matrix(R1, x)
         @test size(C1) == (Nr, Nr)
@@ -54,6 +67,8 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
             @test @views C1[:, 2:(Nr - 1)] == C[r, 3:(N - 2)]
         end
     end
+
+    nothing
 end
 
 function test_galerkin()
@@ -70,6 +85,8 @@ function test_galerkin()
         @test G[i, i] ≈ (t[i + 2] - t[i]) / 3
         @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
     end
+
+    nothing
 end
 
 function test_galerkin_recombined()
@@ -108,6 +125,8 @@ function test_galerkin_recombined()
             @test @views G1[2:(Ñ - 1), 2:(Ñ - 1)] ≈ G[3:Ñ, 3:Ñ]
         end
     end
+
+    nothing
 end
 
 function test_splines(B::BSplineBasis, knots_in)
@@ -179,6 +198,7 @@ function main()
         test_galerkin()
         test_galerkin_recombined()
     end
+    nothing
 end
 
 main()
