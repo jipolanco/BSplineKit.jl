@@ -8,11 +8,34 @@ using Test
 function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
     a, b = boundaries(R)
     N = length(R)
-    # Verify that all basis functions satisfy the boundary conditions.
-    @test all(1:N) do i
-        f = BSpline(R, i)
-        f(a, Derivative(D)) == f(b, Derivative(D)) == 0
+    k = order(R)
+
+    # Verify that all basis functions satisfy the boundary conditions
+    # for the derivative `D`, while they leave at least one degree of freedom
+    # to set the other derivatives.
+
+    # For instance, if D = 1 (Neumann BC), we want:
+    #   (1) ϕⱼ'(a) = 0 ∀j,
+    #   (2) ∑_j |ϕⱼ(a)| > 0,
+    #   (3) ∑_j |ϕⱼ''(a)| > 0 (if k >= 3; otherwise the B-splines are not C²),
+    # etc...
+
+    for n = 0:(k - 1)
+        bsum = sum(1:N) do i
+            f = BSpline(R, i)
+            fa = f(a, Derivative(n))
+            fb = f(b, Derivative(n))
+            abs(fa) + abs(fb)  # each of these must be 0 if n = D
+        end
+        # The sum must be zero if and only if n = D.
+        # We consider that the result is zero, if it is negligible wrt the
+        # derivative at the border of the first B-spline of the original
+        # basis.
+        B = parent(R)
+        ϵ = eps(BSpline(B, 1)(a, Derivative(n)))
+        @test (bsum <= ϵ) == (n == D)
     end
+
     nothing
 end
 
@@ -66,6 +89,9 @@ function test_collocation(B::BSplineBasis, xcol, ::Type{T} = Float64) where {T}
             @test @views C1[:, Nr] == C[r, N - 1] .+ C[r, N]
             @test @views C1[:, 2:(Nr - 1)] == C[r, 3:(N - 2)]
         end
+
+        R2 = RecombinedBSplineBasis(Derivative(2), B)
+        test_recombined(R2)
     end
 
     nothing

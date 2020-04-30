@@ -4,7 +4,7 @@
 Abstract type defining a B-spline basis, or more generally, a functional basis
 defined from B-splines.
 
-The basis is represented by a B-spline order `k` and an element type `T`.
+The basis is represented by a B-spline order `k` and a knot element type `T`.
 """
 abstract type AbstractBSplineBasis{k,T} end
 
