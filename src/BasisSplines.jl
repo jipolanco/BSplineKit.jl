@@ -46,9 +46,11 @@ BSplineOrder(k::Integer) = BSplineOrder{k}()
 
 include("knots.jl")
 include("basis.jl")
-include("recombined.jl")
 
 const AnyBSplineBasis = Union{<:AbstractBSplineBasis, BSplines.BSplineBasis}
+
+include("basis_function.jl")
+include("recombined.jl")
 
 include("spline.jl")
 include("galerkin.jl")
