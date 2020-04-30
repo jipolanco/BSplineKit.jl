@@ -27,8 +27,8 @@ The type parameter `n` represents the order of the BC. The recombined basis
 requires the specification of a `Derivative` object determining the order of the
 homogeneous BCs to be applied at the two boundaries.
 Evidently, the order of the B-spline needs to be ``k ≥ n + 1``, since a B-spline
-of order ``k`` is a ``C^{k - 1}``-continuous function (except on the knots, where it
-is ``C^{k - 2}``).
+of order ``k`` is a ``C^{k - 1}``-continuous function (except on the knots
+where it is ``C^{k - 1 - p}``, with ``p`` the knot multiplicity).
 
 Some possible choices are:
 
