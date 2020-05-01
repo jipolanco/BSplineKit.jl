@@ -116,13 +116,11 @@ function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
         # In other words, we know that S[i, j] = 0 outside the chosen interval.
         istart = fill_upper ? clamp(j - h, 1, N) : j
         iend = fill_lower ? clamp(j + h, 1, N) : j
-        bj = BSpline(B, j)
-        tj = support(bj)
-        fj = x -> bj(x, deriv[2])
+        tj = support(B, j)
+        fj = x -> evaluate_bspline(B, j, x, deriv[2])
         for i = istart:iend
-            bi = BSpline(B, i)
-            ti = support(bi)
-            fi = x -> bi(x, deriv[1])
+            ti = support(B, i)
+            fi = x -> evaluate_bspline(B, i, x, deriv[1])
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
             @assert length(t_inds) == k + 1 - abs(j - i)

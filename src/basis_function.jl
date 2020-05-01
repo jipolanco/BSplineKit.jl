@@ -35,11 +35,14 @@ Get range of knots supported by the B-spline.
 Returns the range `i:j` if the B-spline is non-zero between knots `t[i]` and
 `t[j]`.
 """
-function support(b::BSpline{<:BSplineBasis})
-    k = order(b)
-    i = b.i
-    i:(i + k)
-end
+support(b::BSpline) = support(basis(b), b.i)
+
+"""
+    support(B::BSplineBasis, i::Integer) -> UnitRange{Int}
+
+Get range of knots supported by the i-th B-spline.
+"""
+support(B::BSplineBasis, i::Integer) = i:(i + order(B))
 
 """
     common_support(b1::BSpline, b2::BSpline, ...) -> UnitRange{Int}
@@ -65,7 +68,8 @@ differentiation order.
 
 """
     evaluate_bspline(
-        B::AbstractBSplineBasis, i::Integer, x, [deriv=Derivative(0)], [T=Float64]
+        B::AbstractBSplineBasis, i::Integer, x,
+        [deriv=Derivative(0)], [T=Float64],
     )
 
 Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a

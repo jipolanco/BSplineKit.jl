@@ -128,11 +128,8 @@ For bases that don't satisfy any particular boundary conditions (like
 order_bc(::AbstractBSplineBasis) = nothing
 order_bc(::RecombinedBSplineBasis{D}) where {D} = D
 
-function support(b::BSpline{<:RecombinedBSplineBasis})
-    k = order(b)
-    i = b.i + 1  # NOTE: shifted by +1 wrt BSplineBasis
-    i:(i + k)
-end
+# Support is shifted by +1 wrt BSplineBasis.
+support(R::RecombinedBSplineBasis, i::Integer) = support(parent(R), i) .+ 1
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
 evaluate_bspline(R::RecombinedBSplineBasis{0}, j, args...) =
