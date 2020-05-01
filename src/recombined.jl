@@ -9,8 +9,8 @@ methods. It is described for instance in Boyd 2000 (ch. 6), in the context of
 a Chebyshev basis. In this approach, the original basis is "recombined" so that
 each basis function individually satisfies the BCs.
 
-The new basis, ``{ϕⱼ(x), 1 ≤ j ≤ N-2}``, has two fewer functions than the original
-B-spline basis, ``{bⱼ(x), 1 ≤ j ≤ N}``. Due to this, the number of collocation
+The new basis, ``{ϕ_j(x), 1 ≤ j ≤ N-2}``, has two fewer functions than the original
+B-spline basis, ``{b_j(x), 1 ≤ j ≤ N}``. Due to this, the number of collocation
 points needed to obtain a square collocation matrix is `N - 2`. In particular,
 for the matrix to be invertible, there must be **no** collocation points at the
 boundaries.
@@ -33,23 +33,23 @@ where it is ``C^{k - 1 - p}``, with ``p`` the knot multiplicity).
 Some usual choices are:
 
 - `Derivative(0)` sets homogeneous Dirichlet BCs (``u = 0`` at the
-  boundaries) by removing the first and last B-splines, i.e. ``ϕ₁ = b₂``;
+  boundaries) by removing the first and last B-splines, i.e. ``ϕ_1 = b_2``;
 
 - `Derivative(1)` sets homogeneous Neumann BCs (``du/dx = 0`` at the
   boundaries) by adding the two first (and two last) B-splines,
-  i.e. ``ϕ₁ = b₁ + b₂``.
+  i.e. ``ϕ_1 = b_1 + b_2``.
 
 Higher order BCs are also possible (although it's probably not very useful in
 real applications!).
 For instance, `Derivative(2)` recombines the first three B-splines into two
-basis functions that satisfy ``ϕ₁'' = ϕ₂'' = 0`` at the left boundary, while
+basis functions that satisfy ``ϕ_1'' = ϕ_2'' = 0`` at the left boundary, while
 ensuring that lower and higher-order derivatives keep degrees of freedom at the
 boundary.
-Note that simply adding the first three B-splines, as in ``ϕ₁ = b₁ + b₂ +
-b₃``, makes the first derivative vanish as well as the second one, which is
+Note that simply adding the first three B-splines, as in ``ϕ_1 = b_1 + b_2 +
+b_3``, makes the first derivative vanish as well as the second one, which is
 unwanted.
-The chosen solution is to set ``ϕᵢ = bᵢ - αᵢ b₃`` for ``i ∈ {1, 2}``,
-with ``αᵢ = bᵢ'' / b₃''``. All these considerations apply similarly to the
+The chosen solution is to set ``ϕ_i = b_i - α_i b_3`` for ``i ∈ {1, 2}``,
+with ``α_i = b_i'' / b_3''``. All these considerations apply similarly to the
 right boundary.
 
 This generalises easily to higher order BCs, and also applies to the lower order
@@ -57,7 +57,10 @@ BCs listed above.
 To understand how this works, note that, due to the partition of unity property
 of the B-spline basis:
 
-``∑ⱼ bⱼ(x) = 1 ⇒ ∑ⱼ \\frac{d^n b_j}{dx^n}(x) = 0 \\text{ for } n ≥ 1.``
+```math
+∑_j b_j(x) = 1 \\quad ⇒ \\quad ∑_j \\frac{d^n b_j}{dx^n}(x) = 0
+\\text{ for } n ≥ 1.
+```
 
 Moreover, only the first `n + 1` B-splines have non-zero `n`-th derivative at
 the left boundary. Hence, to enforce a derivative to be zero, the first `n + 1`
@@ -74,14 +77,18 @@ Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
 homogeneous boundary conditions of order `n >= 0`.
 """
 struct RecombinedBSplineBasis{
-            D, k, T, Parent <: BSplineBasis{k,T},
+            n, k, T, Parent <: BSplineBasis{k,T},
+            RMatrix <: RecombineMatrix{Q,n} where Q,
         } <: AbstractBSplineBasis{k,T}
-    B :: Parent  # original B-spline basis
+    B :: Parent   # original B-spline basis
+    M :: RMatrix  # basis recombination matrix
 
     function RecombinedBSplineBasis(
-            ::Derivative{D}, B::BSplineBasis{k,T}) where {k,T,D}
+            ::Derivative{n}, B::BSplineBasis{k,T}) where {k,T,n}
         Parent = typeof(B)
-        new{D,k,T,Parent}(B)
+        M = RecombineMatrix(Derivative(n), B)
+        RMatrix = typeof(M)
+        new{n,k,T,Parent,RMatrix}(B, M)
     end
 end
 
@@ -103,6 +110,13 @@ RecombinedBSplineBasis(order::Derivative, args...; kwargs...) =
 Get original B-spline basis.
 """
 Base.parent(R::RecombinedBSplineBasis) = R.B
+
+"""
+    recombination_matrix(R::RecombinedBSplineBasis)
+
+Get [`RecombineMatrix`](@ref) associated to the recombined basis.
+"""
+recombination_matrix(R::RecombinedBSplineBasis) = R.M
 
 """
     length(R::RecombinedBSplineBasis)
@@ -135,58 +149,37 @@ support(R::RecombinedBSplineBasis, i::Integer) = support(parent(R), i) .+ 1
 evaluate_bspline(R::RecombinedBSplineBasis{0}, j, args...) =
     evaluate_bspline(parent(R), j + 1, args...)
 
-# Homogeneous Neumann BCs.
-function evaluate_bspline(R::RecombinedBSplineBasis{1}, j, args...)
+# Generalisation for D >= 1
+function evaluate_bspline(R::RecombinedBSplineBasis{n}, i, args...) where {n}
     B = parent(R)
-    N = length(R)
-    if j == 1
-        evaluate_bspline(B, 1, args...) + evaluate_bspline(B, 2, args...)
-    elseif j == N
-        evaluate_bspline(B, N + 1, args...) + evaluate_bspline(B, N + 2, args...)
+    A = recombination_matrix(R)
+    M, N = size(A)
+
+    block = which_recombine_block(Derivative(n), i, M)
+
+    i1 = i + 1
+    ϕ = evaluate_bspline(B, i1, args...)  # this B-spline is always needed
+    T = typeof(ϕ)
+
+    if block == 2
+        # A[i, i + 1] should be 1
+        return ϕ
+    end
+
+    ϕ::T *= A[i, i1]
+
+    js = if block == 1
+        1:(n + 1)
     else
-        # Same as for Dirichlet.
-        evaluate_bspline(B, j + 1, args...)
-    end
-end
-
-# Generalisation for D >= 2
-function evaluate_bspline(R::RecombinedBSplineBasis{D}, j, args...) where {D}
-    @assert D >= 2
-    N = length(R)
-    B = parent(R)
-
-    ja = ntuple(identity, Val(D))  # = (1, 2, ..., D)
-    jb = (N + 1) .- ja  # = (N, N - 1, ..., N - D + 1)
-
-    if j ∉ ja && j ∉ jb
-        return evaluate_bspline(B, j + 1, args...)
+        (N - n):N
     end
 
-    # At each border, we want 2 independent linear combinations of the first 3
-    # B-splines such that ϕ₁'' = ϕ₂'' = 0 at x = a, and such that lower-order
-    # derivatives keep at least one degree of freedom (i.e. they do *not*
-    # vanish). A simple solution is to choose:
-    #
-    #     ϕ₁ = b₁ - α₁ b₃,
-    #     ϕ₂ = b₂ - α₂ b₃,
-    #
-    # with αᵢ = bᵢ'' / b₃.
-
-    a, b = boundaries(B)
-
-    if j ∈ ja
-        x = a
-        js = (j, D + 1)
-    elseif j ∈ jb
-        x = b
-        js = (j + 2, N + 2 - D)
+    for j ∈ js
+        j == i1 && continue  # already added
+        α = A[i, j]
+        iszero(α) && continue
+        ϕ::T += α * evaluate_bspline(B, j, args...)
     end
 
-    # First, evaluate D-th derivatives of bⱼ at the boundary.
-    # TODO replace with analytical formula?
-    pj, p3 = evaluate_bspline.(B, js, x, Derivative(D))
-    α = pj / p3
-
-    bj, b3 = evaluate_bspline.(B, js, args...)
-    bj - α * b3
+    ϕ::T
 end

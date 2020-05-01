@@ -16,6 +16,7 @@ module BasisSplines
 export Collocation
 
 export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
+export RecombineMatrix, recombination_matrix
 export Spline, BSpline, BSplineOrder, Derivative
 export knots, order, coefficients, boundaries, order_bc
 export augment_knots
@@ -28,7 +29,9 @@ using FastGaussQuadrature: gausslegendre
 using Reexport
 using LinearAlgebra: Symmetric
 using SparseArrays
-using StaticArrays: MVector
+using StaticArrays: MVector, SMatrix
+
+import LinearAlgebra
 
 # We're transitioning to using the registered BSplines package...
 import BSplines
@@ -50,6 +53,8 @@ include("basis.jl")
 const AnyBSplineBasis = Union{<:AbstractBSplineBasis, BSplines.BSplineBasis}
 
 include("basis_function.jl")
+
+include("recombine_matrix.jl")
 include("recombined.jl")
 
 include("spline.jl")

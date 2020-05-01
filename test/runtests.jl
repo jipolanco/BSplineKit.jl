@@ -8,10 +8,30 @@ using Test
 # Chebyshev (Gauss-Lobatto) points.
 gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
 
+function test_recombine_matrix(A::RecombineMatrix)
+    @testset "Recombination matrix" begin
+        M, N = size(A)
+        @test M == N - 2
+
+        u = rand(N)
+        v1 = similar(u, M)
+        v2 = similar(v1)
+
+        # Test custom matrix-vector multiplication.
+        # The second version uses the getindex() function to build a regular
+        # sparse matrix, which is less efficient.
+        mul!(v1, A, u)
+        mul!(v2, sparse(A), u)
+        @test v1 == v2
+    end
+    nothing
+end
+
 function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
     a, b = boundaries(R)
     N = length(R)
     k = order(R)
+    test_recombine_matrix(recombination_matrix(R))
 
     # Verify that all basis functions satisfy the boundary conditions
     # for the derivative `D`, while they leave at least one degree of freedom
