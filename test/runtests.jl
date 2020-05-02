@@ -13,6 +13,12 @@ function test_recombine_matrix(A::RecombineMatrix)
         M, N = size(A)
         @test M == N - 2
 
+        n = order_bc(A)
+
+        @test @views A[1:n, 1:(n + 1)] == A.ul            # upper-left corner
+        @test @views A[(M - n + 1):M, (N - n):N] == A.lr  # lower-right corner
+        @test @views A[(n + 1):(M - n), (n + 2):(N - n - 1)] == I
+
         u = rand(N)
         v1 = similar(u, M)
         v2 = similar(v1)
