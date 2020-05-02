@@ -27,7 +27,7 @@ export galerkin_matrix, galerkin_matrix!
 using BandedMatrices: BandedMatrix
 using FastGaussQuadrature: gausslegendre
 using Reexport
-using LinearAlgebra: Symmetric
+using LinearAlgebra: Symmetric, Adjoint, Transpose
 using SparseArrays
 using StaticArrays
 

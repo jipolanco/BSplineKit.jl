@@ -38,7 +38,25 @@ function test_recombine_matrix(A::RecombineMatrix)
         randn!(u)  # use different u, otherwise A * u = v1
         mul!(v2, A, u, 2, -3)
         @test v2 == 2 * (A * u) - 3 * v1
+
+        # Same for transposed / adjoint matrix.
+        u1 = u
+        u2 = similar(u)
+        for At in (transpose(A), adjoint(A))
+            v = v1
+            mul!(u1, At, v)
+            mul!(u2, sparse(At), v)
+            @test u1 == u2
+
+            mul!(u2, At, v, 1, 0)
+            @test u1 == u2
+
+            randn!(v)
+            mul!(u2, At, v, 2, -3)
+            @test u2 == 2 * (At * v) - 3 * u1
+        end
     end
+
     nothing
 end
 

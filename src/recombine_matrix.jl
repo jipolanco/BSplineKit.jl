@@ -210,6 +210,64 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     y
 end
 
+const TransposedRecombineMatrix =
+    Union{Adjoint{T,M}, Transpose{T,M}} where {T, M <: RecombineMatrix{T}}
+
+function LinearAlgebra.mul!(x::AbstractVector,
+                            At::TransposedRecombineMatrix,
+                            y::AbstractVector,
+                           )
+    checkdims_mul(x, At, y)
+    A = parent(At)
+    M, N = size(A)
+
+    # Select transposition function (is there a better way to do this?)
+    # In practice, the recombination matrix is always real-valued, so it
+    # shouldn't make a difference.
+    tr = At isa Adjoint ? adjoint : transpose
+
+    n = order_bc(A)
+    n1 = n + 1
+    h = M - n
+
+    @inbounds x[1:n1] = tr(A.ul) * @view y[1:n]
+
+    for i = (n + 1):h
+        @inbounds x[i + 1] = y[i]
+    end
+
+    @inbounds x[(N - n):N] = tr(A.lr) * @view y[(h + 1):(h + n)]
+
+    x
+end
+
+function LinearAlgebra.mul!(x::AbstractVector,
+                            At::TransposedRecombineMatrix,
+                            y::AbstractVector, α::Number, β::Number,
+                           )
+    checkdims_mul(x, At, y)
+    A = parent(At)
+    M, N = size(A)
+    tr = At isa Adjoint ? adjoint : transpose
+
+    n = order_bc(A)
+    n1 = n + 1
+    h = M - n
+
+    @inbounds x[1:n1] =
+        α * tr(A.ul) * view(y, 1:n) + β * SVector{n1}(view(x, 1:n1))
+
+    for i = (n + 1):h
+        @inbounds x[i + 1] = α * y[i] + β * x[i + 1]
+    end
+
+    r = (h + 1):(h + n)
+    @inbounds x[(N - n):N] =
+        α * tr(A.lr) * view(y, r) + β * SVector{n1}(view(x, (N - n):N))
+
+    x
+end
+
 @inline function checkdims_mul(y, A, x)
     M, N = size(A)
     if length(y) != M
