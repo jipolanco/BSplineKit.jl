@@ -150,23 +150,23 @@ evaluate_bspline(R::RecombinedBSplineBasis{0}, j, args...) =
     evaluate_bspline(parent(R), j + 1, args...)
 
 # Generalisation for D >= 1
-function evaluate_bspline(R::RecombinedBSplineBasis{n}, i, args...) where {n}
+function evaluate_bspline(R::RecombinedBSplineBasis{n}, j, args...) where {n}
     B = parent(R)
     A = recombination_matrix(R)
-    M, N = size(A)
+    N, M = size(A)
 
-    block = which_recombine_block(Derivative(n), i, M)
+    block = which_recombine_block(Derivative(n), j, M)
 
-    i1 = i + 1
-    ϕ = evaluate_bspline(B, i1, args...)  # this B-spline is always needed
+    j1 = j + 1
+    ϕ = evaluate_bspline(B, j1, args...)  # this B-spline is always needed
     T = typeof(ϕ)
 
     if block == 2
-        # A[i, i + 1] should be 1
+        # A[j + 1, j] should be 1
         return ϕ
     end
 
-    ϕ::T *= A[i, i1]
+    ϕ::T *= A[j1, j]
 
     js = if block == 1
         1:(n + 1)
@@ -174,11 +174,11 @@ function evaluate_bspline(R::RecombinedBSplineBasis{n}, i, args...) where {n}
         (N - n):N
     end
 
-    for j ∈ js
-        j == i1 && continue  # already added
+    for i ∈ js
+        i == j1 && continue  # already added
         α = A[i, j]
         iszero(α) && continue
-        ϕ::T += α * evaluate_bspline(B, j, args...)
+        ϕ::T += α * evaluate_bspline(B, i, args...)
     end
 
     ϕ::T

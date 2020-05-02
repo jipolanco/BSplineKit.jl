@@ -5,12 +5,19 @@ Matrix for transformation from B-spline basis to recombined basis.
 
 The transform matrix ``M`` is defined by
 ```math
-ϕ_i = M_{ij} b_j,
+ϕ_j = M_{ij} b_i,
 ```
 where ``b_j`` and ``ϕ_i`` are elements of the B-spline and recombined bases,
 respectively.
 
-Note that the matrix is not square: it has dimensions `(N - 2, N)`, where `N`
+This matrix allows to pass from known coefficients ``u_j`` in the recombined
+basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
+``b_i``:
+```math
+\\mathbf{v} = M \\mathbf{u}.
+```
+
+Note that the matrix is not square: it has dimensions `(N, N - 2)`, where `N`
 is the length of the B-spline basis.
 
 As in [`RecombinedBSplineBasis`](@ref), the type parameter `n` indicates the
@@ -19,22 +26,22 @@ order of the boundary condition satisfied by the recombined basis.
 Due to the local support of B-splines, the matrix is very sparse, being roughly
 described by a diagonal of ones, plus some extra elements in the upper left and
 lower right corners (more precisely, these "corners" are blocks of size
-`(n, n + 1)`).
+`(n + 1, n)`).
 
 The matrix is stored in a memory-efficient way that also allows fast access to
 its elements. For orders `n ∈ {0, 1}`, the matrix is made of zeroes and ones,
 and the default element type is `Bool`.
 """
 struct RecombineMatrix{T, n, n1,
-                       Corner <: SMatrix{n,n1,T}} <: AbstractMatrix{T}
+                       Corner <: SMatrix{n1,n,T}} <: AbstractMatrix{T}
     M :: Int      # length of recombined basis (= N - 2)
     N :: Int      # length of B-spline basis
-    ul :: Corner  # upper-left corner of matrix, size (n, n + 1)
-    lr :: Corner  # lower-right corner of matrix, size (n, n + 1)
+    ul :: Corner  # upper-left corner of matrix, size (n + 1, n)
+    lr :: Corner  # lower-right corner of matrix, size (n + 1, n)
     function RecombineMatrix(N::Integer, ul::SMatrix, lr::SMatrix)
-        n, n1 = size(ul)
+        n1, n = size(ul)
         if n1 != n + 1
-            throw(ArgumentError("matrices must have dimensions (n, n + 1)"))
+            throw(ArgumentError("matrices must have dimensions (n + 1, n)"))
         end
         T = eltype(ul)
         Corner = typeof(ul)
@@ -49,7 +56,7 @@ end
 function RecombineMatrix(::Derivative{0}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
     N = length(B)
-    ul = SMatrix{0,1,T}()
+    ul = SMatrix{1,0,T}()
     lr = copy(ul)
     RecombineMatrix(N, ul, lr)
 end
@@ -58,7 +65,7 @@ end
 function RecombineMatrix(::Derivative{1}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
     N = length(B)
-    ul = SMatrix{1,2,T}([1, 1])
+    ul = SMatrix{2,1,T}([1, 1])
     lr = copy(ul)
     RecombineMatrix(N, ul, lr)
 end
@@ -83,7 +90,7 @@ function RecombineMatrix(::Derivative{n}, B::BSplineBasis,
     # This generalises to all orders `n ≥ 0`.
 
     a, b = boundaries(B)
-    Ca = zeros(T, n, n + 1)
+    Ca = zeros(T, n + 1, n)
     Cb = copy(Ca)
 
     for i = 1:n
@@ -93,7 +100,7 @@ function RecombineMatrix(::Derivative{n}, B::BSplineBasis,
         bi, bn1 = evaluate_bspline.(B, (i, n + 1), x, Derivative(n))
         α = bi / bn1
         Ca[i, i] = 1
-        Ca[i, n + 1] = -α
+        Ca[n + 1, i] = -α
     end
 
     N = length(B)
@@ -103,24 +110,24 @@ function RecombineMatrix(::Derivative{n}, B::BSplineBasis,
         x = b
         bi, bn1 = evaluate_bspline.(B, (i, N - n), x, Derivative(n))
         α = bi / bn1
-        Cb[m, 1] = -α
-        Cb[m, m + 1] = 1
+        Cb[1, m] = -α
+        Cb[m + 1, m] = 1
     end
 
-    ul = SMatrix{n, n + 1}(Ca)
-    lr = SMatrix{n, n + 1}(Cb)
+    ul = SMatrix{n + 1, n}(Ca)
+    lr = SMatrix{n + 1, n}(Cb)
 
     RecombineMatrix(N, ul, lr)
 end
 
-Base.size(A::RecombineMatrix) = (A.M, A.N)
+Base.size(A::RecombineMatrix) = (A.N, A.M)
 order_bc(A::RecombineMatrix{T,n}) where {T,n} = n
 
-# i: index in recombined basis
+# j: index in recombined basis
 # M: length of recombined basis
-function which_recombine_block(::Derivative{n}, i, M) where {n}
-    i <= n && return 1
-    i > M - n && return 3
+function which_recombine_block(::Derivative{n}, j, M) where {n}
+    j <= n && return 1
+    j > M - n && return 3
     2
 end
 
@@ -134,30 +141,30 @@ end
     @boundscheck checkbounds(A, i, j)
     T = eltype(A)
     n = order_bc(A)
-    M = size(A, 1)
+    M = size(A, 2)
 
-    block = which_recombine_block(Derivative(n), i, M)
+    block = which_recombine_block(Derivative(n), j, M)
 
     if block == 2
-        return T(i + 1 == j)  # δ_{i+1, j}
+        return T(i == j + 1)  # δ_{i, j+1}
     end
 
     if block == 1
         C = A.ul
-        if j <= size(C, 2)
+        if i <= size(C, 1)
             return @inbounds C[i, j] :: T
         end
         return zero(T)
     end
 
-    # The lower-right corner starts at row h + 1.
+    # The lower-right corner starts at column h + 1.
     h = M - n
 
-    @assert i > h
+    @assert j > h
     C = A.lr
-    jj = j - h - 1
-    if jj ∈ axes(C, 2)
-        return @inbounds C[i - h, jj] :: T
+    ii = i - h - 1
+    if ii ∈ axes(C, 1)
+        return @inbounds C[ii, j - h] :: T
     end
 
     zero(T)
@@ -168,19 +175,19 @@ end
 function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
                             x::AbstractVector)
     checkdims_mul(y, A, x)
-    M, N = size(A)
+    N, M = size(A)
 
     n = order_bc(A)
     n1 = n + 1
     h = M - n
 
-    @inbounds y[1:n] = A.ul * @view x[1:n1]
+    @inbounds y[1:n1] = A.ul * @view x[1:n]
 
     for i = (n + 1):h
-        @inbounds y[i] = x[i + 1]
+        @inbounds y[i + 1] = x[i]
     end
 
-    @inbounds y[(h + 1):(h + n)] = A.lr * @view x[(N - n):N]
+    @inbounds y[(N - n):N] = A.lr * @view x[(h + 1):(h + n)]
 
     y
 end
@@ -192,20 +199,21 @@ end
 function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
                             x::AbstractVector, α::Number, β::Number)
     checkdims_mul(y, A, x)
-    M, N = size(A)
+    N, M = size(A)
 
     n = order_bc(A)
     n1 = n + 1
     h = M - n
 
-    @inbounds y[1:n] = α * A.ul * view(x, 1:n1) + β * SVector{n}(view(y, 1:n))
+    @inbounds y[1:n1] = α * A.ul * view(x, 1:n) + β * SVector{n1}(view(y, 1:n1))
 
     for i = (n + 1):h
-        @inbounds y[i] = α * x[i + 1] + β * y[i]
+        @inbounds y[i + 1] = α * x[i] + β * y[i + 1]
     end
 
-    r = (h + 1):(h + n)
-    @inbounds y[r] = α * A.lr * view(x, (N - n):N) + β * SVector{n}(view(y, r))
+    js = (N - n):N
+    @inbounds y[js] =
+        α * A.lr * view(x, (h + 1):(h + n)) + β * SVector{n1}(view(y, js))
 
     y
 end
@@ -219,7 +227,7 @@ function LinearAlgebra.mul!(x::AbstractVector,
                            )
     checkdims_mul(x, At, y)
     A = parent(At)
-    M, N = size(A)
+    N, M = size(A)
 
     # Select transposition function (is there a better way to do this?)
     # In practice, the recombination matrix is always real-valued, so it
@@ -230,13 +238,13 @@ function LinearAlgebra.mul!(x::AbstractVector,
     n1 = n + 1
     h = M - n
 
-    @inbounds x[1:n1] = tr(A.ul) * @view y[1:n]
+    @inbounds x[1:n] = tr(A.ul) * @view y[1:n1]
 
     for i = (n + 1):h
-        @inbounds x[i + 1] = y[i]
+        @inbounds x[i] = y[i + 1]
     end
 
-    @inbounds x[(N - n):N] = tr(A.lr) * @view y[(h + 1):(h + n)]
+    @inbounds x[(h + 1):(h + n)] = tr(A.lr) * @view y[(N - n):N]
 
     x
 end
@@ -247,23 +255,23 @@ function LinearAlgebra.mul!(x::AbstractVector,
                            )
     checkdims_mul(x, At, y)
     A = parent(At)
-    M, N = size(A)
+    N, M = size(A)
     tr = At isa Adjoint ? adjoint : transpose
 
     n = order_bc(A)
     n1 = n + 1
     h = M - n
 
-    @inbounds x[1:n1] =
-        α * tr(A.ul) * view(y, 1:n) + β * SVector{n1}(view(x, 1:n1))
+    @inbounds x[1:n] =
+        α * tr(A.ul) * view(y, 1:n1) + β * SVector{n}(view(x, 1:n))
 
     for i = (n + 1):h
-        @inbounds x[i + 1] = α * y[i] + β * x[i + 1]
+        @inbounds x[i] = α * y[i + 1] + β * x[i]
     end
 
     r = (h + 1):(h + n)
-    @inbounds x[(N - n):N] =
-        α * tr(A.lr) * view(y, r) + β * SVector{n1}(view(x, (N - n):N))
+    @inbounds x[r] =
+        α * tr(A.lr) * view(y, (N - n):N) + β * SVector{n}(view(x, r))
 
     x
 end
