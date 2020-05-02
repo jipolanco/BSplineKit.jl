@@ -29,7 +29,7 @@ using FastGaussQuadrature: gausslegendre
 using Reexport
 using LinearAlgebra: Symmetric
 using SparseArrays
-using StaticArrays: MVector, SMatrix
+using StaticArrays
 
 import LinearAlgebra
 

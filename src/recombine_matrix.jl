@@ -167,17 +167,8 @@ end
 # Generally much faster than using a regular sparse array.
 function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
                             x::AbstractVector)
+    checkdims_mul(y, A, x)
     M, N = size(A)
-
-    if length(y) != M
-        throw(DimensionMismatch("first dimension of A, $M, " *
-                                "does not match length of y, $(length(y))"))
-    end
-
-    if length(x) != N
-        throw(DimensionMismatch("second dimension of A, $N, " *
-                                "does not match length of x, $(length(x))"))
-    end
 
     n = order_bc(A)
     n1 = n + 1
@@ -192,4 +183,42 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     @inbounds y[(h + 1):(h + n)] = A.lr * @view x[(N - n):N]
 
     y
+end
+
+# Five-argument mul!.
+# Note that, since I have this, I could remove the 3-argument mul!  (which is
+# equal to the 5-argument one with α = 1 and β = 0), but it would be a bit more
+# inefficient to compute.
+function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
+                            x::AbstractVector, α::Number, β::Number)
+    checkdims_mul(y, A, x)
+    M, N = size(A)
+
+    n = order_bc(A)
+    n1 = n + 1
+    h = M - n
+
+    @inbounds y[1:n] = α * A.ul * view(x, 1:n1) + β * SVector{n}(view(y, 1:n))
+
+    for i = (n + 1):h
+        @inbounds y[i] = α * x[i + 1] + β * y[i]
+    end
+
+    r = (h + 1):(h + n)
+    @inbounds y[r] = α * A.lr * view(x, (N - n):N) + β * SVector{n}(view(y, r))
+
+    y
+end
+
+@inline function checkdims_mul(y, A, x)
+    M, N = size(A)
+    if length(y) != M
+        throw(DimensionMismatch("first dimension of A, $M, " *
+                                "does not match length of y, $(length(y))"))
+    end
+    if length(x) != N
+        throw(DimensionMismatch("second dimension of A, $N, " *
+                                "does not match length of x, $(length(x))"))
+    end
+    nothing
 end

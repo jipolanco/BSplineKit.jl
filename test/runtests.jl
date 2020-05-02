@@ -2,6 +2,7 @@ using BasisSplines
 
 using BandedMatrices
 using LinearAlgebra
+using Random
 using SparseArrays
 using Test
 
@@ -29,6 +30,14 @@ function test_recombine_matrix(A::RecombineMatrix)
         mul!(v1, A, u)
         mul!(v2, sparse(A), u)
         @test v1 == v2
+
+        # Test 5-argument mul!.
+        mul!(v2, A, u, 1, 0)  # equivalent to 3-argument mul!
+        @test v1 == v2
+
+        randn!(u)  # use different u, otherwise A * u = v1
+        mul!(v2, A, u, 2, -3)
+        @test v2 == 2 * (A * u) - 3 * v1
     end
     nothing
 end
