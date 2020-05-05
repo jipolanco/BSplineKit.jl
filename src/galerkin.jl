@@ -253,11 +253,12 @@ function galerkin_tensor!(A::BandedTensor3D, B::AbstractBSplineBasis,
         is = istart:iend
         js = is
 
-        iband, jband = BandedTensors.band_axes(A, l)
-        @assert issubset(is, iband) && issubset(js, jband)
+        band_ind = BandedTensors.band_indices(A, l)
+        @assert issubset(is, band_ind) && issubset(js, band_ind)
 
-        i0, j0 = first.((iband, jband)) .- 1
-        @assert i0 == j0 == l - k
+        i0 = first(band_ind) - 1
+        j0 = i0
+        @assert i0 == l - k
 
         fill!(Al, 0)
 

@@ -76,13 +76,12 @@ Wraps the `SMatrix` holding the submatrix.
 """
 struct SubMatrix{M <: SMatrix, Indices <: AbstractRange}
     data :: M
-    is   :: Indices
-    js   :: Indices
+    inds :: Indices
 end
 
-function SubMatrix(A::BandedTensor3D, k)
+@inline function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
-    @inbounds SubMatrix(A.data[k], band_axes(A, k)...)
+    @inbounds SubMatrix(A.data[k], band_indices(A, k))
 end
 
 Base.parent(Asub::SubMatrix) = Asub.data
@@ -108,15 +107,14 @@ function Base.size(A::BandedTensor3D)
 end
 
 """
-    band_axes(A::BandedTensor3D, k)
+    band_indices(A::BandedTensor3D, k)
 
-Return the range of indices `(i1:i2, j1:j2)` for subarray `A[:, :, k]`
-where values may be non-zero.
+Return the range of indices `a:b` for subarray `A[:, :, k]` where values may be
+non-zero.
 """
-@inline function band_axes(A::BandedTensor3D, k)
+@inline function band_indices(A::BandedTensor3D, k)
     b = bandwidth(A)
-    ax = (k - b):(k + b)
-    ax, ax
+    (k - b):(k + b)
 end
 
 """
@@ -141,8 +139,8 @@ Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k) = SubMatrix(A, k)
                                i::Integer, j::Integer, k::Integer)
     @boundscheck checkbounds(A, i, j, k)
     @inbounds Asub = SubMatrix(A, k)
-    ri = Asub.is
-    rj = Asub.js
+    ri = Asub.inds
+    rj = Asub.inds
     (i ∈ ri) && (j ∈ rj) || return zero(eltype(A))
     b = bandwidth(A)
     ii = i - first(ri) + 1
@@ -169,10 +167,37 @@ Efficient implementation of the generalised dot product `dot(x, Asub * y)`.
 To be used with a submatrix `Asub = A[:, :, k]` of a [`BandedTensor3D`](@ref) `A`.
 """
 function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
+    # TODO inbounds / checkbounds
+    @boundscheck @assert axes(u) === axes(v)
+    Base.require_one_based_indexing(u, v)
+
     A = parent(S) :: SMatrix
-    usub = @view u[S.is]
-    vsub = @view v[S.js]
-    dot(usub, A * vsub)
+
+    uind = axes(u, 1)
+
+    if issubset(S.inds, uind)
+        @inbounds usub = @view u[S.inds]
+        @inbounds vsub = @view v[S.inds]
+        return dot(usub, A * vsub)
+    end
+
+    # Boundaries
+    vec_inds = intersect(S.inds, uind)
+    @inbounds usub = @view u[vec_inds]
+    @inbounds vsub = @view v[vec_inds]
+
+    l = length(vec_inds)
+    n = size(A, 1)
+    @assert n > l
+
+    mat_inds = if first(S.inds) <= 0
+        (n - l + 1):n  # lower right corner
+    else
+        1:l  # upper left corner
+    end
+    @inbounds Asub = @view A[mat_inds, mat_inds]
+
+    dot(usub, Asub, vsub)  # requires Julia 1.4!!
 end
 
 end
