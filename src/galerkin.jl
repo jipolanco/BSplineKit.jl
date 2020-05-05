@@ -1,3 +1,5 @@
+const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
+
 """
     galerkin_matrix(
         B::AbstractBSplineBasis,
@@ -37,7 +39,7 @@ Other types of container are also supported, including regular sparse matrices
 """
 function galerkin_matrix(
         B::AnyBSplineBasis,
-        deriv = Derivative.((0, 0)),
+        deriv::DerivativeCombination{2} = Derivative.((0, 0)),
         ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
     N = length(B)
@@ -71,6 +73,28 @@ function allocate_galerkin_matrix(::Type{M}, N, k,
 end
 
 """
+    galerkin_tensor(
+        B::AbstractBSplineBasis,
+        (D1::Derivative, D2::Derivative, D3::Derivative),
+        [T = Float64],
+    )
+
+Compute 3D banded tensor appearing from quadratic terms in Galerkin method.
+
+The tensor is efficiently stored in a [`BandedTensor3D`] object.
+"""
+function galerkin_tensor(
+        B::AnyBSplineBasis,
+        deriv::DerivativeCombination{3},
+        ::Type{T} = Float64,
+    ) where {T}
+    N = length(B)
+    b = order(B) - 1   # band width
+    A = BandedTensor3D{T}(undef, N, b)
+    galerkin_tensor!(A, B, deriv)
+end
+
+"""
     galerkin_matrix!(A::AbstractMatrix, B::AbstractBSplineBasis,
                      deriv = (Derivative(0), Derivative(0)))
 
@@ -98,7 +122,8 @@ function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
     T = eltype(S)
 
     # Quadrature information (weights, nodes).
-    quad = _quadrature_prod(k)
+    quad = _quadrature_prod(2k - 2)
+    @assert length(quad[1]) == k  # this should correspond to k quadrature points
 
     if S isa Symmetric
         deriv[1] === deriv[2] || error("matrix will not be symmetric with deriv = $deriv")
@@ -124,7 +149,8 @@ function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
             @assert length(t_inds) == k + 1 - abs(j - i)
-            A[i, j] = _integrate_prod(fi, fj, t, t_inds, quad)
+            f = x -> fi(x) * fj(x)
+            A[i, j] = _integrate(f, t, t_inds, quad)
         end
     end
 
@@ -147,7 +173,8 @@ function galerkin_matrix!(S::AbstractMatrix, B::BSplines.BSplineBasis,
     T = eltype(S)
 
     # Quadrature information (weights, nodes).
-    quad = _quadrature_prod(k)
+    quad = _quadrature_prod(2k - 2)
+    @assert length(quad[1]) == k
 
     same_deriv = deriv[1] === deriv[2]
 
@@ -201,6 +228,61 @@ function galerkin_matrix!(S::AbstractMatrix, B::BSplines.BSplineBasis,
     S
 end
 
+function galerkin_tensor!(A::BandedTensor3D, B::AbstractBSplineBasis,
+                          deriv::DerivativeCombination{3})
+    N = size(A, 1)
+
+    if N != length(B)
+        throw(ArgumentError("wrong dimensions of Galerkin tensor"))
+    end
+
+    k = order(B)
+    t = knots(B)
+    h = k - 1
+    T = eltype(A)
+
+    # Quadrature information (weights, nodes).
+    quad = _quadrature_prod(3k - 3)
+    @assert BandedTensors.bandwidth(A) == k - 1
+
+    Al = Matrix{T}(undef, 2k - 1, 2k - 1)
+
+    for l = 1:N
+        istart = clamp(l - h, 1, N)
+        iend = clamp(l + h, 1, N)
+        is = istart:iend
+        js = is
+
+        iband, jband = BandedTensors.band_axes(A, l)
+        @assert issubset(is, iband) && issubset(js, jband)
+
+        i0, j0 = first.((iband, jband)) .- 1
+        @assert i0 == j0 == l - k
+
+        fill!(Al, 0)
+
+        tl = support(B, l)
+        fl = x -> evaluate_bspline(B, l, x, deriv[3])
+
+        for j in js
+            tj = support(B, j)
+            fj = x -> evaluate_bspline(B, j, x, deriv[2])
+            for i in is
+                ti = support(B, i)
+                fi = x -> evaluate_bspline(B, i, x, deriv[1])
+                t_inds = intersect(ti, tj, tl)
+                isempty(t_inds) && continue
+                f = x -> fi(x) * fj(x) * fl(x)
+                Al[i - i0, j - j0] = _integrate(f, t, t_inds, quad)
+            end
+        end
+
+        A[:, :, l] = Al
+    end
+
+    A
+end
+
 # Generate quadrature information for B-spline product.
 # Returns weights and nodes for integration in [-1, 1].
 #
@@ -218,10 +300,12 @@ end
 # - Conclusion: on each knot interval, `k` nodes should be enough to get an
 #   exact integral. (I verified that results don't change when using more than
 #   `k` nodes.)
-_quadrature_prod(k) = gausslegendre(k)
+#
+# Here, p is the polynomial order (p = 2k - 2 for the product of two B-splines).
+_quadrature_prod(p) = gausslegendre(cld(p + 1, 2))
 
-# Integrate product of functions over the subintervals t[inds].
-function _integrate_prod(f, g, t, inds, (x, w))
+# Integrate function over the subintervals t[inds].
+function _integrate(f::Function, t, inds, (x, w))
     int = 0.0  # compute stuff in Float64, regardless of type wanted by the caller
     N = length(w)  # number of weights / nodes
     for i in inds[2:end]
@@ -232,7 +316,7 @@ function _integrate_prod(f, g, t, inds, (x, w))
         β = (a + b) / 2
         for n = 1:N
             y = α * x[n] + β
-            int += α * w[n] * f(y) * g(y)
+            int += α * w[n] * f(y)
         end
     end
     int

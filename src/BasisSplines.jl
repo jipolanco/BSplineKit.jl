@@ -22,7 +22,7 @@ export knots, order, coefficients, boundaries, order_bc
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
 export integral
-export galerkin_matrix, galerkin_matrix!
+export galerkin_matrix, galerkin_matrix!, galerkin_tensor
 
 using BandedMatrices: BandedMatrix
 using FastGaussQuadrature: gausslegendre
