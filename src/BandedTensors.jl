@@ -2,6 +2,9 @@ module BandedTensors
 
 using StaticArrays
 
+using LinearAlgebra: dot
+import LinearAlgebra
+
 export BandedTensor3D
 
 """
@@ -64,10 +67,25 @@ initialised as in the following example:
 
 Base.sizeof(A::BandedTensor3D) = sizeof(A.data)
 
-function submatrix(A::BandedTensor3D, k)
-    @boundscheck checkbounds(A.data, k)
-    @inbounds A.data[k]
+"""
+    SubMatrix
+
+Represents a submatrix `A[:, :, k]` of [`BandedTensor3D`](@ref).
+
+Wraps the `SMatrix` holding the submatrix.
+"""
+struct SubMatrix{M <: SMatrix, Indices <: AbstractRange}
+    data :: M
+    is   :: Indices
+    js   :: Indices
 end
+
+function SubMatrix(A::BandedTensor3D, k)
+    @boundscheck checkbounds(A.data, k)
+    @inbounds SubMatrix(A.data[k], band_axes(A, k)...)
+end
+
+Base.parent(Asub::SubMatrix) = Asub.data
 
 submatrix_type(::Type{BandedTensor3D{T,b,r,M}}) where {T,b,r,M} = M
 submatrix_type(A::BandedTensor3D) = submatrix_type(typeof(A))
@@ -117,18 +135,19 @@ function Base.setindex!(A::BandedTensor3D, Ak::AbstractMatrix,
 end
 
 # Get submatrix A[:, :, k].
-Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k) = submatrix(A, k)
+Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k) = SubMatrix(A, k)
 
 @inline function Base.getindex(A::BandedTensor3D,
                                i::Integer, j::Integer, k::Integer)
     @boundscheck checkbounds(A, i, j, k)
-    ri, rj = band_axes(A, k)
+    @inbounds Asub = SubMatrix(A, k)
+    ri = Asub.is
+    rj = Asub.js
     (i ∈ ri) && (j ∈ rj) || return zero(eltype(A))
-    @inbounds Ak = submatrix(A, k)
     b = bandwidth(A)
     ii = i - first(ri) + 1
     jj = j - first(rj) + 1
-    @inbounds Ak[ii, jj]
+    @inbounds parent(Asub)[ii, jj]
 end
 
 function Base.fill!(A::BandedTensor3D, x)
@@ -140,6 +159,20 @@ function Base.fill!(A::BandedTensor3D, x)
         A[:, :, k] = Ak
     end
     A
+end
+
+"""
+    dot(x, Asub::SubMatrix, y)
+
+Efficient implementation of the generalised dot product `dot(x, Asub * y)`.
+
+To be used with a submatrix `Asub = A[:, :, k]` of a [`BandedTensor3D`](@ref) `A`.
+"""
+function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
+    A = parent(S) :: SMatrix
+    usub = @view u[S.is]
+    vsub = @view v[S.js]
+    dot(usub, A * vsub)
 end
 
 end
