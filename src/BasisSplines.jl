@@ -38,6 +38,9 @@ import BSplines
 using BSplines: Derivative
 import BSplines: order, knots
 
+include("BandedTensors.jl")
+@reexport using .BandedTensors
+
 """
     BSplineOrder(k::Integer)
 
