@@ -1,5 +1,5 @@
 """
-    RecombinedBSplineBasis{n, k, T}
+    RecombinedBSplineBasis{orders, k, T}
 
 Functional basis defined from the recombination of a [`BSplineBasis`](@ref)
 in order to satisfy certain homogeneous boundary conditions (BCs).
@@ -23,9 +23,14 @@ is a bit more complex, but not much.
 
 # Order of the boundary condition
 
-The type parameter `n` represents the order of the BC. The recombined basis
-requires the specification of a `Derivative` object determining the order of the
-homogeneous BCs to be applied at the two boundaries.
+The type parameter `orders` represents the order of the satisfied BC(s).
+In this section, we consider the case where its length is 1 and
+`orders = (n, )`, i.e., only the derivative of order `n` is constrained to
+satisfy homogeneous BCs.
+
+The recombined basis requires the specification of a `Derivative` object
+determining the order of the homogeneous BCs to be applied at the two
+boundaries.
 Evidently, the order of the B-spline needs to be ``k ≥ n + 1``, since a B-spline
 of order ``k`` is a ``C^{k - 1}``-continuous function (except on the knots
 where it is ``C^{k - 1 - p}``, with ``p`` the knot multiplicity).
@@ -77,8 +82,8 @@ Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
 homogeneous boundary conditions of order `n >= 0`.
 """
 struct RecombinedBSplineBasis{
-            n, k, T, Parent <: BSplineBasis{k,T},
-            RMatrix <: RecombineMatrix{Q,n} where Q,
+            orders, k, T, Parent <: BSplineBasis{k,T},
+            RMatrix <: RecombineMatrix{Q,orders} where Q,
         } <: AbstractBSplineBasis{k,T}
     B :: Parent   # original B-spline basis
     M :: RMatrix  # basis recombination matrix
@@ -88,12 +93,12 @@ struct RecombinedBSplineBasis{
         Parent = typeof(B)
         M = RecombineMatrix(Derivative(n), B)
         RMatrix = typeof(M)
-        new{n,k,T,Parent,RMatrix}(B, M)
+        new{(n, ),k,T,Parent,RMatrix}(B, M)
     end
 end
 
 """
-    RecombinedBSplineBasis(::Derivative{n}, args...; kwargs...)
+    RecombinedBSplineBasis(order, args...; kwargs...)
 
 Construct [`RecombinedBSplineBasis`](@ref) from B-spline basis, satisfying
 homogeneous boundary conditions of order `n >= 0`.
@@ -101,7 +106,7 @@ homogeneous boundary conditions of order `n >= 0`.
 This variant does not require a previously constructed [`BSplineBasis`](@ref).
 Arguments are passed to the `BSplineBasis` constructor.
 """
-RecombinedBSplineBasis(order::Derivative, args...; kwargs...) =
+RecombinedBSplineBasis(order, args...; kwargs...) =
     RecombinedBSplineBasis(order, BSplineBasis(args...; kwargs...))
 
 """
@@ -132,25 +137,36 @@ order(R::RecombinedBSplineBasis{D,k}) where {D,k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 
 """
-    order_bc(B::AbstractBSplineBasis) -> Union{Int,Nothing}
+    num_constraints(R::RecombinedBSplineBasis) -> Int
+
+Returns the number of constraints (i.e., number of BCs to satisfy) on each
+boundary.
+"""
+num_constraints(::RecombinedBSplineBasis{D}) where {D} = length(D)
+
+"""
+    order_bc(B::AbstractBSplineBasis) -> NTuple{N,Int}
 
 Get order of homogeneous boundary conditions satisfied by the basis.
 
 For bases that don't satisfy any particular boundary conditions (like
-[`BSplineBasis`](@ref)), this returns `nothing`.
+[`BSplineBasis`](@ref)), this returns an empty tuple.
 """
-order_bc(::AbstractBSplineBasis) = nothing
+order_bc(::AbstractBSplineBasis) = ()
 order_bc(::RecombinedBSplineBasis{D}) where {D} = D
 
-# Support is shifted by +1 wrt BSplineBasis.
-support(R::RecombinedBSplineBasis, i::Integer) = support(parent(R), i) .+ 1
+# Support is shifted wrt BSplineBasis.
+support(R::RecombinedBSplineBasis, i::Integer) = support(parent(R), i) .+ num_constraints(R)
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
-evaluate_bspline(R::RecombinedBSplineBasis{0}, j, args...) =
+evaluate_bspline(R::RecombinedBSplineBasis{(0, )}, j, args...) =
     evaluate_bspline(parent(R), j + 1, args...)
 
 # Generalisation for D >= 1
-function evaluate_bspline(R::RecombinedBSplineBasis{n}, j, args...) where {n}
+function evaluate_bspline(R::RecombinedBSplineBasis{orders}, j,
+                          args...) where {orders}
+    orders :: Tuple{Int}
+    n, = orders
     B = parent(R)
     A = recombination_matrix(R)
     N, M = size(A)

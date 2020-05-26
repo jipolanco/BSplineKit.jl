@@ -14,7 +14,7 @@ function test_recombine_matrix(A::RecombineMatrix)
         N, M = size(A)
         @test M == N - 2
 
-        n = order_bc(A)
+        n, = order_bc(A)
 
         @test @views A[1:(n + 1), 1:n] == A.ul            # upper-left corner
         @test @views A[(N - n):N, (M - n + 1):M] == A.lr  # lower-right corner
@@ -61,6 +61,9 @@ function test_recombine_matrix(A::RecombineMatrix)
 end
 
 function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
+    orders = order_bc(R)
+    @test length(R) == length(parent(R)) - 2 * length(orders)
+
     a, b = boundaries(R)
     N = length(R)
     k = order(R)
@@ -89,7 +92,7 @@ function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
         # basis.
         B = parent(R)
         ε = 2 * eps(BSpline(B, 1)(a, Derivative(n)))
-        if n == D
+        if n ∈ orders
             @test bsum <= ε
         else
             @test bsum > 1
@@ -104,10 +107,10 @@ function test_basis_recombination()
     knots_base = gauss_lobatto_points(40)
     k = 6
     B = BSplineBasis(k, knots_base)
-    @test order_bc(B) === nothing
+    @test order_bc(B) === ()
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
-        @test order_bc(R) === D
+        @test order_bc(R) === (D, )
         test_recombined(R)
     end
     nothing

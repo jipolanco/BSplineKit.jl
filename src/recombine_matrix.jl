@@ -1,5 +1,5 @@
 """
-    RecombineMatrix{T,n} <: AbstractMatrix{T}
+    RecombineMatrix{T,orders} <: AbstractMatrix{T}
 
 Matrix for transformation from B-spline basis to recombined basis.
 
@@ -17,11 +17,12 @@ basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
 \\mathbf{v} = M \\mathbf{u}.
 ```
 
-Note that the matrix is not square: it has dimensions `(N, N - 2)`, where `N`
-is the length of the B-spline basis.
+Note that the matrix is not square: it has dimensions `(N, M)`, where `N`
+is the length of the B-spline basis, and `M < N` is that of the recombined
+basis.
 
-As in [`RecombinedBSplineBasis`](@ref), the type parameter `n` indicates the
-order of the boundary condition satisfied by the recombined basis.
+As in [`RecombinedBSplineBasis`](@ref), the type parameter `orders` indicates
+the order of the boundary condition(s) satisfied by the recombined basis.
 
 Due to the local support of B-splines, the matrix is very sparse, being roughly
 described by a diagonal of ones, plus some extra elements in the upper left and
@@ -32,9 +33,9 @@ The matrix is stored in a memory-efficient way that also allows fast access to
 its elements. For orders `n ∈ {0, 1}`, the matrix is made of zeroes and ones,
 and the default element type is `Bool`.
 """
-struct RecombineMatrix{T, n, n1,
+struct RecombineMatrix{T, orders, n, n1,
                        Corner <: SMatrix{n1,n,T}} <: AbstractMatrix{T}
-    M :: Int      # length of recombined basis (= N - 2)
+    M :: Int      # length of recombined basis (= N - 2 * length(orders))
     N :: Int      # length of B-spline basis
     ul :: Corner  # upper-left corner of matrix, size (n + 1, n)
     lr :: Corner  # lower-right corner of matrix, size (n + 1, n)
@@ -45,7 +46,8 @@ struct RecombineMatrix{T, n, n1,
         end
         T = eltype(ul)
         Corner = typeof(ul)
-        new{T, n, n1, Corner}(N - 2, N, ul, lr)
+        orders = (n, )
+        new{T, orders, n, n1, Corner}(N - 2, N, ul, lr)
     end
 end
 
@@ -140,7 +142,7 @@ end
 @inline function Base.getindex(A::RecombineMatrix, i::Integer, j::Integer)
     @boundscheck checkbounds(A, i, j)
     T = eltype(A)
-    n = order_bc(A)
+    n, = order_bc(A) :: Tuple{Int}
     M = size(A, 2)
 
     block = which_recombine_block(Derivative(n), j, M)
@@ -177,7 +179,7 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = order_bc(A)
+    n, = order_bc(A) :: Tuple{Int}
     n1 = n + 1
     h = M - n
 
@@ -201,7 +203,7 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = order_bc(A)
+    n, = order_bc(A) :: Tuple{Int}
     n1 = n + 1
     h = M - n
 
@@ -234,7 +236,7 @@ function LinearAlgebra.mul!(x::AbstractVector,
     # shouldn't make a difference.
     tr = At isa Adjoint ? adjoint : transpose
 
-    n = order_bc(A)
+    n, = order_bc(A) :: Tuple{Int}
     n1 = n + 1
     h = M - n
 
@@ -258,7 +260,7 @@ function LinearAlgebra.mul!(x::AbstractVector,
     N, M = size(A)
     tr = At isa Adjoint ? adjoint : transpose
 
-    n = order_bc(A)
+    n, = order_bc(A) :: Tuple{Int}
     n1 = n + 1
     h = M - n
 
