@@ -51,6 +51,9 @@ struct RecombineMatrix{T, orders, n, n1,
     end
 end
 
+# Case of single derivative order.
+RecombineMatrix((deriv, ), args...) = RecombineMatrix(deriv, args...)
+
 # Specialisation for Dirichlet BCs.
 # In this case (and the Neumann case below), the default element type is Bool,
 # since the matrix is made of zeroes and ones.

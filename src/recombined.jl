@@ -74,12 +74,37 @@ B-splines should be recombined linearly into `n` independent basis functions.
 For now, the two boundaries are given the same BC (but this could be easily
 extended...).
 
+# Multiple boundary conditions
+
+As an option, the recombined basis may simultaneously satisfy homogeneous BCs of
+different orders. In this case, a list of `Derivative`s must be passed.
+The list must be sorted in increasing order.
+
+Presently, the only supported case is where all orders from 0 to `n` are present.
+In this case, the resulting basis is simply obtained by removing the first (and
+last) `n + 1` functions from the original B-spline basis.
+This can be seen as a generalisation of the Dirichlet case described in the
+previous section.
+
+For instance, if `(Derivative(0), Derivative(1))` is passed, then the basis
+simultaneously satisfies homogeneous Dirichlet and Neumann BCs at the two
+boundaries.
+The resulting basis is ``ϕ_1 = b_3, ϕ_2 = b_4, …, ϕ_{N - 4} = b_{N - 2}``.
+
 ---
 
     RecombinedBSplineBasis(::Derivative{n}, B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
 homogeneous boundary conditions of order `n >= 0`.
+
+---
+
+    RecombinedBSplineBasis((::Derivative{n1}, ::Derivative{n2}, ...), B::BSplineBasis)
+
+Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs of
+all the given derivative orders.
+The list of derivative orders must be sorted in increasing order.
 """
 struct RecombinedBSplineBasis{
             orders, k, T, Parent <: BSplineBasis{k,T},
@@ -88,14 +113,21 @@ struct RecombinedBSplineBasis{
     B :: Parent   # original B-spline basis
     M :: RMatrix  # basis recombination matrix
 
-    function RecombinedBSplineBasis(
-            ::Derivative{n}, B::BSplineBasis{k,T}) where {k,T,n}
+    function RecombinedBSplineBasis(derivs::Tuple,
+                                    B::BSplineBasis{k,T}) where {k,T}
         Parent = typeof(B)
-        M = RecombineMatrix(Derivative(n), B)
+        M = RecombineMatrix(derivs, B)
+        orders = get_orders(derivs...)
         RMatrix = typeof(M)
-        new{(n, ),k,T,Parent,RMatrix}(B, M)
+        new{orders,k,T,Parent,RMatrix}(B, M)
     end
+
+    RecombinedBSplineBasis(deriv::Derivative, args...) =
+        RecombinedBSplineBasis((deriv, ), args...)
 end
+
+get_orders(::Derivative{n}, etc...) where {n} = (n, get_orders(etc...)...)
+get_orders() = ()
 
 """
     RecombinedBSplineBasis(order, args...; kwargs...)

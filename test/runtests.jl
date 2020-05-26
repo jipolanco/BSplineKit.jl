@@ -112,6 +112,13 @@ function test_basis_recombination()
         R = RecombinedBSplineBasis(Derivative(D), B)
         @test order_bc(R) === (D, )
         test_recombined(R)
+
+        # TODO enable
+        # Simultaneously satisfies BCs of orders 0 to D.
+        # derivs = ntuple(d -> Derivative(d - 1), D + 1)
+        # Rs = RecombinedBSplineBasis(derivs, B)
+        # @test order_bc(Rs) === ntuple(identity, D + 1) .- 1
+        # test_recombined(Rs)
     end
     nothing
 end
