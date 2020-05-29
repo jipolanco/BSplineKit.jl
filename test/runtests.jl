@@ -6,19 +6,23 @@ using Random
 using SparseArrays
 using Test
 
+import BasisSplines: num_constraints, num_recombined
+
 # Chebyshev (Gauss-Lobatto) points.
 gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
 
 function test_recombine_matrix(A::RecombineMatrix)
     @testset "Recombination matrix" begin
         N, M = size(A)
-        @test M == N - 2
+        @test M == N - 2 * num_constraints(A)
 
-        n, = order_bc(A)
+        n = num_recombined(A)
+        c = num_constraints(A)
 
-        @test @views A[1:(n + 1), 1:n] == A.ul            # upper-left corner
-        @test @views A[(N - n):N, (M - n + 1):M] == A.lr  # lower-right corner
-        @test @views A[(n + 2):(N - n - 1), (n + 1):(M - n)] == I
+        # Upper left corner, lower right corner, and centre.
+        @test @views A[1:(n + c), 1:n] == A.ul
+        @test @views A[(N - n - c + 1):N, (M - n + 1):M] == A.lr
+        @test @views A[(n + c + 1):(N - n - c), (n + 1):(M - n)] == I
 
         u = rand(M)
         v1 = similar(u, N)
@@ -62,6 +66,7 @@ end
 
 function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
     orders = order_bc(R)
+    @test length(orders) == BasisSplines.num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(orders)
 
     a, b = boundaries(R)
@@ -105,20 +110,27 @@ end
 # Verify that basis recombination gives the right boundary conditions.
 function test_basis_recombination()
     knots_base = gauss_lobatto_points(40)
-    k = 6
+    k = 4
     B = BSplineBasis(k, knots_base)
     @test order_bc(B) === ()
+    @testset "Mixed derivatives" begin
+        @inferred RecombineMatrix(Derivative.((0, 1)), B)
+        @test_throws ArgumentError RecombineMatrix(Derivative.((0, 2)), B)
+        @test_throws ArgumentError RecombineMatrix(Derivative.((1, 2)), B)
+        M = RecombineMatrix(Derivative.((0, 1)), B)
+    end
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
         @test order_bc(R) === (D, )
         test_recombined(R)
 
-        # TODO enable
         # Simultaneously satisfies BCs of orders 0 to D.
-        # derivs = ntuple(d -> Derivative(d - 1), D + 1)
-        # Rs = RecombinedBSplineBasis(derivs, B)
-        # @test order_bc(Rs) === ntuple(identity, D + 1) .- 1
-        # test_recombined(Rs)
+        @testset "Mixed BCs" begin
+            derivs = ntuple(d -> Derivative(d - 1), D + 1)
+            Rs = RecombinedBSplineBasis(derivs, B)
+            @test order_bc(Rs) === ntuple(identity, D + 1) .- 1
+            test_recombined(Rs)
+        end
     end
     nothing
 end

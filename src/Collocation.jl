@@ -135,7 +135,9 @@ at the collocation points `x`.
 The matrix elements are given by the B-splines evaluated at the collocation
 points:
 
-    C[i, j] = bⱼ(x[i])  for  i = 1:Nx and j = 1:Nb,
+```math
+C[i, j] = b_j(x[i]) \\quad \text{for} \\quad  i ∈ [1, N_x] and j ∈ [1, N_b],
+```
 
 where `Nx = length(x)` is the number of collocation points, and
 `Nb = length(B)` is the number of B-splines in `B`.

@@ -160,7 +160,8 @@ recombination_matrix(R::RecombinedBSplineBasis) = R.M
 
 Returns the number of functions in the recombined basis.
 """
-Base.length(R::RecombinedBSplineBasis) = length(parent(R)) - 2
+@inline Base.length(R::RecombinedBSplineBasis) =
+    length(parent(R)) - 2 * num_constraints(R)
 
 boundaries(R::RecombinedBSplineBasis) = boundaries(parent(R))
 
@@ -170,11 +171,12 @@ Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 
 """
     num_constraints(R::RecombinedBSplineBasis) -> Int
+    num_constraints(A::RecombineMatrix) -> Int
 
 Returns the number of constraints (i.e., number of BCs to satisfy) on each
 boundary.
 """
-num_constraints(::RecombinedBSplineBasis{D}) where {D} = length(D)
+@inline num_constraints(::RecombinedBSplineBasis{D}) where {D} = length(D)
 
 """
     order_bc(B::AbstractBSplineBasis) -> NTuple{N,Int}
@@ -188,24 +190,30 @@ order_bc(::AbstractBSplineBasis) = ()
 order_bc(::RecombinedBSplineBasis{D}) where {D} = D
 
 # Support is shifted wrt BSplineBasis.
-support(R::RecombinedBSplineBasis, i::Integer) = support(parent(R), i) .+ num_constraints(R)
+# TODO this is not very general: it will fail for general recombinations
+# (but it will always work for the specific way we're recombining B-splines).
+# A more correct way of doing this is using the recombination matrix,
+# checking whether each knot is in the support of at least one B-spline.
+# This would be slower though... but it would be good to have this verification
+# in the tests.
+support(R::RecombinedBSplineBasis, i::Integer) =
+    support(parent(R), i) .+ num_constraints(R)
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
 evaluate_bspline(R::RecombinedBSplineBasis{(0, )}, j, args...) =
     evaluate_bspline(parent(R), j + 1, args...)
 
 # Generalisation for D >= 1
-function evaluate_bspline(R::RecombinedBSplineBasis{orders}, j,
-                          args...) where {orders}
-    orders :: Tuple{Int}
-    n, = orders
+function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
     B = parent(R)
     A = recombination_matrix(R)
-    N, M = size(A)
+    n = num_recombined(A)
+    c = num_constraints(A)
+    N = size(A, 1)
 
-    block = which_recombine_block(Derivative(n), j, M)
+    block = which_recombine_block(A, j)
 
-    j1 = j + 1
+    j1 = j + c
     ϕ = evaluate_bspline(B, j1, args...)  # this B-spline is always needed
     T = typeof(ϕ)
 
