@@ -1,5 +1,5 @@
 """
-    RecombineMatrix{T,n} <: AbstractMatrix{T}
+    RecombineMatrix{T,orders} <: AbstractMatrix{T}
 
 Matrix for transformation from B-spline basis to recombined basis.
 
@@ -17,11 +17,12 @@ basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
 \\mathbf{v} = M \\mathbf{u}.
 ```
 
-Note that the matrix is not square: it has dimensions `(N, N - 2)`, where `N`
-is the length of the B-spline basis.
+Note that the matrix is not square: it has dimensions `(N, M)`, where `N`
+is the length of the B-spline basis, and `M < N` is that of the recombined
+basis.
 
-As in [`RecombinedBSplineBasis`](@ref), the type parameter `n` indicates the
-order of the boundary condition satisfied by the recombined basis.
+As in [`RecombinedBSplineBasis`](@ref), the type parameter `orders` indicates
+the order of the boundary condition(s) satisfied by the recombined basis.
 
 Due to the local support of B-splines, the matrix is very sparse, being roughly
 described by a diagonal of ones, plus some extra elements in the upper left and
@@ -32,20 +33,26 @@ The matrix is stored in a memory-efficient way that also allows fast access to
 its elements. For orders `n ∈ {0, 1}`, the matrix is made of zeroes and ones,
 and the default element type is `Bool`.
 """
-struct RecombineMatrix{T, n, n1,
+struct RecombineMatrix{T,
+                       orders,  # NTuple{nc, Int}
+                       n, n1,   # nc = n1 - n
                        Corner <: SMatrix{n1,n,T}} <: AbstractMatrix{T}
-    M :: Int      # length of recombined basis (= N - 2)
+    M :: Int      # length of recombined basis (= N - 2nc)
     N :: Int      # length of B-spline basis
-    ul :: Corner  # upper-left corner of matrix, size (n + 1, n)
-    lr :: Corner  # lower-right corner of matrix, size (n + 1, n)
-    function RecombineMatrix(N::Integer, ul::SMatrix, lr::SMatrix)
+    ul :: Corner  # upper-left corner of matrix, size (n1, n)
+    lr :: Corner  # lower-right corner of matrix, size (n1, n)
+    function RecombineMatrix(::Val{orders}, N::Integer,
+                             ul::SMatrix, lr::SMatrix) where {orders}
         n1, n = size(ul)
-        if n1 != n + 1
-            throw(ArgumentError("matrices must have dimensions (n + 1, n)"))
+        nc = n1 - n  # number of BCs per boundary
+        if nc <= 0
+            throw(ArgumentError("matrices must have dimensions (m, n) with m > n"))
         end
+        orders :: NTuple{nc,Int}
+        M = N - 2nc
         T = eltype(ul)
         Corner = typeof(ul)
-        new{T, n, n1, Corner}(N - 2, N, ul, lr)
+        new{T, orders, n, n1, Corner}(M, N, ul, lr)
     end
 end
 
@@ -53,25 +60,25 @@ end
 # In this case (and the Neumann case below), the default element type is Bool,
 # since the matrix is made of zeroes and ones.
 # This is not the case for orders n ≥ 2.
-function RecombineMatrix(::Derivative{0}, B::BSplineBasis,
+function RecombineMatrix(::Tuple{Derivative{0}}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
-    RecombineMatrix(N, ul, lr)
+    RecombineMatrix(Val((0, )), N, ul, lr)
 end
 
 # Specialisation for Neumann BCs.
-function RecombineMatrix(::Derivative{1}, B::BSplineBasis,
+function RecombineMatrix(::Tuple{Derivative{1}}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
     N = length(B)
     ul = SMatrix{2,1,T}([1, 1])
     lr = copy(ul)
-    RecombineMatrix(N, ul, lr)
+    RecombineMatrix(Val((1, )), N, ul, lr)
 end
 
 # Generalisation to higher orders.
-function RecombineMatrix(::Derivative{n}, B::BSplineBasis,
+function RecombineMatrix(::Tuple{Derivative{n}}, B::BSplineBasis,
                          ::Type{T} = Float64) where {n,T}
     @assert n >= 0
 
@@ -117,15 +124,56 @@ function RecombineMatrix(::Derivative{n}, B::BSplineBasis,
     ul = SMatrix{n + 1, n}(Ca)
     lr = SMatrix{n + 1, n}(Cb)
 
-    RecombineMatrix(N, ul, lr)
+    RecombineMatrix(Val((n, )), N, ul, lr)
 end
 
-Base.size(A::RecombineMatrix) = (A.N, A.M)
-order_bc(A::RecombineMatrix{T,n}) where {T,n} = n
+# Case of mixed derivative orders.
+# The only supported case is deriv = (Derivative(0), Derivative(1), ...,
+# Derivative(Nc - 1)).
+# This actually generalises the Dirichlet case above.
+function RecombineMatrix(deriv::Tuple{Vararg{Derivative}}, B::BSplineBasis,
+                         ::Type{T} = Bool) where {T}
+    orders = get_orders(deriv...)
+    Nc = length(orders)
+    @assert Nc >= 2  # case Nc = 1 is treated by different functions
+    _check_supported_orders(Val(orders))
+    N = length(B)
+    ul = SMatrix{Nc,0,T}()
+    lr = copy(ul)
+    RecombineMatrix(Val(orders), N, ul, lr)
+end
+
+@inline function _check_supported_orders(::Val{orders}) where {orders}
+    length(orders) === 1 && return  # single BC
+    if orders !== ntuple(d -> d - 1, Val(length(orders)))  # mixed BCs
+        throw(ArgumentError("unsupported case: derivatives = $orders"))
+    end
+    nothing
+end
+
+@inline Base.size(A::RecombineMatrix) = (A.N, A.M)
+@inline order_bc(A::RecombineMatrix{T,orders}) where {T,orders} = orders
+@inline num_constraints(A::RecombineMatrix) = length(order_bc(A))
+
+# Returns number of basis functions that are recombined from the original basis
+# near each boundary.
+# For instance, Neumann BCs have a single recombined function, ϕ_1 = b_1 + b_2;
+# while mixed Dirichlet + Neumann have none, ϕ_1 = b_3.
+@inline function num_recombined(A::RecombineMatrix)
+    ord = order_bc(A)
+    if length(ord) === 1  # single BC -> return order of the BC
+        first(ord)
+    else  # mixed BCs (+ extra assumptions...)
+        _check_supported_orders(Val(ord))
+        0
+    end
+end
 
 # j: index in recombined basis
 # M: length of recombined basis
-function which_recombine_block(::Derivative{n}, j, M) where {n}
+@inline function which_recombine_block(A::RecombineMatrix, j)
+    M = A.M
+    n = num_recombined(A)
     j <= n && return 1
     j > M - n && return 3
     2
@@ -140,13 +188,11 @@ end
 @inline function Base.getindex(A::RecombineMatrix, i::Integer, j::Integer)
     @boundscheck checkbounds(A, i, j)
     T = eltype(A)
-    n = order_bc(A)
-    M = size(A, 2)
-
-    block = which_recombine_block(Derivative(n), j, M)
+    block = which_recombine_block(A, j)
 
     if block == 2
-        return T(i == j + 1)  # δ_{i, j+1}
+        c = num_constraints(A)
+        return T(i == j + c)  # δ_{i, j+c}
     end
 
     if block == 1
@@ -158,6 +204,8 @@ end
     end
 
     # The lower-right corner starts at column h + 1.
+    M = size(A, 2)
+    n = num_recombined(A)
     h = M - n
 
     @assert j > h
@@ -177,17 +225,18 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = order_bc(A)
-    n1 = n + 1
+    n = num_recombined(A)
+    c = num_constraints(A)
+    n1 = n + c
     h = M - n
 
     @inbounds y[1:n1] = A.ul * @view x[1:n]
 
     for i = (n + 1):h
-        @inbounds y[i + 1] = x[i]
+        @inbounds y[i + c] = x[i]
     end
 
-    @inbounds y[(N - n):N] = A.lr * @view x[(h + 1):(h + n)]
+    @inbounds y[(N - n - c + 1):N] = A.lr * @view x[(h + 1):(h + n)]
 
     y
 end
@@ -201,17 +250,18 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = order_bc(A)
-    n1 = n + 1
+    n = num_recombined(A)
+    c = num_constraints(A)
+    n1 = n + c
     h = M - n
 
     @inbounds y[1:n1] = α * A.ul * view(x, 1:n) + β * SVector{n1}(view(y, 1:n1))
 
     for i = (n + 1):h
-        @inbounds y[i + 1] = α * x[i] + β * y[i + 1]
+        @inbounds y[i + c] = α * x[i] + β * y[i + c]
     end
 
-    js = (N - n):N
+    js = (N - n - c + 1):N
     @inbounds y[js] =
         α * A.lr * view(x, (h + 1):(h + n)) + β * SVector{n1}(view(y, js))
 
@@ -234,17 +284,18 @@ function LinearAlgebra.mul!(x::AbstractVector,
     # shouldn't make a difference.
     tr = At isa Adjoint ? adjoint : transpose
 
-    n = order_bc(A)
-    n1 = n + 1
+    n = num_recombined(A)
+    c = num_constraints(A)
+    n1 = n + c
     h = M - n
 
     @inbounds x[1:n] = tr(A.ul) * @view y[1:n1]
 
     for i = (n + 1):h
-        @inbounds x[i] = y[i + 1]
+        @inbounds x[i] = y[i + c]
     end
 
-    @inbounds x[(h + 1):(h + n)] = tr(A.lr) * @view y[(N - n):N]
+    @inbounds x[(h + 1):(h + n)] = tr(A.lr) * @view y[(N - n - c + 1):N]
 
     x
 end
@@ -258,20 +309,21 @@ function LinearAlgebra.mul!(x::AbstractVector,
     N, M = size(A)
     tr = At isa Adjoint ? adjoint : transpose
 
-    n = order_bc(A)
-    n1 = n + 1
+    n = num_recombined(A)
+    c = num_constraints(A)
+    n1 = n + c
     h = M - n
 
     @inbounds x[1:n] =
         α * tr(A.ul) * view(y, 1:n1) + β * SVector{n}(view(x, 1:n))
 
     for i = (n + 1):h
-        @inbounds x[i] = α * y[i + 1] + β * x[i]
+        @inbounds x[i] = α * y[i + c] + β * x[i]
     end
 
     r = (h + 1):(h + n)
     @inbounds x[r] =
-        α * tr(A.lr) * view(y, (N - n):N) + β * SVector{n}(view(x, r))
+        α * tr(A.lr) * view(y, (N - n - c + 1):N) + β * SVector{n}(view(x, r))
 
     x
 end
