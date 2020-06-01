@@ -149,11 +149,15 @@ Get original B-spline basis.
 Base.parent(R::RecombinedBSplineBasis) = R.B
 
 """
-    recombination_matrix(R::RecombinedBSplineBasis)
+    recombination_matrix(R::AbstractBSplineBasis)
 
 Get [`RecombineMatrix`](@ref) associated to the recombined basis.
+
+For non-recombined bases such as [`BSplineBasis`](@ref), this returns the
+identity matrix (`LinearAlgebra.I`).
 """
 recombination_matrix(R::RecombinedBSplineBasis) = R.M
+recombination_matrix(B::AbstractBSplineBasis) = LinearAlgebra.I
 
 """
     length(R::RecombinedBSplineBasis)
