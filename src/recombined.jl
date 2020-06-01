@@ -4,6 +4,8 @@
 Functional basis defined from the recombination of a [`BSplineBasis`](@ref)
 in order to satisfy certain homogeneous boundary conditions (BCs).
 
+# Extended help
+
 The basis recombination technique is a common way of applying BCs in Galerkin
 methods. It is described for instance in Boyd 2000 (ch. 6), in the context of
 a Chebyshev basis. In this approach, the original basis is "recombined" so that
@@ -21,7 +23,7 @@ one B-spline that is non-zero at each boundary, removing that function from the
 basis is enough to apply homogeneous Dirichlet BCs. Imposing BCs for derivatives
 is a bit more complex, but not much.
 
-# Order of the boundary condition
+## Order of the boundary condition
 
 The type parameter `orders` represents the order of the satisfied BC(s).
 In this section, we consider the case where its length is 1 and
@@ -71,10 +73,10 @@ Moreover, only the first `n + 1` B-splines have non-zero `n`-th derivative at
 the left boundary. Hence, to enforce a derivative to be zero, the first `n + 1`
 B-splines should be recombined linearly into `n` independent basis functions.
 
-For now, the two boundaries are given the same BC (but this could be easily
+For now, the two boundaries are given the same BC (but this could be
 extended...).
 
-# Multiple boundary conditions
+## Multiple boundary conditions
 
 As an option, the recombined basis may simultaneously satisfy homogeneous BCs of
 different orders. In this case, a list of `Derivative`s must be passed.
@@ -100,7 +102,8 @@ homogeneous boundary conditions of order `n >= 0`.
 
 ---
 
-    RecombinedBSplineBasis((::Derivative{n1}, ::Derivative{n2}, ...), B::BSplineBasis)
+    RecombinedBSplineBasis((::Derivative{n1}, ::Derivative{n2}, ...),
+                           B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs of
 all the given derivative orders.
@@ -124,6 +127,15 @@ struct RecombinedBSplineBasis{
 
     RecombinedBSplineBasis(deriv::Derivative, args...) =
         RecombinedBSplineBasis((deriv, ), args...)
+end
+
+function Base.show(io::IO, R::RecombinedBSplineBasis)
+    # This is somewhat consistent with the output of the BSplines package.
+    println(length(R), "-element ", typeof(R), ':')
+    println(" boundary condition orders: ", order_bc(R))
+    println(" order: ", order(R))
+    print(" knots: ", knots(R))
+    nothing
 end
 
 get_orders(::Derivative{n}, etc...) where {n} = (n, get_orders(etc...)...)

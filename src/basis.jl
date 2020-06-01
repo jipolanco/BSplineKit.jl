@@ -42,6 +42,14 @@ end
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
+function Base.show(io::IO, B::BSplineBasis)
+    # This is somewhat consistent with the output of the BSplines package.
+    println(length(B), "-element ", typeof(B), ':')
+    println(" order: ", order(B))
+    print(" knots: ", knots(B))
+    nothing
+end
+
 # Make BSplineBasis behave as scalar when broadcasting.
 Broadcast.broadcastable(B::AbstractBSplineBasis) = Ref(B)
 
