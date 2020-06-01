@@ -12,7 +12,7 @@ export BandedTensor3D
 """
     BandedTensor3D{T,b}
 
-Three-dimensional banded cubic tensor with element type `T`.
+Three-dimensional banded tensor with element type `T`.
 
 # Extended help
 
@@ -20,8 +20,8 @@ Three-dimensional banded cubic tensor with element type `T`.
 
 The band structure is assumed to be symmetric, and is defined in terms of the
 band width ``b``.
-The element ``A_{ijk}`` may be non-zero only if ``|i - j| ≤ b``, ``|i - k| ≤ b``
-and ``|j - k| ≤ b``.
+For a cubic banded tensor of dimensions `N×N×N`, the element ``A_{ijk}`` may be
+non-zero only if ``|i - j| ≤ b``, ``|i - k| ≤ b`` and ``|j - k| ≤ b``.
 
 ## Storage
 
@@ -54,36 +54,76 @@ end
 
 See [`setindex!`](@ref) for more details.
 
+## Non-cubic tensors
+
+A slight departure from cubic tensors is currently supported.
+Dimensions of the form ``N_i × N_j × N_k`` are constrained to the condition
+``N_i == N_j``, and ``Δ = N_j - N_k`` must be even.
+
+In this case, the bands are shifted along the third dimension to keep the
+structure as symmetric as possible.
+Bands are then determined by ``|i - j| ≤ b``, ``|i - (k - δ)| ≤ b`` and
+``|j - (k - δ)| ≤ b``, where ``δ = Δ / 2``.
+
 """
 struct BandedTensor3D{T, b, r, M <: AbstractMatrix} <: AbstractArray{T,3}
-    N    :: Int        # dimension
+    dims :: Dims{3}    # dimensions (with dims[1] == dims[2])
+    Nk   :: Int        # last dimension (= dims[3])
+    δk   :: Int        # band shift along 3rd dimension
     data :: Vector{M}  # vector of submatrices indexed by (i, j)
 
-    function BandedTensor3D{T,b}(::UndefInitializer, N) where {T,b}
+    function BandedTensor3D{T,b}(::UndefInitializer, Ni, Nj, Nk) where {T,b}
         b :: Int
+        if Ni != Nj
+            throw(ArgumentError(
+                "the first two dimensions must have the same sizes"))
+        end
+        if isodd(Nj - Nk)
+            throw(ArgumentError(
+                "the difference between dimensions must be even"
+            ))
+        end
+        δk = (Nj - Nk) >> 1
         r = 2b + 1
         M = SMatrix{r, r, T, r * r}
         @assert isconcretetype(M)
-        data = Vector{M}(undef, N)
-        new{T, b, r, M}(N, data)
+        data = Vector{M}(undef, Nk)
+        new{T, b, r, M}((Ni, Nj, Nk), Nk, δk, data)
     end
+
+    BandedTensor3D{T,b}(init, N::Integer) where {T,b} =
+        BandedTensor3D{T,b}(init, N, N, N)
+
+    BandedTensor3D{T,b}(init, dims::Dims) where {T,b} =
+        BandedTensor3D{T,b}(init, dims...)
 end
 
 """
+    BandedTensor3D{T}(undef, (Ni, Nj, Nk), b)
     BandedTensor3D{T}(undef, N, b)
 
-Construct cubic 3D banded tensor with bandwidths `b` and dimensions `N`×`N`×`N`.
+Construct cubic 3D banded tensor with band widths `b`.
 
-The matrix is constructed uninitialised.
+Right now, the first two dimension sizes `Ni` and `Nj` of the tensor must be
+equal.
+In the second variant, the tensor dimensions are `N`×`N`×`N`.
 
-Each submatrix `A[:, :, k]` of size `(2b + 1, 2b + 1)`, for `k ∈ 1:N`, should be
+The tensor is constructed uninitialised.
+
+Each submatrix `A[:, :, k]` of size `(2b + 1, 2b + 1)`, for `k ∈ 1:Nk`, should be
 initialised as in the following example:
 
     A[:, :, k] = rand(2b + 1, 2b + 1)
 
 """
-@inline BandedTensor3D{T}(init, N, b::Int) where {T} =
-    BandedTensor3D{T,b}(init, N)
+@inline BandedTensor3D{T}(init, dims, b::Int) where {T} =
+    BandedTensor3D{T,b}(init, dims)
+
+function Base.summary(io::IO, A::BandedTensor3D)
+    print(io, Base.dims2string(size(A)), " BandedTensor3D{", eltype(A),
+          "} with band width b = ", bandwidth(A))
+    nothing
+end
 
 Base.sizeof(A::BandedTensor3D) = sizeof(A.data)
 
@@ -106,9 +146,15 @@ end
 end
 
 function Base.show(io::IO, mime::MIME"text/plain", S::SubMatrix)
-    print(io, "Submatrix of BandedTensor3D holding data in (",
-          S.inds, ", ", S.inds, ", ", S.k, ").\nData =\n")
+    summary(io, S)
+    print(io, "\nData =\n")
     show(io, mime, S.data)
+    nothing
+end
+
+function Base.summary(io::IO, S::SubMatrix)
+    print(io, "Submatrix of BandedTensor3D holding data in (",
+          S.inds, ", ", S.inds, ", ", S.k, ")")
     nothing
 end
 
@@ -123,16 +169,13 @@ submatrix_type(A::BandedTensor3D) = submatrix_type(typeof(A))
 Get band width `b` of [`BandedTensor3D`](@ref).
 
 The band width is defined here such that the element `A[i, j, k]` may be
-non-zero only if `|i - j| ≤ b`, `|i - k| ≤ b` and `|j - k| ≤ b`.
+non-zero only if ``|i - j| ≤ b``, ``|i - k| ≤ b`` and ``|j - k| ≤ b``.
 This definition is consistent with the specification of the upper and lower band
 widths in `BandedMatrices`.
 """
 bandwidth(A::BandedTensor3D{T,b}) where {T,b} = b
 
-function Base.size(A::BandedTensor3D)
-    N = A.N
-    (N, N, N)
-end
+Base.size(A::BandedTensor3D) = A.dims
 
 """
     band_indices(A::BandedTensor3D, k)
@@ -142,6 +185,7 @@ non-zero.
 """
 @inline function band_indices(A::BandedTensor3D, k)
     b = bandwidth(A)
+    k += A.δk
     (k - b):(k + b)
 end
 

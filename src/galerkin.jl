@@ -94,7 +94,7 @@ function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
     ps = parent.(Bs)
     if any(ps .!== ps[1])
         throw(ArgumentError(
-            "combined bases must all be constructed from the same parent B-spline basis"
+            "all bases be constructed from the same parent B-spline basis"
         ))
     end
     nothing
@@ -138,18 +138,32 @@ end
 
 Compute 3D banded tensor appearing from quadratic terms in Galerkin method.
 
-The tensor is efficiently stored [`BandedTensor3D`](@ref) object.
+As with [`galerkin_matrix`](@ref), it is also possible to combine different
+functional bases by passing, instead of `B`, a tuple `(B₁, B₂, B₃)` of three
+`AbstractBSplineBasis`.
+For now, the first two bases, `B₁` and `B₂`, must have the same length.
+
+The tensor is efficiently stored in a [`BandedTensor3D`](@ref) object.
 """
+function galerkin_tensor end
+
 function galerkin_tensor(
-        B::AnyBSplineBasis,
+        Bs::NTuple{3,AbstractBSplineBasis},
         deriv::DerivativeCombination{3},
         ::Type{T} = Float64,
     ) where {T}
-    N = length(B)
-    b = order(B) - 1   # band width
-    A = BandedTensor3D{T}(undef, N, b)
-    galerkin_tensor!(A, B, deriv)
+    _check_bases(Bs)
+    dims = length.(Bs)
+    b = order(first(Bs)) - 1   # band width
+    if length(Bs[1]) != length(Bs[2])
+        throw(ArgumentError("the first two bases must have the same lengths"))
+    end
+    A = BandedTensor3D{T}(undef, dims, b)
+    galerkin_tensor!(A, Bs, deriv)
 end
+
+galerkin_tensor(B::AbstractBSplineBasis, args...) =
+    galerkin_tensor((B, B, B), args...)
 
 """
     galerkin_matrix!(A::AbstractMatrix, B::AbstractBSplineBasis,
@@ -309,28 +323,44 @@ function galerkin_matrix!(
     S
 end
 
-function galerkin_tensor!(A::BandedTensor3D, B::AbstractBSplineBasis,
+function galerkin_tensor!(A::BandedTensor3D,
+                          Bs::NTuple{3,AbstractBSplineBasis},
                           deriv::DerivativeCombination{3})
-    N = size(A, 1)
+    _check_bases(Bs)
 
-    if N != length(B)
+    Ns = size(A)
+    if any(Ns .!= length.(Bs))
         throw(ArgumentError("wrong dimensions of Galerkin tensor"))
     end
 
-    k = order(B)
-    t = knots(B)
+    Ni, Nj, Nl = Ns
+    @assert Ni == Nj  # verified earlier...
+
+    Bi, Bj, Bl = Bs
+
+    k = order(Bi)  # same for all bases (see _check_bases)
+    t = knots(Bi)
     h = k - 1
     T = eltype(A)
 
     # Quadrature information (weights, nodes).
     quad = _quadrature_prod(3k - 3)
-    @assert BandedTensors.bandwidth(A) == k - 1
+    if BandedTensors.bandwidth(A) != k - 1
+        throw(ArgumentError("input BandedTensor3D has incorrect bandwidth"))
+    end
 
     Al = Matrix{T}(undef, 2k - 1, 2k - 1)
+    δ = num_constraints(Bl) - num_constraints(Bi)
+    @assert Ni == Nj == Nl + 2δ
+    @assert δ == A.δk
 
-    for l = 1:N
-        istart = clamp(l - h, 1, N)
-        iend = clamp(l + h, 1, N)
+    for l = 1:Nl
+        # TODO
+        # - verify this for non-cubic tensors
+        # - add tests!
+        ll = l + δ
+        istart = clamp(ll - h, 1, Ni)
+        iend = clamp(ll + h, 1, Nj)
         is = istart:iend
         js = is
 
@@ -339,19 +369,19 @@ function galerkin_tensor!(A::BandedTensor3D, B::AbstractBSplineBasis,
 
         i0 = first(band_ind) - 1
         j0 = i0
-        @assert i0 == l - k
+        @assert i0 == ll - k
 
         fill!(Al, 0)
 
-        tl = support(B, l)
-        fl = x -> evaluate_bspline(B, l, x, deriv[3])
+        tl = support(Bl, l)
+        fl = x -> evaluate_bspline(Bl, l, x, deriv[3])
 
         for j in js
-            tj = support(B, j)
-            fj = x -> evaluate_bspline(B, j, x, deriv[2])
+            tj = support(Bj, j)
+            fj = x -> evaluate_bspline(Bj, j, x, deriv[2])
             for i in is
-                ti = support(B, i)
-                fi = x -> evaluate_bspline(B, i, x, deriv[1])
+                ti = support(Bi, i)
+                fi = x -> evaluate_bspline(Bi, i, x, deriv[1])
                 t_inds = intersect(ti, tj, tl)
                 isempty(t_inds) && continue
                 f = x -> fi(x) * fj(x) * fl(x)
