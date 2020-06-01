@@ -19,11 +19,11 @@ M_{ij} = ⟨ ϕ_i, ϕ_j ⟩ \\quad \\text{for} \\quad
 i ∈ [1, N] \\text{ and } j ∈ [1, N],
 ```
 
-where ``ϕ_i`` is the i-th basis function and `N = length(B)` is the number of
-functions in the basis `B`.
-Here, ⟨⋅,⋅⟩ is the [``L^2`` inner
+where ``ϕ_i(x)`` is the ``i``-th basis function and `N = length(B)` is the
+number of functions in the basis `B`.
+Here, ``⟨f, g⟩`` is the [``L^2`` inner
 product](https://en.wikipedia.org/wiki/Square-integrable_function#Properties)
-between functions.
+between functions ``f`` and ``g``.
 
 Since products of B-splines are themselves piecewise polynomials, integrals can
 be computed exactly using [Gaussian quadrature
@@ -61,6 +61,10 @@ orders are the same.
 More generally, it is possible to combine different bases.
 For this, instead of the `B` parameter, one must pass a tuple of bases
 `(B₁, B₂)`.
+The bases must have the same parent B-spline basis.
+That is, they must share the same set of B-spline knots and be of equal
+polynomial order.
+
 This feature may be combined with a specification of different derivative orders
 for both bases.
 Note that, if both bases are different, the matrix will not be symmetric, and
