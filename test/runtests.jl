@@ -258,6 +258,26 @@ function test_galerkin_recombined()
                 @test norm(H + Q, Inf) < norm(Q, Inf) * N^2 * eps(eltype(Q))
             end
         end
+
+        bcs = (Derivative.((0, )), Derivative.((0, 1)))
+        @testset "Combining bases ($bc)" for bc in bcs
+            R = RecombinedBSplineBasis(bc, B)
+            M = galerkin_matrix((R, B))
+            @test M == galerkin_matrix((B, R))'
+            let δ = num_constraints(R)
+                n, m = size(M)
+                @test n + 2δ == m
+                r = num_recombined(R)
+                # Verify that except from the borders, the matrix is the same as
+                # the "original" matrix constructed from the original B-spline
+                # basis.
+                M_base = galerkin_matrix(B)
+                p = δ + r
+                ind_base = (p + 1):(m - p)
+                @test view(M, (r + 1):(n - r), ind_base) ==
+                    view(M_base, ind_base, ind_base)
+            end
+        end
     end
 
     nothing

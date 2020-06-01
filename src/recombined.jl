@@ -192,11 +192,31 @@ Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 Returns the number of constraints (i.e., number of BCs to satisfy) on each
 boundary.
 
+For instance, if `R` simultaneously satisfies Dirichlet and Neumann boundary
+conditions on each boundary, this returns 2.
+
 Note that for non-recombined bases such as [`BSplineBasis`](@ref), the number of
 constraints is zero.
 """
 @inline num_constraints(::RecombinedBSplineBasis{D}) where {D} = length(D)
 @inline num_constraints(::AbstractBSplineBasis) = 0
+
+"""
+    num_recombined(R::AbstractBSplineBasis) -> Int
+    num_recombined(A::RecombineMatrix) -> Int
+
+Returns the number of recombined functions in the recombined basis for each
+boundary.
+
+For instance, if `R` satisfies Neumann boundary conditions, then only the first
+and last basis functions are different from the original B-spline basis, e.g.
+`ϕ₁ = b₁ + b₂`, and this returns 1.
+
+For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
+"""
+@inline num_recombined(R::RecombinedBSplineBasis) =
+    num_recombined(recombination_matrix(R))
+@inline num_recombined(B::AbstractBSplineBasis) = 0
 
 """
     order_bc(B::AbstractBSplineBasis) -> NTuple{N,Int}

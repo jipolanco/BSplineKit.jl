@@ -61,12 +61,9 @@ function galerkin_matrix(
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
         ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
-    _check_bases(Bs)
     B1, B2 = Bs
     symmetry = deriv[1] === deriv[2] && B1 === B2
-    k = order(B1)
-    @assert k == order(B2)  # verified in _check_bases
-    A = allocate_galerkin_matrix(M, length.(Bs), k, symmetry)
+    A = allocate_galerkin_matrix(M, Bs, symmetry)
 
     # Make the matrix symmetric if possible.
     S = symmetry ? Symmetric(A) : A
@@ -89,20 +86,33 @@ function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
     nothing
 end
 
-allocate_galerkin_matrix(::Type{M}, Ns, etc...) where {M <: AbstractMatrix} =
-    M(undef, Ns...)
+allocate_galerkin_matrix(::Type{M}, Bs, etc...) where {M <: AbstractMatrix} =
+    M(undef, length.(Bs)...)
 
-allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, Ns, etc...) where {T} =
-    spzeros(T, Ns...)
+allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, Bs, etc...) where {T} =
+    spzeros(T, length.(Bs)...)
 
-function allocate_galerkin_matrix(::Type{M}, Ns, k,
-                                  symmetry) where {M <: BandedMatrix}
-    # The upper/lower bandwidths are Nb = k - 1 (total = 2k - 1 bands).
-    # Note that if the matrix is also symmetric, then we only need the upper
-    # band.
+function allocate_galerkin_matrix(
+        ::Type{M}, Bs, symmetry) where {M <: BandedMatrix}
+    _check_bases(Bs)
+    B1, B2 = Bs
+    k = order(B1)
+    @assert k == order(B2)  # verified in _check_bases
+    # When the bases are the same, the upper/lower bandwidths are Nb = k - 1
+    # (total = 2k - 1 bands).
+    # If the matrix is symmetric, we only store the upper band.
     Nb = k - 1
-    bands = symmetry ? (0, Nb) : (Nb, Nb)
-    M(undef, Ns, bands)
+    N1, N2 = length.(Bs)
+    bands = if symmetry
+        (0, Nb)
+    else
+        # If the bases have different lengths (⇔ δ ≠ 0), then the bands are
+        # shifted.
+        δ = num_constraints(B2) - num_constraints(B1)
+        @assert N1 == N2 + 2δ
+        (Nb + δ, Nb - δ)
+    end
+    M(undef, (N1, N2), bands)
 end
 
 """
@@ -182,20 +192,21 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
         A = S
     end
 
-    # TODO verify this for non-square matrices...
+    # Number of BCs on each boundary
+    δ = num_constraints(B2) - num_constraints(B1)
+    @assert M + 2δ == N
+
     for j = 1:M
-        # We're only visiting the elements that have non-zero values.
-        # In other words, we know that S[i, j] = 0 outside the chosen interval.
-        istart = fill_upper ? clamp(j - h, 1, N) : j
-        iend = fill_lower ? clamp(j + h, 1, N) : j
+        i0 = j + δ
         tj = support(B2, j)
         fj = x -> evaluate_bspline(B2, j, x, deriv[2])
+        istart = fill_upper ? 1 : i0
+        iend = fill_lower ? N : i0
         for i = istart:iend
             ti = support(B1, i)
-            fi = x -> evaluate_bspline(B1, i, x, deriv[1])
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
-            @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
-            @assert length(t_inds) == k + 1 - abs(j - i)
+            isempty(t_inds) && continue
+            fi = x -> evaluate_bspline(B1, i, x, deriv[1])
             f = x -> fi(x) * fj(x)
             A[i, j] = _integrate(f, t, t_inds, quad)
         end
