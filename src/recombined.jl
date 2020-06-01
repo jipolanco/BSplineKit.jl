@@ -174,13 +174,17 @@ order(R::RecombinedBSplineBasis{D,k}) where {D,k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
 
 """
-    num_constraints(R::RecombinedBSplineBasis) -> Int
+    num_constraints(R::AbstractBSplineBasis) -> Int
     num_constraints(A::RecombineMatrix) -> Int
 
 Returns the number of constraints (i.e., number of BCs to satisfy) on each
 boundary.
+
+Note that for non-recombined bases such as [`BSplineBasis`](@ref), the number of
+constraints is zero.
 """
 @inline num_constraints(::RecombinedBSplineBasis{D}) where {D} = length(D)
+@inline num_constraints(::AbstractBSplineBasis) = 0
 
 """
     order_bc(B::AbstractBSplineBasis) -> NTuple{N,Int}

@@ -154,6 +154,7 @@ end
 @inline Base.size(A::RecombineMatrix) = (A.N, A.M)
 @inline order_bc(A::RecombineMatrix{T,orders}) where {T,orders} = orders
 @inline num_constraints(A::RecombineMatrix) = length(order_bc(A))
+@inline num_constraints(::UniformScaling) = 0  # case of non-recombined bases
 
 # Returns number of basis functions that are recombined from the original basis
 # near each boundary.

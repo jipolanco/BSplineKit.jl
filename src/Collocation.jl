@@ -54,7 +54,7 @@ The selection method can be chosen via the `method` argument, which accepts the
 following values:
 
 - [`Collocation.AvgKnots()`](@ref) (this is the default)
-- [`Collocation.AtMaxima()`](@ref) (actually, not yet supported!)
+- [`Collocation.AtMaxima()`](@ref) (not yet supported!)
 
 See also [`collocation_points!`](@ref).
 """
@@ -89,11 +89,10 @@ function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
     k = order(B)
     t = knots(B)
     T = eltype(x)
-    j = 0
 
-    if B isa RecombinedBSplineBasis
-        j += 1  # skip boundaries
-    end
+    # For recombined bases, skip points at the boundaries.
+    # Note that j = 0 for non-recombined bases, i.e. boundaries are included.
+    j = BasisSplines.num_constraints(B)
 
     v::T = inv(k - 1)
     a::T, b::T = boundaries(B)
