@@ -9,6 +9,8 @@ const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
 
 Compute Galerkin mass or stiffness matrix.
 
+# Extended help
+
 Definition of mass matrix:
 
     M[i, j] = ⟨ bᵢ, bⱼ ⟩  for  i = 1:N and j = 1:N,
@@ -81,7 +83,7 @@ end
 
 Compute 3D banded tensor appearing from quadratic terms in Galerkin method.
 
-The tensor is efficiently stored in a [`BandedTensor3D`] object.
+The tensor is efficiently stored [`BandedTensor3D`](@ref) object.
 """
 function galerkin_tensor(
         B::AnyBSplineBasis,
@@ -104,7 +106,7 @@ The matrix may be a `Symmetric` view, in which case only one half of the matrix
 will be filled. Note that, for the matrix to be symmetric, both derivative orders
 in `deriv` must be the same.
 
-See also [`galerkin_matrix`](@ref).
+See [`galerkin_matrix`](@ref) for details.
 """
 function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
                           deriv = Derivative.((0, 0)))

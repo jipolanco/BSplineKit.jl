@@ -131,11 +131,13 @@ end
 Return banded collocation matrix mapping B-spline coefficients to spline values
 at the collocation points `x`.
 
+# Extended help
+
 The matrix elements are given by the B-splines evaluated at the collocation
 points:
 
 ```math
-C[i, j] = b_j(x[i]) \\quad \text{for} \\quad  i ∈ [1, N_x] and j ∈ [1, N_b],
+C[i, j] = b_j(x[i]) \\quad \\text{for} \\quad  i ∈ [1, N_x] and j ∈ [1, N_b],
 ```
 
 where `Nx = length(x)` is the number of collocation points, and
@@ -175,15 +177,18 @@ the matrix needs to be inverted.
 ### Supported matrix types
 
 - `SparseMatrixCSC{T}`: this is the default, as it correctly handles any matrix
-shape.
+  shape.
 
-- `BandedMatrix{T}`: usually performs better than sparse matrices for inversion
-of linear systems. May not work for non-square matrix shapes, or if the
-distribution of collocation points is not adapted. In these cases, the effective
-bandwidth of the matrix may be larger than the expected bandwidth.
+- `BandedMatrix{T}`: generally performs better than sparse matrices for inversion
+  of linear systems. On the other hand, for matrix-vector or matrix-matrix
+  multiplications, `SparseMatrixCSC` may perform better (see
+  [BandedMatrices issue](https://github.com/JuliaMatrices/BandedMatrices.jl/issues/110)).
+  May fail with an error for non-square matrix shapes, or if the distribution of
+  collocation points is not adapted. In these cases, the effective
+  bandwidth of the matrix may be larger than the expected bandwidth.
 
 - `Matrix{T}`: a regular dense matrix. Generally performs worse than the
-alternatives, especially for large problems.
+  alternatives, especially for large problems.
 
 See also [`collocation_matrix!`](@ref).
 """
