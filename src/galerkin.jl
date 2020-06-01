@@ -4,33 +4,30 @@ const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
     galerkin_matrix(
         B::AbstractBSplineBasis,
         [deriv = (Derivative(0), Derivative(0))],
-        [MatrixType = BandedMatrix{Float64}]
+        [MatrixType = BandedMatrix{Float64}],
     )
 
-Compute Galerkin mass or stiffness matrix.
+Compute Galerkin mass or stiffness matrix, as well as more general variants
+of these.
 
 # Extended help
 
 Definition of mass matrix:
 
-    M[i, j] = ⟨ bᵢ, bⱼ ⟩  for  i = 1:N and j = 1:N,
+    M[i, j] = ⟨ ϕᵢ, ϕⱼ ⟩  for  i = 1:N and j = 1:N,
 
-where `bᵢ` is the i-th B-spline and `N = length(B)` is the number of B-splines
-in the basis `B`.
+where `ϕᵢ` is the i-th basis function and `N = length(B)` is the number of
+functions in the basis `B`.
 Here, ⟨⋅,⋅⟩ is the [L² inner
 product](https://en.wikipedia.org/wiki/Square-integrable_function#Properties)
 between functions.
 
-To obtain a matrix associated to the B-spline derivatives, set the `deriv`
-argument to the order of the derivatives.
-For instance, if `deriv = (Derivative(0), Derivative(2))`, this returns the
-matrix `⟨ bᵢ, bⱼ'' ⟩`.
+## Matrix layout and types
 
-Note that the Galerkin matrix is banded with `2k - 1` bands.
-Moreover, if both derivative orders are the same, the matrix is
-symmetric and positive definite, and only `k` bands are needed to fully describe
-the matrix.
-In those cases, a
+The mass matrix is banded with `2k - 1` bands.
+Moreover, the matrix is symmetric and positive definite, and only `k` bands are
+needed to fully describe the matrix.
+Hence, a
 [`Symmetric`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
 view of an underlying matrix is returned.
 
@@ -38,40 +35,74 @@ By default, the underlying matrix holding the data is a `BandedMatrix` that
 defines the upper part of the symmetric matrix.
 Other types of container are also supported, including regular sparse matrices
 (`SparseMatrixCSC`) and dense arrays (`Matrix`).
+See [`collocation_matrix`](@ref) for a discussion on matrix types.
+
+## Derivatives of basis functions
+
+Galerkin matrices associated to the derivatives of basis functions may be
+constructed using the optional `deriv` parameter.
+For instance, if `deriv = (Derivative(0), Derivative(2))`, the matrix
+`⟨ ϕᵢ, ϕⱼ″ ⟩` is constructed, where primes denote derivatives.
+Note that the returned matrix will only be symmetric if the two derivative
+orders are the same.
+
+## Combining different bases
+
+More generally, it is possible to combine different bases.
+For this, instead of the `B` parameter, one must pass a tuple of bases
+(`B₁`, `B₂`).
+This feature may be combined with a specification of different derivative orders
+for both bases.
+Note that, if both bases are different, the matrix will not be symmetric, and
+will not even be square if the respective basis lengths differ.
 """
 function galerkin_matrix(
-        B::AnyBSplineBasis,
+        Bs::NTuple{2,AnyBSplineBasis},
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
         ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
-    N = length(B)
-    symmetry = deriv[1] === deriv[2]
-
-    A = allocate_galerkin_matrix(M, N, order(B), symmetry)
+    _check_bases(Bs)
+    B1, B2 = Bs
+    symmetry = deriv[1] === deriv[2] && B1 === B2
+    k = order(B1)
+    @assert k == order(B2)  # verified in _check_bases
+    A = allocate_galerkin_matrix(M, length.(Bs), k, symmetry)
 
     # Make the matrix symmetric if possible.
     S = symmetry ? Symmetric(A) : A
 
-    galerkin_matrix!(S, B, deriv)
+    galerkin_matrix!(S, Bs, deriv)
 end
 
-galerkin_matrix(B::AnyBSplineBasis, ::Type{M}) where {M <: AbstractMatrix} =
+galerkin_matrix(B::AnyBSplineBasis, args...) = galerkin_matrix((B, B), args...)
+
+galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
 
-allocate_galerkin_matrix(::Type{M}, N, etc...) where {M <: AbstractMatrix} =
-    M(undef, N, N)
+function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
+    ps = parent.(Bs)
+    if any(ps .!== ps[1])
+        throw(ArgumentError(
+            "combined bases must all be constructed from the same parent B-spline basis"
+        ))
+    end
+    nothing
+end
 
-allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, N, etc...) where {T} =
-    spzeros(T, N, N)
+allocate_galerkin_matrix(::Type{M}, Ns, etc...) where {M <: AbstractMatrix} =
+    M(undef, Ns...)
 
-function allocate_galerkin_matrix(::Type{M}, N, k,
+allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, Ns, etc...) where {T} =
+    spzeros(T, Ns...)
+
+function allocate_galerkin_matrix(::Type{M}, Ns, k,
                                   symmetry) where {M <: BandedMatrix}
     # The upper/lower bandwidths are Nb = k - 1 (total = 2k - 1 bands).
     # Note that if the matrix is also symmetric, then we only need the upper
     # band.
     Nb = k - 1
     bands = symmetry ? (0, Nb) : (Nb, Nb)
-    M(undef, (N, N), bands)
+    M(undef, Ns, bands)
 end
 
 """
@@ -106,20 +137,32 @@ The matrix may be a `Symmetric` view, in which case only one half of the matrix
 will be filled. Note that, for the matrix to be symmetric, both derivative orders
 in `deriv` must be the same.
 
+More generally, it is possible to combine different functional bases by passing
+a tuple of `AbstractBSplineBasis` as `B`.
+
 See [`galerkin_matrix`](@ref) for details.
 """
-function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
-                          deriv = Derivative.((0, 0)))
-    N = size(S, 1)
+function galerkin_matrix! end
 
-    if N != length(B)
+galerkin_matrix!(M, B::AnyBSplineBasis, args...) =
+    galerkin_matrix!(M, (B, B), args...)
+
+function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
+                          deriv = Derivative.((0, 0)))
+    _check_bases(Bs)
+    N, M = size(S)
+    B1, B2 = Bs
+
+    if (N, M) != length.(Bs)
         throw(ArgumentError("wrong dimensions of Galerkin matrix"))
     end
 
     fill!(S, 0)
 
-    k = order(B)
-    t = knots(B)
+    # Orders and knots are assumed to be the same (see _check_bases).
+    k = order(B1)
+    t = knots(B1)
+    @assert k == order(B2) && t === knots(B2)
     h = k - 1
     T = eltype(S)
 
@@ -129,6 +172,7 @@ function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
 
     if S isa Symmetric
         deriv[1] === deriv[2] || error("matrix will not be symmetric with deriv = $deriv")
+        B1 === B2 || error("matrix will not be symmetric if bases are different")
         fill_upper = S.uplo === 'U'
         fill_lower = S.uplo === 'L'
         A = parent(S)
@@ -138,16 +182,17 @@ function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
         A = S
     end
 
-    for j = 1:N
+    # TODO verify this for non-square matrices...
+    for j = 1:M
         # We're only visiting the elements that have non-zero values.
         # In other words, we know that S[i, j] = 0 outside the chosen interval.
         istart = fill_upper ? clamp(j - h, 1, N) : j
         iend = fill_lower ? clamp(j + h, 1, N) : j
-        tj = support(B, j)
-        fj = x -> evaluate_bspline(B, j, x, deriv[2])
+        tj = support(B2, j)
+        fj = x -> evaluate_bspline(B2, j, x, deriv[2])
         for i = istart:iend
-            ti = support(B, i)
-            fi = x -> evaluate_bspline(B, i, x, deriv[1])
+            ti = support(B1, i)
+            fi = x -> evaluate_bspline(B1, i, x, deriv[1])
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             @assert !isempty(t_inds)    # there is a common support (the B-splines see each other)
             @assert length(t_inds) == k + 1 - abs(j - i)
@@ -159,9 +204,18 @@ function galerkin_matrix!(S::AbstractMatrix, B::AbstractBSplineBasis,
     S
 end
 
+# Alternative using the BSplineBasis type defined in the BSplines package.
 # TODO merge this with other variant!
-function galerkin_matrix!(S::AbstractMatrix, B::BSplines.BSplineBasis,
-                          deriv = Derivative.((0, 0)))
+function galerkin_matrix!(
+        S::AbstractMatrix, Bs::NTuple{2,BSplines.BSplineBasis},
+        deriv = Derivative.((0, 0)),
+    )
+    if Bs[1] !== Bs[2]
+        throw(ArgumentError(
+            "for now, this variant of galerkin_matrix! doesn't support combinations of different B-spline bases"
+        ))
+    end
+    B = first(Bs)
     N = size(S, 1)
 
     if N != length(B)
