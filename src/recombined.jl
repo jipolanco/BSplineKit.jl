@@ -11,11 +11,14 @@ methods. It is described for instance in Boyd 2000 (ch. 6), in the context of
 a Chebyshev basis. In this approach, the original basis is "recombined" so that
 each basis function individually satisfies the BCs.
 
-The new basis, ``{ϕ_j(x), 1 ≤ j ≤ N-2}``, has two fewer functions than the original
-B-spline basis, ``{b_j(x), 1 ≤ j ≤ N}``. Due to this, the number of collocation
-points needed to obtain a square collocation matrix is `N - 2`. In particular,
-for the matrix to be invertible, there must be **no** collocation points at the
-boundaries.
+The new basis, ``\\{ϕ_j(x), 1 ≤ j ≤ N-2\\}``, has two fewer functions
+than the original B-spline basis, ``\\{b_j(x), 1 ≤ j ≤ N\\}``.
+Due to this, the number of collocation points needed to obtain a square
+collocation matrix is ``N - 2``. In particular, for the matrix to be invertible,
+there must be **no** collocation points at the boundaries.
+More generally, as described further below, it is possible to simultaneously
+impose different boundary conditions, which further decreases the number of
+degrees of freedom.
 
 Thanks to the local support of B-splines, basis recombination involves only a
 little portion of the original B-spline basis. For instance, since there is only
@@ -27,7 +30,7 @@ is a bit more complex, but not much.
 
 The type parameter `orders` represents the order of the satisfied BC(s).
 In this section, we consider the case where its length is 1 and
-`orders = (n, )`, i.e., only the derivative of order `n` is constrained to
+`orders = (n, )`, i.e., only the derivative of order ``n`` is constrained to
 satisfy homogeneous BCs.
 
 The recombined basis requires the specification of a `Derivative` object
@@ -42,7 +45,7 @@ Some usual choices are:
 - `Derivative(0)` sets homogeneous Dirichlet BCs (``u = 0`` at the
   boundaries) by removing the first and last B-splines, i.e. ``ϕ_1 = b_2``;
 
-- `Derivative(1)` sets homogeneous Neumann BCs (``du/dx = 0`` at the
+- `Derivative(1)` sets homogeneous Neumann BCs (``u' = 0`` at the
   boundaries) by adding the two first (and two last) B-splines,
   i.e. ``ϕ_1 = b_1 + b_2``.
 
@@ -69,9 +72,9 @@ of the B-spline basis:
 \\text{ for } n ≥ 1.
 ```
 
-Moreover, only the first `n + 1` B-splines have non-zero `n`-th derivative at
-the left boundary. Hence, to enforce a derivative to be zero, the first `n + 1`
-B-splines should be recombined linearly into `n` independent basis functions.
+Moreover, only the first ``n + 1`` B-splines have non-zero ``n``-th derivative at
+the left boundary. Hence, to enforce a derivative to be zero, the first ``n + 1``
+B-splines should be recombined linearly into ``n`` independent basis functions.
 
 For now, the two boundaries are given the same BC (but this could be
 extended...).
@@ -82,9 +85,10 @@ As an option, the recombined basis may simultaneously satisfy homogeneous BCs of
 different orders. In this case, a list of `Derivative`s must be passed.
 The list must be sorted in increasing order.
 
-Presently, the only supported case is where all orders from 0 to `n` are present.
+Presently, the only supported case is where all orders from ``0`` to ``n`` are
+present.
 In this case, the resulting basis is simply obtained by removing the first (and
-last) `n + 1` functions from the original B-spline basis.
+last) ``n + 1`` functions from the original B-spline basis.
 This can be seen as a generalisation of the Dirichlet case described in the
 previous section.
 
@@ -98,7 +102,7 @@ The resulting basis is ``ϕ_1 = b_3, ϕ_2 = b_4, …, ϕ_{N - 4} = b_{N - 2}``.
     RecombinedBSplineBasis(::Derivative{n}, B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
-homogeneous boundary conditions of order `n >= 0`.
+homogeneous boundary conditions of order ``n ≥ 0``.
 
 ---
 
@@ -145,7 +149,7 @@ get_orders() = ()
     RecombinedBSplineBasis(order, args...; kwargs...)
 
 Construct [`RecombinedBSplineBasis`](@ref) from B-spline basis, satisfying
-homogeneous boundary conditions of order `n >= 0`.
+homogeneous boundary conditions of order ``n ≥ 0``.
 
 This variant does not require a previously constructed [`BSplineBasis`](@ref).
 Arguments are passed to the `BSplineBasis` constructor.
@@ -210,7 +214,7 @@ boundary.
 
 For instance, if `R` satisfies Neumann boundary conditions, then only the first
 and last basis functions are different from the original B-spline basis, e.g.
-`ϕ₁ = b₁ + b₂`, and this returns 1.
+``ϕ_1 = b_1 + b_2``, and this returns 1.
 
 For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
 """

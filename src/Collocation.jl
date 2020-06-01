@@ -45,7 +45,7 @@ Define and return adapted collocation points for evaluation of splines.
 The number of returned collocation points is equal to the number of functions in
 the basis.
 
-Note that if `B` is a [`RecombinedBSplineBasis`] (adapted for boundary value
+Note that if `B` is a [`RecombinedBSplineBasis`](@ref) (adapted for boundary value
 problems), collocation points are not included at the boundaries, since the
 boundary conditions are implicitly satisfied by the basis.
 
@@ -137,7 +137,8 @@ The matrix elements are given by the B-splines evaluated at the collocation
 points:
 
 ```math
-C[i, j] = b_j(x[i]) \\quad \\text{for} \\quad  i ∈ [1, N_x] and j ∈ [1, N_b],
+C_{ij} = b_j(x_i) \\quad \\text{for} \\quad
+i ∈ [1, N_x] \\text{ and } j ∈ [1, N_b],
 ```
 
 where `Nx = length(x)` is the number of collocation points, and

@@ -12,20 +12,30 @@ of these.
 
 # Extended help
 
-Definition of mass matrix:
+The Galerkin mass matrix is defined as
 
-    M[i, j] = ⟨ ϕᵢ, ϕⱼ ⟩  for  i = 1:N and j = 1:N,
+```math
+M_{ij} = ⟨ ϕ_i, ϕ_j ⟩ \\quad \\text{for} \\quad
+i ∈ [1, N] \\text{ and } j ∈ [1, N],
+```
 
-where `ϕᵢ` is the i-th basis function and `N = length(B)` is the number of
+where ``ϕ_i`` is the i-th basis function and `N = length(B)` is the number of
 functions in the basis `B`.
-Here, ⟨⋅,⋅⟩ is the [L² inner
+Here, ⟨⋅,⋅⟩ is the [``L^2`` inner
 product](https://en.wikipedia.org/wiki/Square-integrable_function#Properties)
 between functions.
 
+Since products of B-splines are themselves piecewise polynomials, integrals can
+be computed exactly using [Gaussian quadrature
+rules](https://en.wikipedia.org/wiki/Gaussian_quadrature).
+To do this, we use Gauss--Legendre quadratures via the
+[FastGaussQuadrature](https://github.com/JuliaApproximation/FastGaussQuadrature.jl)
+package.
+
 ## Matrix layout and types
 
-The mass matrix is banded with `2k - 1` bands.
-Moreover, the matrix is symmetric and positive definite, and only `k` bands are
+The mass matrix is banded with ``2k - 1`` bands.
+Moreover, the matrix is symmetric and positive definite, and only ``k`` bands are
 needed to fully describe the matrix.
 Hence, a
 [`Symmetric`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
@@ -42,7 +52,7 @@ See [`collocation_matrix`](@ref) for a discussion on matrix types.
 Galerkin matrices associated to the derivatives of basis functions may be
 constructed using the optional `deriv` parameter.
 For instance, if `deriv = (Derivative(0), Derivative(2))`, the matrix
-`⟨ ϕᵢ, ϕⱼ″ ⟩` is constructed, where primes denote derivatives.
+``⟨ ϕ_i, ϕ_j'' ⟩`` is constructed, where primes denote derivatives.
 Note that the returned matrix will only be symmetric if the two derivative
 orders are the same.
 
@@ -50,7 +60,7 @@ orders are the same.
 
 More generally, it is possible to combine different bases.
 For this, instead of the `B` parameter, one must pass a tuple of bases
-(`B₁`, `B₂`).
+`(B₁, B₂)`.
 This feature may be combined with a specification of different derivative orders
 for both bases.
 Note that, if both bases are different, the matrix will not be symmetric, and

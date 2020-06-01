@@ -14,7 +14,7 @@ This matrix allows to pass from known coefficients ``u_j`` in the recombined
 basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
 ``b_i``:
 ```math
-\\mathbf{v} = M \\mathbf{u}.
+\\bm{v} = \\mathbf{M} \\bm{u}.
 ```
 
 Note that the matrix is not square: it has dimensions `(N, M)`, where `N`

@@ -19,17 +19,17 @@ Three-dimensional banded cubic tensor with element type `T`.
 ## Band structure
 
 The band structure is assumed to be symmetric, and is defined in terms of the
-band width `b`.
-The element `A[i, j, k]` may be non-zero only if `|i - j| ≤ b`, `|i - k| ≤ b`
-and `|j - k| ≤ b`.
+band width ``b``.
+The element ``A_{ijk}`` may be non-zero only if ``|i - j| ≤ b``, ``|i - k| ≤ b``
+and ``|j - k| ≤ b``.
 
 ## Storage
 
 The data is stored as a `Vector` of small matrices, each with size
-`(r, r)`, where `r = 2b + 1` is the total number of bands.
+``r × r``, where ``r = 2b + 1`` is the total number of bands.
 Each submatrix holds the non-zero values of a slice of the form `A[:, :, k]`.
 
-For `b = 2`, one of these matrices looks like the following, where dots indicate
+For ``b = 2``, one of these matrices looks like the following, where dots indicate
 out-of-bands values (equal to zero):
 
     | x  x  x  ⋅  ⋅ |
@@ -45,7 +45,7 @@ These submatrices are stored as static matrices (`SMatrix`).
 To define the elements of the tensor, each slice `A[:, :, k]` must be set at
 once. For instance:
 
-```jldoctest
+```julia
 A = BandedTensor3D(undef, 20, 2)  # tensor of size 20×20×20 and band width b = 2
 for k in axes(A, 3)
     A[:, :, k] = rand(5, 5)

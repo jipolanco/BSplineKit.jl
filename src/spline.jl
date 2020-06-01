@@ -8,6 +8,14 @@ Spline function.
     Spline(b::BSplineBasis, coefs::AbstractVector)
 
 Construct a spline from a B-spline basis and a vector of B-spline coefficients.
+
+---
+
+    (S::Spline)(x)
+
+Evaluate spline at coordinate `x`.
+
+The implementation uses [De Boor's algorithm](https://en.wikipedia.org/wiki/De_Boor's_algorithm).
 """
 struct Spline{k,  # B-spline order
               Basis <: BSplineBasis,
@@ -40,19 +48,17 @@ function Spline(B::BSplineBasis, ::Type{T}=Float64) where {T}
     Spline(B, coefs)
 end
 
+"""
+    coefficients(S::Spline)
+
+Get B-spline coefficients of the spline.
+"""
 coefficients(S::Spline) = S.coefs
 basis(S::Spline) = S.basis
 knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{k}}) where {k} = k
 order(S::Spline) = order(typeof(S))
 
-"""
-    (S::Spline)(x)
-
-Evaluate spline at coordinate `x`.
-
-The implementation uses [De Boor's algorithm](https://en.wikipedia.org/wiki/De_Boor's_algorithm).
-"""
 function (S::Spline)(x)
     T = eltype(S.coefs)
     t = knots(S)

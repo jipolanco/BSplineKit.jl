@@ -12,6 +12,15 @@ Construct i-th basis function of the given basis.
 
 The constructed function can be evaluated as `b(x)`, returning a value of type
 `T`.
+
+---
+
+    (b::BSpline)(x, [deriv = Derivative(0)])
+
+Evaluate B-spline at coordinate `x`.
+
+To evaluate a derivative, pass the `deriv` parameter with the wanted
+differentiation order.
 """
 struct BSpline{Basis <: AnyBSplineBasis, T}
     basis :: Basis
@@ -55,14 +64,6 @@ using `isempty`, which returns `true` for such a range.
 """
 common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
 
-"""
-    (b::BSpline)(x, [deriv = Derivative(0)])
-
-Evaluate B-spline at coordinate `x`.
-
-To evaluate a derivative, pass the `deriv` parameter with the wanted
-differentiation order.
-"""
 (b::BSpline)(x, deriv=Derivative(0)) =
     evaluate_bspline(basis(b), b.i, x, deriv, eltype(b))
 
