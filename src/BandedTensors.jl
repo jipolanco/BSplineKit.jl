@@ -90,18 +90,26 @@ Base.sizeof(A::BandedTensor3D) = sizeof(A.data)
 """
     SubMatrix
 
-Represents a submatrix `A[:, :, k]` of [`BandedTensor3D`](@ref).
+Represents the submatrix `A[:, :, k]` of a [`BandedTensor3D`](@ref) `A`.
 
 Wraps the `SMatrix` holding the submatrix.
 """
 struct SubMatrix{M <: SMatrix, Indices <: AbstractRange}
     data :: M
+    k    :: Int
     inds :: Indices
 end
 
 @inline function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
-    @inbounds SubMatrix(A.data[k], band_indices(A, k))
+    @inbounds SubMatrix(A.data[k], k, band_indices(A, k))
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", S::SubMatrix)
+    print(io, "Submatrix of BandedTensor3D holding data in (",
+          S.inds, ", ", S.inds, ", ", S.k, ").\nData =\n")
+    show(io, mime, S.data)
+    nothing
 end
 
 Base.parent(Asub::SubMatrix) = Asub.data

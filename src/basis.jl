@@ -44,9 +44,9 @@ end
 
 function Base.show(io::IO, B::BSplineBasis)
     # This is somewhat consistent with the output of the BSplines package.
-    println(length(B), "-element ", typeof(B), ':')
-    println(" order: ", order(B))
-    print(" knots: ", knots(B))
+    println(io, length(B), "-element ", typeof(B), ':')
+    println(io, " order: ", order(B))
+    print(io, " knots: ", knots(B))
     nothing
 end
 

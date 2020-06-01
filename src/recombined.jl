@@ -135,10 +135,10 @@ end
 
 function Base.show(io::IO, R::RecombinedBSplineBasis)
     # This is somewhat consistent with the output of the BSplines package.
-    println(length(R), "-element ", typeof(R), ':')
-    println(" boundary condition orders: ", order_bc(R))
-    println(" order: ", order(R))
-    print(" knots: ", knots(R))
+    println(io, length(R), "-element ", typeof(R), ':')
+    println(io, " boundary condition orders: ", order_bc(R))
+    println(io, " order: ", order(R))
+    print(io, " knots: ", knots(R))
     nothing
 end
 
