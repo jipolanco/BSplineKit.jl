@@ -124,7 +124,8 @@ end
 
 function Base.summary(io::IO, A::BandedTensor3D)
     print(io, Base.dims2string(size(A)), " BandedTensor3D{", eltype(A),
-          "} with band width b = ", bandwidth(A))
+          "} with band width b = ", bandwidth(A),
+          " and band shifts ", bandshift(A))
     nothing
 end
 
@@ -221,6 +222,19 @@ end
 # Get submatrix A[:, :, k].
 Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = SubMatrix(A, k)
 Base.view(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = A[:, :, k]
+
+function Base.getindex(A::BandedTensor3D, ::Colon, ::Colon,
+                       ks::AbstractUnitRange)
+    shift = bandshift(A) .+ (0, 0, first(ks) - 1)
+    Nk = length(ks)
+    dims = (size(A, 1), size(A, 2), Nk)
+    # TODO define and use `similar`
+    B = BandedTensor3D{eltype(A)}(undef, dims, bandwidth(A), bandshift=shift)
+    for (l, k) in enumerate(ks)
+        B[:, :, l] = parent(A[:, :, k])
+    end
+    B
+end
 
 @inline function Base.getindex(A::BandedTensor3D,
                                i::Integer, j::Integer, k::Integer)
