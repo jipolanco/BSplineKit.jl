@@ -14,6 +14,7 @@ SubMatrix
 ## Functions
 
 ```@docs
+bandshift
 bandwidth
 band_indices
 setindex!

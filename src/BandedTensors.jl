@@ -21,8 +21,8 @@ Three-dimensional banded tensor with element type `T`.
 
 The band structure is assumed to be symmetric, and is defined in terms of the
 band width ``b``.
-For a cubic banded tensor of dimensions `N×N×N`, the element ``A_{ijk}`` may be
-non-zero only if ``|i - j| ≤ b``, ``|i - k| ≤ b`` and ``|j - k| ≤ b``.
+For a cubic banded tensor of dimensions ``N × N × N``, the element ``A_{ijk}``
+may be non-zero only if ``|i - j| ≤ b``, ``|i - k| ≤ b`` and ``|j - k| ≤ b``.
 
 ## Storage
 
@@ -57,12 +57,33 @@ See [`setindex!`](@ref) for more details.
 
 ## Non-cubic tensors
 
-A slight departure from cubic tensors is currently supported.
-Dimensions may be of the form ``N × N × M``.
-
+A slight departure from cubic tensors is currently supported, with dimensions of
+the form ``N × N × M``.
 Moreover, bands may be shifted along the third dimension by an offset ``δ``.
 In this case, the bands are given by ``|i - j| ≤ b``, ``|i - (k + δ)| ≤ b`` and
 ``|j - (k + δ)| ≤ b``.
+
+---
+
+    BandedTensor3D{T}(undef, (Ni, Nj, Nk), b; [bandshift = (0, 0, 0)])
+    BandedTensor3D{T}(undef, N, b; ...)
+
+Construct 3D banded tensor with band widths `b`.
+
+Right now, the first two dimension sizes `Ni` and `Nj` of the tensor must be
+equal.
+In the second variant, the tensor dimensions are `N × N × N`.
+
+The tensor is constructed uninitialised.
+Each submatrix `A[:, :, k]` of size `(2b + 1, 2b + 1)`, for `k ∈ 1:Nk`, should be
+initialised as in the following example:
+
+    A[:, :, k] = rand(2b + 1, 2b + 1)
+
+The optional `bandshift` argument should be a tuple of the form `(δi, δj, δk)`
+describing a band shift.
+Right now, band shifts are limited to `δi = δj = 0`, so this argument should
+rather look like `(0, 0, δk)`.
 
 """
 struct BandedTensor3D{T, b, r, M <: AbstractMatrix} <: AbstractArray{T,3}
@@ -98,29 +119,6 @@ struct BandedTensor3D{T, b, r, M <: AbstractMatrix} <: AbstractArray{T,3}
         BandedTensor3D{T,b}(init, dims...; kwargs...)
 end
 
-"""
-    BandedTensor3D{T}(undef, (Ni, Nj, Nk), b; [bandshift = (0, 0, 0)])
-    BandedTensor3D{T}(undef, N, b)
-
-Construct cubic 3D banded tensor with band widths `b`.
-
-Right now, the first two dimension sizes `Ni` and `Nj` of the tensor must be
-equal.
-In the second variant, the tensor dimensions are `N`×`N`×`N`.
-
-The tensor is constructed uninitialised.
-
-Each submatrix `A[:, :, k]` of size `(2b + 1, 2b + 1)`, for `k ∈ 1:Nk`, should be
-initialised as in the following example:
-
-    A[:, :, k] = rand(2b + 1, 2b + 1)
-
-The optional `bandshift` argument should be a tuple of the form `(δi, δj, δk)`
-describing a band shift.
-Right now, band shifts are limited to `δi = δj = 0`, so this argument should
-rather look like `(0, 0, δk)`.
-
-"""
 @inline BandedTensor3D{T}(init, dims, b::Int; kwargs...) where {T} =
     BandedTensor3D{T,b}(init, dims; kwargs...)
 
