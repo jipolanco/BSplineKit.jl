@@ -8,6 +8,7 @@ using LinearAlgebra: dot
 import LinearAlgebra
 
 export BandedTensor3D
+export bandshift, bandwidth
 
 """
     BandedTensor3D{T,b}
@@ -57,49 +58,48 @@ See [`setindex!`](@ref) for more details.
 ## Non-cubic tensors
 
 A slight departure from cubic tensors is currently supported.
-Dimensions of the form ``N_i × N_j × N_k`` are constrained to the condition
-``N_i == N_j``, and ``Δ = N_j - N_k`` must be even.
+Dimensions may be of the form ``N × N × M``.
 
-In this case, the bands are shifted along the third dimension to keep the
-structure as symmetric as possible.
-Bands are then determined by ``|i - j| ≤ b``, ``|i - (k - δ)| ≤ b`` and
-``|j - (k - δ)| ≤ b``, where ``δ = Δ / 2``.
+Moreover, bands may be shifted along the third dimension by an offset ``δ``.
+In this case, the bands are given by ``|i - j| ≤ b``, ``|i - (k + δ)| ≤ b`` and
+``|j - (k + δ)| ≤ b``.
 
 """
 struct BandedTensor3D{T, b, r, M <: AbstractMatrix} <: AbstractArray{T,3}
-    dims :: Dims{3}    # dimensions (with dims[1] == dims[2])
+    dims :: Dims{3}        # dimensions (with dims[1] == dims[2])
+    bandshift :: Dims{3}  # band shifts (with bandshift[1] = bandshift[2] = 0)
     Nk   :: Int        # last dimension (= dims[3])
-    δk   :: Int        # band shift along 3rd dimension
+    δk   :: Int        # band shift along 3rd dimension (= bandshift[3])
     data :: Vector{M}  # vector of submatrices indexed by (i, j)
 
-    function BandedTensor3D{T,b}(::UndefInitializer, Ni, Nj, Nk) where {T,b}
+    function BandedTensor3D{T,b}(::UndefInitializer, Ni, Nj, Nk;
+                                 bandshift::Dims{3} = (0, 0, 0)) where {T,b}
         b :: Int
         if Ni != Nj
             throw(ArgumentError(
                 "the first two dimensions must have the same sizes"))
         end
-        if isodd(Nj - Nk)
+        δi, δj, δk = bandshift
+        if !(δi == δj == 0)
             throw(ArgumentError(
-                "the difference between dimensions must be even"
-            ))
+                "shifts along dimensions 1 and 2 are not currently supported"))
         end
-        δk = (Nj - Nk) >> 1
         r = 2b + 1
         M = SMatrix{r, r, T, r * r}
         @assert isconcretetype(M)
         data = Vector{M}(undef, Nk)
-        new{T, b, r, M}((Ni, Nj, Nk), Nk, δk, data)
+        new{T, b, r, M}((Ni, Nj, Nk), bandshift, Nk, δk, data)
     end
 
-    BandedTensor3D{T,b}(init, N::Integer) where {T,b} =
-        BandedTensor3D{T,b}(init, N, N, N)
+    BandedTensor3D{T,b}(init, N::Integer; kwargs...) where {T,b} =
+        BandedTensor3D{T,b}(init, N, N, N; kwargs...)
 
-    BandedTensor3D{T,b}(init, dims::Dims) where {T,b} =
-        BandedTensor3D{T,b}(init, dims...)
+    BandedTensor3D{T,b}(init, dims::Dims; kwargs...) where {T,b} =
+        BandedTensor3D{T,b}(init, dims...; kwargs...)
 end
 
 """
-    BandedTensor3D{T}(undef, (Ni, Nj, Nk), b)
+    BandedTensor3D{T}(undef, (Ni, Nj, Nk), b; [bandshift = (0, 0, 0)])
     BandedTensor3D{T}(undef, N, b)
 
 Construct cubic 3D banded tensor with band widths `b`.
@@ -115,9 +115,14 @@ initialised as in the following example:
 
     A[:, :, k] = rand(2b + 1, 2b + 1)
 
+The optional `bandshift` argument should be a tuple of the form `(δi, δj, δk)`
+describing a band shift.
+Right now, band shifts are limited to `δi = δj = 0`, so this argument should
+rather look like `(0, 0, δk)`.
+
 """
-@inline BandedTensor3D{T}(init, dims, b::Int) where {T} =
-    BandedTensor3D{T,b}(init, dims)
+@inline BandedTensor3D{T}(init, dims, b::Int; kwargs...) where {T} =
+    BandedTensor3D{T,b}(init, dims; kwargs...)
 
 function Base.summary(io::IO, A::BandedTensor3D)
     print(io, Base.dims2string(size(A)), " BandedTensor3D{", eltype(A),
@@ -128,13 +133,14 @@ end
 Base.sizeof(A::BandedTensor3D) = sizeof(A.data)
 
 """
-    SubMatrix
+    SubMatrix{T} <: AbstractMatrix{T}
 
 Represents the submatrix `A[:, :, k]` of a [`BandedTensor3D`](@ref) `A`.
 
 Wraps the `SMatrix` holding the submatrix.
 """
-struct SubMatrix{M <: SMatrix, Indices <: AbstractRange}
+struct SubMatrix{T, M <: SMatrix{T}, Indices <: AbstractRange} <: AbstractMatrix{T}
+    dims :: Dims{2}
     data :: M
     k    :: Int
     inds :: Indices
@@ -142,8 +148,11 @@ end
 
 @inline function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
-    @inbounds SubMatrix(A.data[k], k, band_indices(A, k))
+    dims = size(A, 1), size(A, 2)
+    @inbounds SubMatrix(dims, A.data[k], k, band_indices(A, k))
 end
+
+Base.size(S::SubMatrix) = S.dims
 
 function Base.show(io::IO, mime::MIME"text/plain", S::SubMatrix)
     summary(io, S)
@@ -175,6 +184,13 @@ widths in `BandedMatrices`.
 """
 bandwidth(A::BandedTensor3D{T,b}) where {T,b} = b
 
+"""
+    bandshift(A::BandedTensor3D) -> (δi, δj, δk)
+
+Return tuple with band shifts along each dimension.
+"""
+bandshift(A::BandedTensor3D) = A.bandshift
+
 Base.size(A::BandedTensor3D) = A.dims
 
 """
@@ -205,7 +221,8 @@ function Base.setindex!(A::BandedTensor3D, Ak::AbstractMatrix,
 end
 
 # Get submatrix A[:, :, k].
-Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k) = SubMatrix(A, k)
+Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = SubMatrix(A, k)
+Base.view(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = A[:, :, k]
 
 @inline function Base.getindex(A::BandedTensor3D,
                                i::Integer, j::Integer, k::Integer)

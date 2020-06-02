@@ -158,7 +158,8 @@ function galerkin_tensor(
     if length(Bs[1]) != length(Bs[2])
         throw(ArgumentError("the first two bases must have the same lengths"))
     end
-    A = BandedTensor3D{T}(undef, dims, b)
+    δ = num_constraints(Bs[3]) - num_constraints(Bs[1])
+    A = BandedTensor3D{T}(undef, dims, b, bandshift=(0, 0, δ))
     galerkin_tensor!(A, Bs, deriv)
 end
 
@@ -345,14 +346,17 @@ function galerkin_tensor!(A::BandedTensor3D,
 
     # Quadrature information (weights, nodes).
     quad = _quadrature_prod(3k - 3)
-    if BandedTensors.bandwidth(A) != k - 1
-        throw(ArgumentError("input BandedTensor3D has incorrect bandwidth"))
-    end
 
     Al = Matrix{T}(undef, 2k - 1, 2k - 1)
     δ = num_constraints(Bl) - num_constraints(Bi)
     @assert Ni == Nj == Nl + 2δ
-    @assert δ == A.δk
+
+    if bandwidth(A) != k - 1
+        throw(ArgumentError("BandedTensor3D must have bandwidth = $(k - 1)"))
+    end
+    if bandshift(A) != (0, 0, δ)
+        throw(ArgumentError("BandedTensor3D must have bandshift = (0, 0, $δ)"))
+    end
 
     for l = 1:Nl
         # TODO
