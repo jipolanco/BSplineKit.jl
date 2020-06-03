@@ -4,9 +4,11 @@ using StaticArrays
 
 import BandedMatrices: bandwidth
 
-using LinearAlgebra: dot
 import LinearAlgebra
-import Random: AbstractRNG
+using LinearAlgebra: dot
+
+import Random
+using Random: AbstractRNG
 
 export BandedTensor3D
 export bandshift, bandwidth
@@ -163,7 +165,8 @@ Represents the submatrix `A[:, :, k]` of a [`BandedTensor3D`](@ref) `A`.
 
 Wraps the `SMatrix` holding the submatrix.
 """
-struct SubMatrix{T, M <: SMatrix{T}, Indices <: AbstractRange} <: AbstractMatrix{T}
+struct SubMatrix{T, N, M <: SMatrix{N,N,T},
+                 Indices <: AbstractUnitRange} <: AbstractMatrix{T}
     dims :: Dims{2}
     data :: M
     k    :: Int
@@ -177,6 +180,16 @@ end
 end
 
 Base.size(S::SubMatrix) = S.dims
+
+@inline function Base.getindex(S::SubMatrix{T}, i::Integer, j::Integer) where {T}
+    r = S.inds
+    i ∈ r && j ∈ r || return zero(T)
+    ii = i - first(r) + 1
+    jj = j - first(r) + 1
+    S.data[ii, jj]
+end
+
+Base.:(==)(u::SubMatrix, v::SubMatrix) = u.inds == v.inds && u.data == v.data
 
 function Base.show(io::IO, mime::MIME"text/plain", S::SubMatrix)
     summary(io, S)
