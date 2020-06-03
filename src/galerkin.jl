@@ -53,22 +53,25 @@ Galerkin matrices associated to the derivatives of basis functions may be
 constructed using the optional `deriv` parameter.
 For instance, if `deriv = (Derivative(0), Derivative(2))`, the matrix
 ``⟨ ϕ_i, ϕ_j'' ⟩`` is constructed, where primes denote derivatives.
-Note that the returned matrix will only be symmetric if the two derivative
-orders are the same.
+Note that, if the derivative orders are different, the resulting matrix is not
+symmetric, and a `Symmetric` view is not returned in those cases.
 
 ## Combining different bases
 
-More generally, it is possible to combine different bases.
+More generally, it is possible to compute matrices of the form
+``⟨ ψ_i^{(n)}, ϕ_j^{(m)} ⟩``, where `n` and `m` are derivative orders, and ``ψ_i``
+and ``ϕ_j`` belong to two *different* (but related) bases `B₁` and `B₂`.
 For this, instead of the `B` parameter, one must pass a tuple of bases
 `(B₁, B₂)`.
-The bases must have the same parent B-spline basis.
+The restriction is that the bases must have the same parent B-spline basis.
 That is, they must share the same set of B-spline knots and be of equal
 polynomial order.
 
-This feature may be combined with a specification of different derivative orders
-for both bases.
 Note that, if both bases are different, the matrix will not be symmetric, and
-will not even be square if the respective basis lengths differ.
+will not even be square if the bases have different lengths.
+
+In practice, this feature may be used to combine a B-spline basis `B`, with a
+recombined basis `R` generated from `B` (see [Basis recombination](@ref)).
 """
 function galerkin_matrix(
         Bs::NTuple{2,AnyBSplineBasis},
@@ -132,7 +135,7 @@ end
 """
     galerkin_tensor(
         B::AbstractBSplineBasis,
-        (D1::Derivative, D2::Derivative, D3::Derivative),
+        (D₁::Derivative, D₂::Derivative, D₃::Derivative),
         [T = Float64],
     )
 

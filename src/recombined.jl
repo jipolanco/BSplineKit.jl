@@ -58,26 +58,26 @@ boundary.
 Note that simply adding the first three B-splines, as in ``ϕ_1 = b_1 + b_2 +
 b_3``, makes the first derivative vanish as well as the second one, which is
 unwanted.
-The chosen solution is to set ``ϕ_i = b_i - α_i b_3`` for ``i ∈ {1, 2}``,
+The chosen solution is to set ``ϕ_i = b_i - α_i b_3`` for ``i ∈ \\{1, 2\\}``,
 with ``α_i = b_i'' / b_3''``. All these considerations apply similarly to the
 right boundary.
 
-This generalises easily to higher order BCs, and also applies to the lower order
-BCs listed above.
-To understand how this works, note that, due to the partition of unity property
-of the B-spline basis:
+This generalises easily to higher order BCs.
+First note that, due to the partition of unity property of the B-spline basis,
+we have
 
 ```math
-∑_j b_j(x) = 1 \\quad ⇒ \\quad ∑_j \\frac{d^n b_j}{dx^n}(x) = 0
+∑_j b_j(x) = 1 \\quad ⇒
+\\quad ∑_j \\frac{\\mathrm{d}^n b_j}{\\mathrm{d}x^n}(x) = 0
 \\text{ for } n ≥ 1.
 ```
 
-Moreover, only the first ``n + 1`` B-splines have non-zero ``n``-th derivative at
+Secondly, only the first ``n + 1`` B-splines have non-zero ``n``-th derivative on
 the left boundary. Hence, to enforce a derivative to be zero, the first ``n + 1``
 B-splines should be recombined linearly into ``n`` independent basis functions.
 
-For now, the two boundaries are given the same BC (but this could be
-extended...).
+Finally, note that in the current implementation, it is not possible to impose
+different boundary conditions on both boundaries.
 
 ## Multiple boundary conditions
 

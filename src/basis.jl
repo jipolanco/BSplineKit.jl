@@ -79,7 +79,7 @@ end
     knots(g::BSplineBasis)
     knots(g::Spline)
 
-Returns the knots of the spline grid.
+Returns the knots of the B-spline basis.
 """
 knots(g::BSplineBasis) = g.t
 

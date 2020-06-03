@@ -98,7 +98,7 @@ function Base.diff(S::Spline,
             "cannot differentiate order $k spline $Ndiff times!"))
     end
 
-    @assert Base.require_one_based_indexing(u)
+    Base.require_one_based_indexing(u)
     du = copy(u)
 
     @inbounds for m = 1:Ndiff, i in Iterators.Reverse(eachindex(du))
@@ -138,7 +138,7 @@ function integral(S::Spline)
     u = coefficients(S)
     t = knots(S)
     k = order(S)
-    @assert Base.require_one_based_indexing(u)
+    Base.require_one_based_indexing(u)
 
     Nt = length(t)
     N = length(u)

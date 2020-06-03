@@ -49,7 +49,7 @@ Note that if `B` is a [`RecombinedBSplineBasis`](@ref) (adapted for boundary val
 problems), collocation points are not included at the boundaries, since the
 boundary conditions are implicitly satisfied by the basis.
 
-Collocation points can be selected in different ways.
+Collocation points may be selected in different ways.
 The selection method can be chosen via the `method` argument, which accepts the
 following values:
 
@@ -128,8 +128,8 @@ end
         clip_threshold = eps(eltype(MatrixType)),
     )
 
-Return banded collocation matrix mapping B-spline coefficients to spline values
-at the collocation points `x`.
+Return collocation matrix mapping B-spline coefficients to spline values at the
+collocation points `x`.
 
 # Extended help
 
@@ -147,13 +147,13 @@ where `Nx = length(x)` is the number of collocation points, and
 To obtain a matrix associated to the B-spline derivatives, set the `deriv`
 argument to the order of the derivative.
 
-Given the B-spline coefficients `{u[j], j = 1:Nb}`, one can recover the values
-(or derivatives) of the spline at the collocation points as `v = C * u`.
-Conversely, if one knows the values `v[i]` at the collocation points,
-the coefficients `u` can be obtained by inversion of the linear system
-`u = C \\ v`.
+Given the B-spline coefficients ``\\{u_j, 1 ≤ j ≤ N_b\\}``, one can recover the
+values (or derivatives) of the spline at the collocation points as `v = C * u`.
+Conversely, if one knows the values ``v_i`` at the collocation points,
+the coefficients ``u`` of the spline passing by the collocation points may be
+obtained by inversion of the linear system `u = C \\ v`.
 
-The `clip_threshold` argument allows to ignore spurious, very small values
+The `clip_threshold` argument allows one to ignore spurious, negligible values
 obtained when evaluating B-splines. These values are typically unwanted, as they
 artificially increase the number of elements (and sometimes the bandwidth) of
 the matrix.
@@ -169,7 +169,7 @@ The `MatrixType` optional argument allows to select the type of returned matrix.
 
 Due to the compact support of B-splines, the collocation matrix is
 [banded](https://en.wikipedia.org/wiki/Band_matrix) if the collocation points
-have a "good" distribution. Therefore, it makes sense to store it in a
+are properly distributed. Therefore, it makes sense to store it in a
 `BandedMatrix` (from the
 [BandedMatrices](https://github.com/JuliaMatrices/BandedMatrices.jl) package),
 as this will lead to memory savings and especially to time savings if

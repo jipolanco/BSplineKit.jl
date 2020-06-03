@@ -3,9 +3,6 @@
 
 Modifies the input knots to make sure that the first and last knot have
 the multiplicity `k` for splines of order `k`.
-
-Similar to [`augknt`](https://www.mathworks.com/help/curvefit/augknt.html) in
-Matlab.
 """
 function augment_knots(knots::AbstractVector{T},
                        k::Integer) :: Vector{T} where {T}

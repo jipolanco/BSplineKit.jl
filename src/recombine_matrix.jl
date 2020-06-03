@@ -7,8 +7,8 @@ The transform matrix ``M`` is defined by
 ```math
 ϕ_j = M_{ij} b_i,
 ```
-where ``b_j`` and ``ϕ_i`` are elements of the B-spline and recombined bases,
-respectively.
+where ``b_j(x)`` and ``ϕ_i(x)`` are elements of the B-spline and recombined
+bases, respectively.
 
 This matrix allows to pass from known coefficients ``u_j`` in the recombined
 basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
@@ -17,8 +17,8 @@ basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
 \\bm{v} = \\mathbf{M} \\bm{u}.
 ```
 
-Note that the matrix is not square: it has dimensions `(N, M)`, where `N`
-is the length of the B-spline basis, and `M < N` is that of the recombined
+Note that the matrix is not square: it has dimensions ``N × M``, where ``N``
+is the length of the B-spline basis, and ``M < N`` is that of the recombined
 basis.
 
 As in [`RecombinedBSplineBasis`](@ref), the type parameter `orders` indicates
@@ -26,9 +26,7 @@ the order of the boundary condition(s) satisfied by the recombined basis.
 
 Due to the local support of B-splines, the matrix is very sparse, being roughly
 described by a diagonal of ones, plus some extra elements in the upper left and
-lower right corners (more precisely, these "corners" are blocks of size
-`(n + 1, n)`).
-
+lower right corners.
 The matrix is stored in a memory-efficient way that also allows fast access to
 its elements. For orders `n ∈ {0, 1}`, the matrix is made of zeroes and ones,
 and the default element type is `Bool`.

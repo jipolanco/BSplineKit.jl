@@ -1,6 +1,5 @@
-# TODO rename to BasisFunction?
 """
-    BSpline{B <: AbstractBSplineBasis}
+    BSpline{B <: AbstractBSplineBasis, T}
 
 Describes a single basis function.
 
@@ -41,15 +40,15 @@ Base.eltype(::Type{BSpline{B,T}}) where {B,T} = T
 
 Get range of knots supported by the B-spline.
 
-Returns the range `i:j` if the B-spline is non-zero between knots `t[i]` and
-`t[j]`.
+Returns the knot range `i:j` such that the B-spline support is
+``t ∈ [t_i, t_{j + 1})``.
 """
 support(b::BSpline) = support(basis(b), b.i)
 
 """
     support(B::BSplineBasis, i::Integer) -> UnitRange{Int}
 
-Get range of knots supported by the i-th B-spline.
+Get range of knots supported by the ``i``-th B-spline.
 """
 support(B::BSplineBasis, i::Integer) = i:(i + order(B))
 
@@ -73,10 +72,11 @@ common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
         [deriv=Derivative(0)], [T=Float64],
     )
 
-Evaluate i-th B-spline in the given basis at `x` (can be a coordinate or a
+Evaluate ``i``-th B-spline in the given basis at `x` (can be a coordinate or a
 vector of coordinates).
 
-The `N`-th derivative of bᵢ(x) may be evaluated by passing `Derivative(N)`.
+The ``N``-th derivative of ``b_i(x)`` may be evaluated by passing
+`Derivative(N)`.
 
 See also [`evaluate_bspline!`](@ref).
 """
