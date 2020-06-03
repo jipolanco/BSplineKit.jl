@@ -1,19 +1,23 @@
 # Documentation: http://docs.travis-ci.com/user/languages/julia
 language: julia
+
 notifications:
   email: false
+
 julia:
   - 1.4
   - 1.5
   - nightly
+
 os:
   - linux
-  - osx
-arch:
-  - x64
+
+dist: bionic
+
 cache:
   directories:
     - ~/.julia/artifacts
+
 jobs:
   fast_finish: true
   allow_failures:
@@ -28,6 +32,7 @@ jobs:
           Pkg.instantiate()
           include("docs/make.jl")'
       after_success: skip
+
 after_success:
   - |
     julia -e '
