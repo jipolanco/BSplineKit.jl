@@ -182,11 +182,12 @@ end
 Base.size(S::SubMatrix) = S.dims
 
 @inline function Base.getindex(S::SubMatrix{T}, i::Integer, j::Integer) where {T}
-    r = S.inds
-    i ∈ r && j ∈ r || return zero(T)
-    ii = i - first(r) + 1
-    jj = j - first(r) + 1
-    S.data[ii, jj]
+    ri = S.inds
+    rj = S.inds
+    (i ∈ ri) && (j ∈ rj) || return zero(T)
+    ii = i - first(ri) + 1
+    jj = j - first(rj) + 1
+    @inbounds S.data[ii, jj]
 end
 
 Base.:(==)(u::SubMatrix, v::SubMatrix) = u.inds == v.inds && u.data == v.data
@@ -278,13 +279,7 @@ end
                                i::Integer, j::Integer, k::Integer)
     @boundscheck checkbounds(A, i, j, k)
     @inbounds Asub = SubMatrix(A, k)
-    ri = Asub.inds
-    rj = Asub.inds
-    (i ∈ ri) && (j ∈ rj) || return zero(eltype(A))
-    b = bandwidth(A)
-    ii = i - first(ri) + 1
-    jj = j - first(rj) + 1
-    @inbounds parent(Asub)[ii, jj]
+    Asub[i, j]
 end
 
 function Base.fill!(A::BandedTensor3D, x)

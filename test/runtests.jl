@@ -64,7 +64,7 @@ function test_recombine_matrix(A::RecombineMatrix)
     nothing
 end
 
-function test_recombined(R::RecombinedBSplineBasis{D}) where {D}
+function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
     orders = order_bc(R)
     @test length(orders) == BasisSplines.num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(orders)
@@ -122,14 +122,14 @@ function test_basis_recombination()
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
         @test order_bc(R) === (D, )
-        test_recombined(R)
+        test_boundary_conditions(R)
 
         # Simultaneously satisfies BCs of orders 0 to D.
         @testset "Mixed BCs" begin
             derivs = ntuple(d -> Derivative(d - 1), D + 1)
             Rs = RecombinedBSplineBasis(derivs, B)
             @test order_bc(Rs) === ntuple(identity, D + 1) .- 1
-            test_recombined(Rs)
+            test_boundary_conditions(Rs)
         end
     end
     nothing
@@ -213,6 +213,9 @@ function test_galerkin_recombined()
         R0 = RecombinedBSplineBasis(Derivative(0), B)
         R1 = RecombinedBSplineBasis(Derivative(1), B)
 
+        test_galerkin_tensor(R0)
+        test_galerkin_tensor(R1)
+
         N = length(B)
         Ñ = length(R0)
         @test Ñ == N - 2
@@ -240,13 +243,13 @@ function test_galerkin_recombined()
             @test @views G1[2:(Ñ - 1), 2:(Ñ - 1)] ≈ G[3:Ñ, 3:Ñ]
         end
 
-        @testset "Integration by parts (Laplacian)" begin
-            # We test the relation between the H = ⟨ ϕᵢ, ϕⱼ'' ⟩ and the
-            # Q = ⟨ ϕᵢ', ϕⱼ' ⟩ matrices, associated to the Laplacian term
+        @testset "Integration by parts" begin
+            # We test the relation between the H = ⟨ ϕᵢ, ϕⱼ″ ⟩ and the
+            # Q = ⟨ ϕᵢ′, ϕⱼ′ ⟩ matrices, associated to the Laplacian term
             # for instance in the heat equation. These are clearly related by
             # integration by parts.
             # If the (recombined) basis satisfies homogeneous Dirichlet or
-            # Neumann boundary conditions, the term ϕᵢϕⱼ' appearing in the IBP
+            # Neumann boundary conditions, the term ϕᵢϕⱼ′ appearing in the IBP
             # should vanish at the boundaries, in which case the matrices are
             # simply related as H = -Q.
             # We test both boundary conditions.
@@ -254,8 +257,16 @@ function test_galerkin_recombined()
                 R = RecombinedBSplineBasis(D, B)
                 H = galerkin_matrix(R, Derivative.((0, 2)))
                 Q = galerkin_matrix(R, Derivative.((1, 1)))
-                N = length(R)  # the noise seems to scale as N^2
-                @test norm(H + Q, Inf) < norm(Q, Inf) * N^2 * eps(eltype(Q))
+                N = length(R)
+                ε = N^2 * eps(eltype(Q))  # the noise seems to scale as N^2
+                @test norm(H + Q, Inf) < norm(Q, Inf) * ε
+
+                # Similar thing for the tensor F_{ijk} = ⟨ ϕᵢ, ϕⱼ, ϕₖ″ ⟩.
+                T″ = galerkin_tensor(R, Derivative.((0, 0, 2)))
+                T1 = galerkin_tensor(R, Derivative.((1, 0, 1)))
+                T2 = galerkin_tensor(R, Derivative.((0, 1, 1)))
+                @test T2 == permutedims(T1, (2, 1, 3))
+                @test norm(T″ + T1 + T2, Inf) < norm(T1, Inf) * ε
             end
         end
 
@@ -263,6 +274,7 @@ function test_galerkin_recombined()
         @testset "Combining bases ($bc)" for bc in bcs
             R = RecombinedBSplineBasis(bc, B)
             M = galerkin_matrix((R, B))
+            test_galerkin_tensor(R)
             @test M == galerkin_matrix((B, R))'
             let δ = num_constraints(R)
                 n, m = size(M)
@@ -273,12 +285,36 @@ function test_galerkin_recombined()
                 # basis.
                 M_base = galerkin_matrix(B)
                 p = δ + r
-                ind_base = (p + 1):(m - p)
-                @test view(M, (r + 1):(n - r), ind_base) ==
-                    view(M_base, ind_base, ind_base)
+                I = (p + 1):(m - p)
+                @test view(M, (r + 1):(n - r), I) == view(M_base, I, I)
             end
         end
     end
+
+    nothing
+end
+
+function test_galerkin_tensor(R::RecombinedBSplineBasis,
+                              derivs=Derivative.((0, 1, 0)))
+    B = parent(R) :: BSplineBasis
+
+    # The first two bases must be the same
+    @test_throws ArgumentError galerkin_tensor((B, R, R), derivs)
+
+    A_base = galerkin_tensor((B, B, B), derivs)
+    A = galerkin_tensor((B, B, R), derivs)
+
+    N1, N2, N3 = size(A)
+    δ = num_constraints(R)
+    @test size(A_base) == (N1, N2, N3 + 2δ)
+
+    # Verify that except from the borders, the tensor is the same as the
+    # "original" tensor constructed from the original B-spline basis.
+    r = num_recombined(R)
+    p = δ + r
+    m, n = N2, N3
+    I = (p + 1):(m - p)
+    @test view(A, I, I, (r + 1):(n - r)) == view(A_base, I, I, I)
 
     nothing
 end
