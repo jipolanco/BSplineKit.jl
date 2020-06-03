@@ -356,4 +356,5 @@ function main()
     nothing
 end
 
+include("banded_tensors.jl")
 main()
