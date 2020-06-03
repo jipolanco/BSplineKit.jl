@@ -27,18 +27,6 @@ with_checks = !MAKE_FAST
         "tensors.md",
         "galerkin.md",
         "collocation.md",
-        # "tutorial.md",
-        # "More examples" => [
-        #     "examples/in-place.md",
-        #     "examples/gradient.md",
-        # ],
-        # "Library" => [
-        #     "PencilFFTs.md",
-        #     "Transforms.md",
-        #     "PencilArrays.md",
-        #     "PencilIO.md",
-        # ],
-        # "benchmarks.md",
     ],
     doctest=with_checks,
     linkcheck=with_checks,
@@ -48,7 +36,7 @@ with_checks = !MAKE_FAST
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
-# deploydocs(
-#     repo="github.com/jipolanco/BasisSplines.jl",
-#     forcepush=true,
-# )
+deploydocs(
+    repo="github.com/jipolanco/BasisSplines.jl",
+    forcepush=true,
+)
