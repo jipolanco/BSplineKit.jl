@@ -6,6 +6,7 @@ import BandedMatrices: bandwidth
 
 using LinearAlgebra: dot
 import LinearAlgebra
+import Random: AbstractRNG
 
 export BandedTensor3D
 export bandshift, bandwidth
@@ -83,11 +84,11 @@ initialised as in the following example:
 The optional `bandshift` argument should be a tuple of the form `(δi, δj, δk)`
 describing a band shift.
 Right now, band shifts are limited to `δi = δj = 0`, so this argument should
-rather look like `(0, 0, δk)`.
+actually look like `(0, 0, δk)`.
 
 """
 struct BandedTensor3D{T, b, r, M <: AbstractMatrix} <: AbstractArray{T,3}
-    dims :: Dims{3}        # dimensions (with dims[1] == dims[2])
+    dims :: Dims{3}       # dimensions (with dims[1] == dims[2])
     bandshift :: Dims{3}  # band shifts (with bandshift[1] = bandshift[2] = 0)
     Nk   :: Int        # last dimension (= dims[3])
     δk   :: Int        # band shift along 3rd dimension (= bandshift[3])
@@ -121,6 +122,30 @@ end
 
 @inline BandedTensor3D{T}(init, dims, b::Int; kwargs...) where {T} =
     BandedTensor3D{T,b}(init, dims; kwargs...)
+
+for func in (:rand, :randn, :randexp)
+    func! = Symbol(func, :!)
+    func_internal! = Symbol(:_, func!)
+    # This func_internal is to workaround method ambiguity issue with rand!.
+    @eval function $func_internal!(rng::AbstractRNG, A::BandedTensor3D{T},
+                                   args...) where {T}
+        b = bandwidth(A)
+        n, m = size(submatrix_type(A))
+        for k in axes(A, 3)
+            A[:, :, k] = Random.$func(rng, args..., SMatrix{n, m, T})
+        end
+        A
+    end
+    @eval Random.$func!(rng::AbstractRNG, A::BandedTensor3D, args...) =
+        $func_internal!(rng, A, args...)
+end
+
+# Method ambiguity...
+function Random.rand!(rng::AbstractRNG, A::BandedTensor3D{T},
+                      ::Type{X}) where {T,X}
+    T === X || throw(ArgumentError("type X must be the element type of A"))
+    _rand!(rng, A)
+end
 
 function Base.summary(io::IO, A::BandedTensor3D)
     print(io, Base.dims2string(size(A)), " BandedTensor3D{", eltype(A),
