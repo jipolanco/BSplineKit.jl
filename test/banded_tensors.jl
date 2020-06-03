@@ -8,10 +8,13 @@ using Random
 using Test
 
 function test_banded_tensors()
+    @inferred (() -> BandedTensor3D{Int}(undef, (20, 20, 16), 2))()
     A = BandedTensor3D{Int}(undef, (20, 20, 16), 2)
     rand!(A, -99:99)
 
     @testset "Slices" begin
+        @inferred A[:, :, 4]
+        @inferred A[:, :, 3:5]
         S = A[:, :, 4]
         Acut = A[:, :, 3:5]
         @test S isa SubMatrix

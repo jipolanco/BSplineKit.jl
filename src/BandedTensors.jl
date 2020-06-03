@@ -261,13 +261,13 @@ end
 Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = SubMatrix(A, k)
 Base.view(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = A[:, :, k]
 
-function Base.getindex(A::BandedTensor3D, ::Colon, ::Colon,
-                       ks::AbstractUnitRange)
+function Base.getindex(A::BandedTensor3D{T,b}, ::Colon, ::Colon,
+                       ks::AbstractUnitRange) where {T,b}
     shift = bandshift(A) .+ (0, 0, first(ks) - 1)
     Nk = length(ks)
     dims = (size(A, 1), size(A, 2), Nk)
     # TODO define and use `similar`
-    B = BandedTensor3D{eltype(A)}(undef, dims, bandwidth(A), bandshift=shift)
+    B = BandedTensor3D{T,b}(undef, dims, bandshift=shift)
     for (l, k) in enumerate(ks)
         B[:, :, l] = parent(A[:, :, k])
     end
