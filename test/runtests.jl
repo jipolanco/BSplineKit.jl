@@ -224,6 +224,17 @@ function test_galerkin_recombined()
         G0 = galerkin_matrix(R0)
         G1 = galerkin_matrix(R1)
 
+        Sym{M} = Symmetric{T,A} where {T, A<:M}
+
+        # Some symmetric matrices
+        @test galerkin_matrix(R1, Derivative.((1, 1))) isa Sym{BandedMatrix}
+        @test galerkin_matrix(R1, SparseMatrixCSC{Float32}) isa Sym{SparseMatrixCSC{Float32}}
+
+        # Some non-symmetric matrices
+        @test galerkin_matrix(R1, Derivative.((0, 1))) isa BandedMatrix
+        @test galerkin_matrix(R1, Derivative.((0, 1)), Matrix{Float64}) isa Matrix{Float64}
+        @test galerkin_matrix((B, R1)) isa BandedMatrix
+
         @test size(G) == (N, N)
         @test size(G0) == size(G1) == (Ñ, Ñ)
 

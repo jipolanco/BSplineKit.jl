@@ -90,7 +90,7 @@ end
 
 galerkin_matrix(B::AnyBSplineBasis, args...) = galerkin_matrix((B, B), args...)
 
-galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
+galerkin_matrix(B::NTuple{2,AnyBSplineBasis}, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
 
 function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
