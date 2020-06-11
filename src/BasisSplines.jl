@@ -22,7 +22,6 @@ import LinearAlgebra
 
 # We're transitioning to using the registered BSplines package...
 import BSplines
-using BSplines: Derivative
 import BSplines: order, knots
 
 include("BandedTensors.jl")
@@ -35,7 +34,9 @@ Specifies the B-spline order `k`.
 """
 struct BSplineOrder{k} end
 
-BSplineOrder(k::Integer) = BSplineOrder{k}()
+@inline BSplineOrder(k::Integer) = BSplineOrder{k}()
+
+include("linear_ops.jl")
 
 include("knots.jl")
 include("basis.jl")

@@ -1,8 +1,6 @@
 module Collocation
 
 using ..BasisSplines
-import BSplines
-using BSplines: Derivative
 
 using BandedMatrices
 using SparseArrays
