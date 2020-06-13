@@ -16,7 +16,7 @@ RecombineMatrix
 ```@docs
 num_recombined
 num_constraints
-order_bc
+constraints
 parent
 recombination_matrix
 ```

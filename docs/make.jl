@@ -27,6 +27,7 @@ with_checks = !MAKE_FAST
         "tensors.md",
         "galerkin.md",
         "collocation.md",
+        "internals.md",
     ],
     doctest=with_checks,
     linkcheck=with_checks,

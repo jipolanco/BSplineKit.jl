@@ -155,12 +155,6 @@ constraints(A::RecombineMatrix) = A.ops
 num_constraints(A::RecombineMatrix) = length(constraints(A))
 num_constraints(::UniformScaling) = 0  # case of non-recombined bases
 
-"""
-    max_order(A::RecombineMatrix)
-
-Get maximum derivative order of boundary conditions associated to recombination
-matrix.
-"""
 max_order(A::RecombineMatrix) = max_order(constraints(A)...)
 
 # Returns number of basis functions that are recombined from the original basis
