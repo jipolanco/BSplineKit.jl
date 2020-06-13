@@ -150,6 +150,10 @@ function _check_supported_orders(::Val{orders}) where {orders}
     nothing
 end
 
+# Unsupported cases
+RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, args...) =
+    throw(ArgumentError("boundary condition is currently unsupported: $(ops...)"))
+
 Base.size(A::RecombineMatrix) = (A.N, A.M)
 constraints(A::RecombineMatrix) = A.ops
 num_constraints(A::RecombineMatrix) = length(constraints(A))

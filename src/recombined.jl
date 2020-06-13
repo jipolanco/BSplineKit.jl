@@ -129,16 +129,17 @@ struct RecombinedBSplineBasis{
         new{k,T,Parent,Ops,RMatrix}(B, ops, M)
     end
 
-    RecombinedBSplineBasis(deriv::Derivative, args...) =
-        RecombinedBSplineBasis((deriv, ), args...)
+    RecombinedBSplineBasis(op::AbstractDifferentialOp, args...) =
+        RecombinedBSplineBasis((op, ), args...)
 end
 
 function Base.show(io::IO, R::RecombinedBSplineBasis)
     # This is somewhat consistent with the output of the BSplines package.
-    println(io, length(R), "-element ", typeof(R), ':')
-    println(io, " boundary conditions: ", constraints(R))
-    println(io, " order: ", order(R))
-    print(io, " knots: ", knots(R))
+    print(io, length(R), "-element ", typeof(R), ':')
+    print(io, "\n boundary conditions: ")
+    join(io, constraints(R), ", ")
+    print(io, "\n order: ", order(R))
+    print(io, "\n knots: ", knots(R))
     nothing
 end
 

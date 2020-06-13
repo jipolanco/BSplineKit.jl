@@ -27,6 +27,8 @@ struct Derivative{n} <: AbstractDifferentialOp end
 Derivative(n::Integer) = Derivative{n}()
 max_order(::Derivative{n}) where {n} = n
 
+Base.show(io::IO, D::Derivative{n}) where {n} = print(io, "D{", n, "}")
+
 get_orders(::Derivative{n}, etc...) where {n} = (n, get_orders(etc...)...)
 get_orders() = ()
 
@@ -46,6 +48,8 @@ struct ScaledDerivative{n,T<:Number} <: AbstractDifferentialOp
     end
 end
 
+Base.show(io::IO, s::ScaledDerivative) = print(io, s.α, " * ", s.D)
+
 max_order(s::ScaledDerivative) = max_order(s.D)
 get_orders(s::ScaledDerivative, etc...) = get_orders(s.D, etc...)
 
@@ -55,13 +59,15 @@ Base.:*(D::Derivative, α) = α * D
 """
     DifferentialOpSum <: AbstractDifferentialOp
 
-Superposition of differential operators.
+Sum of differential operators.
 """
 struct DifferentialOpSum{
         Ops<:Tuple{Vararg{AbstractDifferentialOp}}} <: AbstractDifferentialOp
     ops :: Ops
     DifferentialOpSum(ops::Vararg{AbstractDifferentialOp}) = new{typeof(ops)}(ops)
 end
+
+Base.show(io::IO, D::DifferentialOpSum) = join(io, D.ops, " + ")
 
 max_order(D::DifferentialOpSum) = max_order(D.ops...)
 
