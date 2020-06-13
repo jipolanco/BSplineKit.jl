@@ -5,7 +5,7 @@ export Collocation
 export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
 export RecombineMatrix, recombination_matrix
 export Spline, BSpline, BSplineOrder, Derivative
-export knots, order, coefficients, boundaries, order_bc
+export knots, order, coefficients, boundaries, constraints
 export augment_knots
 export evaluate_bspline, evaluate_bspline!
 export integral
@@ -36,7 +36,7 @@ struct BSplineOrder{k} end
 
 @inline BSplineOrder(k::Integer) = BSplineOrder{k}()
 
-include("linear_ops.jl")
+include("differential_ops.jl")
 
 include("knots.jl")
 include("basis.jl")
