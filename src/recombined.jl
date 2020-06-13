@@ -28,10 +28,8 @@ is a bit more complex, but not much.
 
 ## Order of the boundary condition
 
-The type parameter `orders` represents the order of the satisfied BC(s).
-In this section, we consider the case where its length is 1 and
-`orders = (n, )`, i.e., only the derivative of order ``n`` is constrained to
-satisfy homogeneous BCs.
+In this section, we consider the simplest case where a single homogeneous
+boundary condition of derivative order ``n`` is to be satisfied by the basis.
 
 The recombined basis requires the specification of a `Derivative` object
 determining the order of the homogeneous BCs to be applied at the two
@@ -114,19 +112,21 @@ all the given derivative orders.
 The list of derivative orders must be sorted in increasing order.
 """
 struct RecombinedBSplineBasis{
-            orders, k, T, Parent <: BSplineBasis{k,T},
-            RMatrix <: RecombineMatrix{Q,orders} where Q,
+            k, T, Parent <: BSplineBasis{k,T},
+            DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},
+            RMatrix <: RecombineMatrix{Q,DiffOps} where Q,
         } <: AbstractBSplineBasis{k,T}
     B :: Parent   # original B-spline basis
+    ops :: DiffOps  # list of differential operators for BCs
     M :: RMatrix  # basis recombination matrix
 
-    function RecombinedBSplineBasis(derivs::Tuple,
+    function RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
                                     B::BSplineBasis{k,T}) where {k,T}
         Parent = typeof(B)
-        M = RecombineMatrix(derivs, B)
-        orders = get_orders(derivs...)
+        M = RecombineMatrix(ops, B)
         RMatrix = typeof(M)
-        new{orders,k,T,Parent,RMatrix}(B, M)
+        Ops = typeof(ops)
+        new{k,T,Parent,Ops,RMatrix}(B, ops, M)
     end
 
     RecombinedBSplineBasis(deriv::Derivative, args...) =
@@ -136,14 +136,11 @@ end
 function Base.show(io::IO, R::RecombinedBSplineBasis)
     # This is somewhat consistent with the output of the BSplines package.
     println(io, length(R), "-element ", typeof(R), ':')
-    println(io, " boundary condition orders: ", order_bc(R))
+    println(io, " boundary conditions: ", constraints(R))
     println(io, " order: ", order(R))
     print(io, " knots: ", knots(R))
     nothing
 end
-
-get_orders(::Derivative{n}, etc...) where {n} = (n, get_orders(etc...)...)
-get_orders() = ()
 
 """
     RecombinedBSplineBasis(order, args...; kwargs...)
@@ -186,8 +183,21 @@ Returns the number of functions in the recombined basis.
 boundaries(R::RecombinedBSplineBasis) = boundaries(parent(R))
 
 knots(R::RecombinedBSplineBasis) = knots(parent(R))
-order(R::RecombinedBSplineBasis{D,k}) where {D,k} = k
-Base.eltype(::Type{RecombinedBSplineBasis{D,k,T}}) where {D,k,T} = T
+order(R::RecombinedBSplineBasis{k}) where {k} = k
+Base.eltype(::Type{RecombinedBSplineBasis{k,T}}) where {k,T} = T
+
+"""
+    constraints(R::AbstractBSplineBasis)
+    constraints(A::RecombineMatrix)
+
+Return the constraints (homogeneous boundary conditions) that the basis
+satisfies on each boundary.
+
+For non-recombined bases such as [`BSplineBasis`](@ref), this returns an empty
+tuple.
+"""
+constraints(R::RecombinedBSplineBasis) = R.ops
+constraints(B::BSplineBasis) = ()
 
 """
     num_constraints(R::AbstractBSplineBasis) -> Int
@@ -202,8 +212,7 @@ conditions on each boundary, this returns 2.
 Note that for non-recombined bases such as [`BSplineBasis`](@ref), the number of
 constraints is zero.
 """
-@inline num_constraints(::RecombinedBSplineBasis{D}) where {D} = length(D)
-@inline num_constraints(::AbstractBSplineBasis) = 0
+num_constraints(B) = length(constraints(B))
 
 """
     num_recombined(R::AbstractBSplineBasis) -> Int
@@ -218,20 +227,8 @@ and last basis functions are different from the original B-spline basis, e.g.
 
 For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
 """
-@inline num_recombined(R::RecombinedBSplineBasis) =
-    num_recombined(recombination_matrix(R))
-@inline num_recombined(B::AbstractBSplineBasis) = 0
-
-"""
-    order_bc(B::AbstractBSplineBasis) -> NTuple{N,Int}
-
-Get order of homogeneous boundary conditions satisfied by the basis.
-
-For bases that don't satisfy any particular boundary conditions (like
-[`BSplineBasis`](@ref)), this returns an empty tuple.
-"""
-order_bc(::AbstractBSplineBasis) = ()
-order_bc(::RecombinedBSplineBasis{D}) where {D} = D
+num_recombined(R::RecombinedBSplineBasis) = num_recombined(recombination_matrix(R))
+num_recombined(B::AbstractBSplineBasis) = 0
 
 # Support is shifted wrt BSplineBasis.
 # TODO this is not very general: it will fail for general recombinations
@@ -244,8 +241,11 @@ support(R::RecombinedBSplineBasis, i::Integer) =
     support(parent(R), i) .+ num_constraints(R)
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
-evaluate_bspline(R::RecombinedBSplineBasis{(0, )}, j, args...) =
-    evaluate_bspline(parent(R), j + 1, args...)
+# TODO check that this variant is actually being called...
+evaluate_bspline(
+        R::RecombinedBSplineBasis{k,T,P,Tuple{Derivative{0}}} where {k,T,P},
+        j, args...,
+    ) = evaluate_bspline(parent(R), j + 1, args...)
 
 # Generalisation for D >= 1
 function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)

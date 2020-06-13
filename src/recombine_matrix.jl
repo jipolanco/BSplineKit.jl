@@ -1,5 +1,5 @@
 """
-    RecombineMatrix{T,orders} <: AbstractMatrix{T}
+    RecombineMatrix{T, DiffOps} <: AbstractMatrix{T}
 
 Matrix for transformation from B-spline basis to recombined basis.
 
@@ -21,8 +21,8 @@ Note that the matrix is not square: it has dimensions ``N × M``, where ``N``
 is the length of the B-spline basis, and ``M < N`` is that of the recombined
 basis.
 
-As in [`RecombinedBSplineBasis`](@ref), the type parameter `orders` indicates
-the order of the boundary condition(s) satisfied by the recombined basis.
+As in [`RecombinedBSplineBasis`](@ref), the type parameter `DiffOps` indicates
+the homogeneous boundary condition(s) satisfied by the recombined basis.
 
 Due to the local support of B-splines, the matrix is very sparse, being roughly
 described by a diagonal of ones, plus some extra elements in the upper left and
@@ -32,25 +32,26 @@ its elements. For orders `n ∈ {0, 1}`, the matrix is made of zeroes and ones,
 and the default element type is `Bool`.
 """
 struct RecombineMatrix{T,
-                       orders,  # NTuple{nc, Int}
+                       DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},
                        n, n1,   # nc = n1 - n
                        Corner <: SMatrix{n1,n,T}} <: AbstractMatrix{T}
+    ops :: DiffOps  # list of differential operators for BCs
     M :: Int      # length of recombined basis (= N - 2nc)
     N :: Int      # length of B-spline basis
     ul :: Corner  # upper-left corner of matrix, size (n1, n)
     lr :: Corner  # lower-right corner of matrix, size (n1, n)
-    function RecombineMatrix(::Val{orders}, N::Integer,
-                             ul::SMatrix, lr::SMatrix) where {orders}
+    function RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
+                             N::Integer, ul::SMatrix, lr::SMatrix)
         n1, n = size(ul)
         nc = n1 - n  # number of BCs per boundary
         if nc <= 0
             throw(ArgumentError("matrices must have dimensions (m, n) with m > n"))
         end
-        orders :: NTuple{nc,Int}
         M = N - 2nc
         T = eltype(ul)
         Corner = typeof(ul)
-        new{T, orders, n, n1, Corner}(M, N, ul, lr)
+        Ops = typeof(ops)
+        new{T, Ops, n, n1, Corner}(ops, M, N, ul, lr)
     end
 end
 
@@ -58,25 +59,25 @@ end
 # In this case (and the Neumann case below), the default element type is Bool,
 # since the matrix is made of zeroes and ones.
 # This is not the case for orders n ≥ 2.
-function RecombineMatrix(::Tuple{Derivative{0}}, B::BSplineBasis,
+function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
-    RecombineMatrix(Val((0, )), N, ul, lr)
+    RecombineMatrix(op, N, ul, lr)
 end
 
 # Specialisation for Neumann BCs.
-function RecombineMatrix(::Tuple{Derivative{1}}, B::BSplineBasis,
+function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
     N = length(B)
     ul = SMatrix{2,1,T}([1, 1])
     lr = copy(ul)
-    RecombineMatrix(Val((1, )), N, ul, lr)
+    RecombineMatrix(op, N, ul, lr)
 end
 
 # Generalisation to higher orders.
-function RecombineMatrix(::Tuple{Derivative{n}}, B::BSplineBasis,
+function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
                          ::Type{T} = Float64) where {n,T}
     @assert n >= 0
 
@@ -122,26 +123,26 @@ function RecombineMatrix(::Tuple{Derivative{n}}, B::BSplineBasis,
     ul = SMatrix{n + 1, n}(Ca)
     lr = SMatrix{n + 1, n}(Cb)
 
-    RecombineMatrix(Val((n, )), N, ul, lr)
+    RecombineMatrix(op, N, ul, lr)
 end
 
 # Case of mixed derivative orders.
 # The only supported case is deriv = (Derivative(0), Derivative(1), ...,
 # Derivative(Nc - 1)).
 # This actually generalises the Dirichlet case above.
-function RecombineMatrix(deriv::Tuple{Vararg{Derivative}}, B::BSplineBasis,
+function RecombineMatrix(ops::Tuple{Vararg{Derivative}}, B::BSplineBasis,
                          ::Type{T} = Bool) where {T}
-    orders = get_orders(deriv...)
+    orders = get_orders(ops...)
     Nc = length(orders)
     @assert Nc >= 2  # case Nc = 1 is treated by different functions
     _check_supported_orders(Val(orders))
     N = length(B)
     ul = SMatrix{Nc,0,T}()
     lr = copy(ul)
-    RecombineMatrix(Val(orders), N, ul, lr)
+    RecombineMatrix(ops, N, ul, lr)
 end
 
-@inline function _check_supported_orders(::Val{orders}) where {orders}
+function _check_supported_orders(::Val{orders}) where {orders}
     length(orders) === 1 && return  # single BC
     if orders !== ntuple(d -> d - 1, Val(length(orders)))  # mixed BCs
         throw(ArgumentError("unsupported case: derivatives = $orders"))
@@ -149,24 +150,24 @@ end
     nothing
 end
 
-@inline Base.size(A::RecombineMatrix) = (A.N, A.M)
-@inline order_bc(A::RecombineMatrix{T,orders}) where {T,orders} = orders
-@inline num_constraints(A::RecombineMatrix) = length(order_bc(A))
-@inline num_constraints(::UniformScaling) = 0  # case of non-recombined bases
+Base.size(A::RecombineMatrix) = (A.N, A.M)
+constraints(A::RecombineMatrix) = A.ops
+num_constraints(A::RecombineMatrix) = length(constraints(A))
+num_constraints(::UniformScaling) = 0  # case of non-recombined bases
+
+"""
+    max_order(A::RecombineMatrix)
+
+Get maximum derivative order of boundary conditions associated to recombination
+matrix.
+"""
+max_order(A::RecombineMatrix) = max_order(constraints(A)...)
 
 # Returns number of basis functions that are recombined from the original basis
 # near each boundary.
 # For instance, Neumann BCs have a single recombined function, ϕ_1 = b_1 + b_2;
 # while mixed Dirichlet + Neumann have none, ϕ_1 = b_3.
-@inline function num_recombined(A::RecombineMatrix)
-    ord = order_bc(A)
-    if length(ord) === 1  # single BC -> return order of the BC
-        first(ord)
-    else  # mixed BCs (+ extra assumptions...)
-        _check_supported_orders(Val(ord))
-        0
-    end
-end
+num_recombined(A::RecombineMatrix) = max_order(A) + 1 - num_constraints(A)
 
 # j: index in recombined basis
 # M: length of recombined basis

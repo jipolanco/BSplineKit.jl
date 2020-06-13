@@ -65,7 +65,7 @@ function test_recombine_matrix(A::RecombineMatrix)
 end
 
 function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
-    orders = order_bc(R)
+    orders = BasisSplines.get_orders(constraints(R)...)
     @test length(orders) == BasisSplines.num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(orders)
 
@@ -112,7 +112,7 @@ function test_basis_recombination()
     knots_base = gauss_lobatto_points(40)
     k = 4
     B = BSplineBasis(k, knots_base)
-    @test order_bc(B) === ()
+    @test constraints(B) === ()
     @testset "Mixed derivatives" begin
         @inferred RecombineMatrix(Derivative.((0, 1)), B)
         @test_throws ArgumentError RecombineMatrix(Derivative.((0, 2)), B)
@@ -121,14 +121,14 @@ function test_basis_recombination()
     end
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
-        @test order_bc(R) === (D, )
+        @test constraints(R) === (Derivative(D), )
         test_boundary_conditions(R)
 
         # Simultaneously satisfies BCs of orders 0 to D.
         @testset "Mixed BCs" begin
             derivs = ntuple(d -> Derivative(d - 1), D + 1)
             Rs = RecombinedBSplineBasis(derivs, B)
-            @test order_bc(Rs) === ntuple(identity, D + 1) .- 1
+            @test constraints(Rs) === ntuple(n -> Derivative(n - 1), D + 1)
             test_boundary_conditions(Rs)
         end
     end
