@@ -238,6 +238,9 @@ num_recombined(B::AbstractBSplineBasis) = 0
 # checking whether each knot is in the support of at least one B-spline.
 # This would be slower though... but it would be good to have this verification
 # in the tests.
+# TODO (2) technically, this is wrong near the borders, although in practice
+# it's right if the "ghost" knots are all on the boundaries. Maybe it's better
+# to use the recombination matrix after all... This can be done efficiently.
 support(R::RecombinedBSplineBasis, i::Integer) =
     support(parent(R), i) .+ num_constraints(R)
 

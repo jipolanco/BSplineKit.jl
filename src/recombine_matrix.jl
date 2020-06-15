@@ -55,12 +55,21 @@ struct RecombineMatrix{T,
     end
 end
 
+# Default element type of recombination matrix.
+# In some specific cases we can use Bool...
+_default_eltype(::Vararg{AbstractDifferentialOp}) = Float64
+_default_eltype(::Derivative{0}) = Bool  # Dirichlet BCs
+_default_eltype(::Derivative{1}) = Bool  # Neumann BCs
+
+# Case (D(0), D(1), D(2), ...)
+_default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool
+
+RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, B::BSplineBasis) =
+    RecombineMatrix(ops, B, _default_eltype(ops...))
+
 # Specialisation for Dirichlet BCs.
-# In this case (and the Neumann case below), the default element type is Bool,
-# since the matrix is made of zeroes and ones.
-# This is not the case for orders n ≥ 2.
 function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
-                         ::Type{T} = Bool) where {T}
+                         ::Type{T}) where {T}
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
@@ -69,16 +78,16 @@ end
 
 # Specialisation for Neumann BCs.
 function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis,
-                         ::Type{T} = Bool) where {T}
+                         ::Type{T}) where {T}
     N = length(B)
-    ul = SMatrix{2,1,T}([1, 1])
+    ul = SMatrix{2,1,T}(1, 1)
     lr = copy(ul)
     RecombineMatrix(op, N, ul, lr)
 end
 
 # Generalisation to higher orders.
 function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
-                         ::Type{T} = Float64) where {n,T}
+                         ::Type{T}) where {n,T}
     @assert n >= 0
 
     # Example for case n = 2.
@@ -126,12 +135,11 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
     RecombineMatrix(op, N, ul, lr)
 end
 
-# Case of mixed derivative orders.
-# The only supported case is deriv = (Derivative(0), Derivative(1), ...,
-# Derivative(Nc - 1)).
+# Mixed derivatives.
+# Specific case 1: (D(0), D(1), ..., D(Nc - 1))
 # This actually generalises the Dirichlet case above.
 function RecombineMatrix(ops::Tuple{Vararg{Derivative}}, B::BSplineBasis,
-                         ::Type{T} = Bool) where {T}
+                         ::Type{T}) where {T}
     orders = get_orders(ops...)
     Nc = length(orders)
     @assert Nc >= 2  # case Nc = 1 is treated by different functions
@@ -152,7 +160,8 @@ end
 
 # Unsupported cases
 RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, args...) =
-    throw(ArgumentError("boundary condition is currently unsupported: $(ops...)"))
+    throw(ArgumentError(
+        "boundary condition combination is currently unsupported: $ops"))
 
 Base.size(A::RecombineMatrix) = (A.N, A.M)
 constraints(A::RecombineMatrix) = A.ops
@@ -234,7 +243,7 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
         @inbounds y[i + c] = x[i]
     end
 
-    @inbounds y[(N - n - c + 1):N] = A.lr * @view x[(h + 1):(h + n)]
+    @inbounds y[(N - n - c + 1):N] = A.lr * @view x[(h + 1):M]
 
     y
 end
@@ -261,72 +270,79 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
 
     js = (N - n - c + 1):N
     @inbounds y[js] =
-        α * A.lr * view(x, (h + 1):(h + n)) + β * SVector{n1}(view(y, js))
+        α * A.lr * view(x, (h + 1):M) + β * SVector{n1}(view(y, js))
 
     y
 end
 
-const TransposedRecombineMatrix =
-    Union{Adjoint{T,M}, Transpose{T,M}} where {T, M <: RecombineMatrix{T}}
-
-function LinearAlgebra.mul!(x::AbstractVector,
-                            At::TransposedRecombineMatrix,
-                            y::AbstractVector,
-                           )
-    checkdims_mul(x, At, y)
-    A = parent(At)
+function LinearAlgebra.ldiv!(x::AbstractVector, A::RecombineMatrix,
+                             y::AbstractVector)
+    checkdims_mul(y, A, x)
     N, M = size(A)
-
-    # Select transposition function (is there a better way to do this?)
-    # In practice, the recombination matrix is always real-valued, so it
-    # shouldn't make a difference.
-    tr = At isa Adjoint ? adjoint : transpose
 
     n = num_recombined(A)
     c = num_constraints(A)
     n1 = n + c
     h = M - n
 
-    @inbounds x[1:n] = tr(A.ul) * @view y[1:n1]
+    @inbounds x[1:n] = _ldiv_unique_solution(A.ul, view(y, 1:n1))
 
     for i = (n + 1):h
         @inbounds x[i] = y[i + c]
     end
 
-    @inbounds x[(h + 1):(h + n)] = tr(A.lr) * @view y[(N - n - c + 1):N]
+    js = (N - n - c + 1):N
+    @inbounds x[(h + 1):M] = _ldiv_unique_solution(A.lr, view(y, js))
 
     x
 end
 
-function LinearAlgebra.mul!(x::AbstractVector,
-                            At::TransposedRecombineMatrix,
-                            y::AbstractVector, α::Number, β::Number,
-                           )
-    checkdims_mul(x, At, y)
-    A = parent(At)
+function LinearAlgebra.:\(A::RecombineMatrix, y::AbstractVector)
+    x = similar(y, size(A, 2))
+    ldiv!(x, A, y)
+end
+
+"""
+    NoUniqueSolutionError <: Exception
+
+Exception thrown when solving linear system using [`RecombineMatrix`](@ref),
+when the system has no unique solution.
+"""
+struct NoUniqueSolutionError <: Exception end
+
+function Base.showerror(io::IO, ::NoUniqueSolutionError)
+    print(io,
+          "overdetermined system has no unique solution.",
+          " This means that the given function expanded in the parent basis",
+          " has no exact representation (i.e. cannot be expanded) in the recombined basis."
+         )
+end
+
+# Solve A \ y for overdetermined system with rectangular matrix A, assuming that
+# the system has exactly one solution. Throws error if that's not the case.
+function _ldiv_unique_solution(A::SMatrix, y::AbstractVector)
     N, M = size(A)
-    tr = At isa Adjoint ? adjoint : transpose
+    @assert length(y) == N
+    @assert N > M "system must be overdetermined"
 
-    n = num_recombined(A)
-    c = num_constraints(A)
-    n1 = n + c
-    h = M - n
+    # Solve the first M equations.
+    @inbounds Am = SMatrix{M,M}(view(A, 1:M, :))
+    @inbounds ym = SVector{M}(view(y, 1:M))
+    x = Am \ ym
 
-    @inbounds x[1:n] =
-        α * tr(A.ul) * view(y, 1:n1) + β * SVector{n}(view(x, 1:n))
-
-    for i = (n + 1):h
-        @inbounds x[i] = α * y[i + c] + β * x[i]
+    # Check that equations (M+1):N are satisfied.
+    @inbounds for i = (M + 1):N
+        res = zero(eltype(x))
+        for j in axes(A, 2)
+            res += A[i, j] * x[j]
+        end
+        res ≈ y[i] || throw(NoUniqueSolutionError())
     end
 
-    r = (h + 1):(h + n)
-    @inbounds x[r] =
-        α * tr(A.lr) * view(y, (N - n - c + 1):N) + β * SVector{n}(view(x, r))
-
     x
 end
 
-@inline function checkdims_mul(y, A, x)
+function checkdims_mul(y, A, x)
     M, N = size(A)
     if length(y) != M
         throw(DimensionMismatch("first dimension of A, $M, " *

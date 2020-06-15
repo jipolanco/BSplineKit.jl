@@ -6,7 +6,7 @@ using Random
 using SparseArrays
 using Test
 
-import BasisSplines: num_constraints, num_recombined
+import BasisSplines: num_constraints, num_recombined, NoUniqueSolutionError
 
 # Chebyshev (Gauss-Lobatto) points.
 gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
@@ -35,6 +35,17 @@ function test_recombine_matrix(A::RecombineMatrix)
         mul!(v2, sparse(A), u)
         @test v1 == v2
 
+        # Test left division.
+        let v = copy(v1)
+            u2 = A \ v
+            @test u2 ≈ u
+
+            # Modify coefficient of original basis near the border, so that the
+            # resulting function has no representation in the recombined basis.
+            v[1] = randn()
+            @test_throws NoUniqueSolutionError A \ v
+        end
+
         # Test 5-argument mul!.
         mul!(v2, A, u, 1, 0)  # equivalent to 3-argument mul!
         @test v1 == v2
@@ -42,23 +53,6 @@ function test_recombine_matrix(A::RecombineMatrix)
         randn!(u)  # use different u, otherwise A * u = v1
         mul!(v2, A, u, 2, -3)
         @test v2 == 2 * (A * u) - 3 * v1
-
-        # Same for transposed / adjoint matrix.
-        u1 = u
-        u2 = similar(u)
-        for At in (transpose(A), adjoint(A))
-            v = v1
-            mul!(u1, At, v)
-            mul!(u2, sparse(At), v)
-            @test u1 == u2
-
-            mul!(u2, At, v, 1, 0)
-            @test u1 == u2
-
-            randn!(v)
-            mul!(u2, At, v, 2, -3)
-            @test u2 == 2 * (At * v) - 3 * u1
-        end
     end
 
     nothing
