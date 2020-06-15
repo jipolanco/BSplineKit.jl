@@ -108,25 +108,27 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
     Ca = zeros(T, n + 1, n)
     Cb = copy(Ca)
 
-    for i = 1:n
+    let x = a
+        is = ntuple(identity, Val(n + 1))  # = 1:(n + 1)
         # Evaluate n-th derivatives of bⱼ at the boundary.
         # TODO replace with analytical formula?
-        x = a
-        bi, bn1 = evaluate_bspline.(B, (i, n + 1), x, Derivative(n))
-        α = bi / bn1
-        Ca[i, i] = 1
-        Ca[n + 1, i] = -α
+        bs = evaluate_bspline.(B, is, x, Derivative(n))
+        for m = 1:n
+            Ca[m, m] = 1
+            Ca[n + 1, m] = -bs[m] / bs[n + 1]
+        end
     end
 
     N = length(B)
     M = N - 2
 
-    for (m, i) in enumerate((N - n + 1):N)
-        x = b
-        bi, bn1 = evaluate_bspline.(B, (i, N - n), x, Derivative(n))
-        α = bi / bn1
-        Cb[1, m] = -α
-        Cb[m + 1, m] = 1
+    let x = b
+        is = ntuple(d -> N - d + 1, Val(n + 1))  # = N:-1:(N - n)
+        bs = evaluate_bspline.(B, is, x, Derivative(n))
+        for m = 1:n
+            Cb[1, m] = -bs[n + 1 - m] / bs[n + 1]
+            Cb[m + 1, m] = 1
+        end
     end
 
     ul = SMatrix{n + 1, n}(Ca)
