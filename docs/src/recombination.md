@@ -19,4 +19,5 @@ num_constraints
 constraints
 parent
 recombination_matrix
+nzrows
 ```

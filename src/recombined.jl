@@ -231,18 +231,29 @@ For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
 num_recombined(R::RecombinedBSplineBasis) = num_recombined(recombination_matrix(R))
 num_recombined(B::AbstractBSplineBasis) = 0
 
-# Support is shifted wrt BSplineBasis.
-# TODO this is not very general: it will fail for general recombinations
-# (but it will always work for the specific way we're recombining B-splines).
-# A more correct way of doing this is using the recombination matrix,
-# checking whether each knot is in the support of at least one B-spline.
-# This would be slower though... but it would be good to have this verification
-# in the tests.
-# TODO (2) technically, this is wrong near the borders, although in practice
-# it's right if the "ghost" knots are all on the boundaries. Maybe it's better
-# to use the recombination matrix after all... This can be done efficiently.
-support(R::RecombinedBSplineBasis, i::Integer) =
-    support(parent(R), i) .+ num_constraints(R)
+# Support is generally shifted wrt BSplineBasis.
+@propagate_inbounds function support(R::RecombinedBSplineBasis,
+                                     j::Integer) :: UnitRange
+    A = recombination_matrix(R)
+    B = parent(R)
+    a = typemax(Int)
+    b = zero(Int)
+    for i in nzrows(A, j)
+        # We compute the union of the individual supports of each B-spline,
+        # assuming that the local supports intersect (this is always true!).
+        # Note that the `union` function in Base returns an array (because that
+        # assumption is not true in general), and we don't want this.
+        @inbounds begin
+            # Note that A[i, j] might be zero if we're in the boundary blocks
+            # of the matrix. We don't check that here, because it's relatively
+            # expensive, and because in the end it doesn't make a difference.
+            s = support(B, i)
+            a = min(a, first(s)) :: Int
+            b = max(b, last(s))  :: Int
+        end
+    end
+    a:b
+end
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
 # TODO check that this variant is actually being called...
@@ -259,6 +270,7 @@ function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
     c = num_constraints(A)
     N = size(A, 1)
 
+    # TODO use `support`?
     block = which_recombine_block(A, j)
 
     j1 = j + c

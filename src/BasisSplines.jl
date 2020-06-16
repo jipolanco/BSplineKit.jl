@@ -3,7 +3,7 @@ module BasisSplines
 export Collocation
 
 export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
-export RecombineMatrix, recombination_matrix
+export RecombineMatrix, recombination_matrix, nzrows
 export Spline, BSpline, BSplineOrder, Derivative
 export knots, order, coefficients, boundaries, constraints
 export augment_knots
@@ -18,9 +18,10 @@ using LinearAlgebra: Symmetric, Adjoint, Transpose, UniformScaling, ldiv!
 using SparseArrays
 using StaticArrays
 
+import Base: @propagate_inbounds
 import LinearAlgebra
 
-# We're transitioning to using the registered BSplines package...
+# For some comparisons with the registered BSplines package...
 import BSplines
 import BSplines: order, knots
 

@@ -181,11 +181,35 @@ num_recombined(A::RecombineMatrix) = max_order(A) + 1 - num_constraints(A)
 # j: index in recombined basis
 # M: length of recombined basis
 @inline function which_recombine_block(A::RecombineMatrix, j)
+    @boundscheck checkbounds(A, :, j)
     M = A.M
     n = num_recombined(A)
     j <= n && return 1
     j > M - n && return 3
     2
+end
+
+"""
+    nzrows(A::RecombineMatrix, col::Integer) -> UnitRange{Int}
+
+Returns the range of row indices `i` such that `A[i, col]` is within the non-zero region of the matrix.
+"""
+@propagate_inbounds function nzrows(A::RecombineMatrix,
+                                    j::Integer) :: UnitRange{Int}
+    block = which_recombine_block(A, j)
+    if block == 2
+        # Shifted diagonal of ones.
+        j += num_constraints(A)
+        return j:j
+    end
+    n = size(A.ul, 1)
+    @assert n === size(A.lr, 1)
+    if block == 1
+        1:n
+    else
+        N = size(A, 1)
+        (N - n + 1):N
+    end
 end
 
 # Pretty-printing, adapted from BandedMatrices.jl code.
@@ -197,7 +221,7 @@ end
 @inline function Base.getindex(A::RecombineMatrix, i::Integer, j::Integer)
     @boundscheck checkbounds(A, i, j)
     T = eltype(A)
-    block = which_recombine_block(A, j)
+    @inbounds block = which_recombine_block(A, j)
 
     if block == 2
         c = num_constraints(A)
