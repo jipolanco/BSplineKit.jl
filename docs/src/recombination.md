@@ -9,6 +9,7 @@ CurrentModule = BasisSplines
 ```@docs
 RecombinedBSplineBasis
 RecombineMatrix
+NoUniqueSolutionError
 ```
 
 ## Functions

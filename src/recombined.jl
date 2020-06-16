@@ -270,7 +270,6 @@ function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
     c = num_constraints(A)
     N = size(A, 1)
 
-    # TODO use `support`?
     block = which_recombine_block(A, j)
 
     j1 = j + c
@@ -278,7 +277,7 @@ function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
     T = typeof(ϕ)
 
     if block == 2
-        # A[j + 1, j] should be 1
+        # @assert A[j1, j] == 1
         return ϕ
     end
 
