@@ -97,10 +97,10 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
     # lower-order derivatives keep at least one degree of freedom (i.e. they do
     # *not* vanish). A simple solution is to choose:
     #
-    #     ϕ[1] = b[1] - α[1] b[3],
-    #     ϕ[2] = b[2] - α[2] b[3],
+    #     ϕ[1] = α[1] b[1] + b[2],
+    #     ϕ[2] = α[2] b[2] + b[3],
     #
-    # with α[i] = b[i]'' / b[3]''.
+    # with α[i] = -b[i + 1]'' / b[i]''.
     #
     # This generalises to all orders `n ≥ 0`.
 
@@ -108,14 +108,19 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
     Ca = zeros(T, n + 1, n)
     Cb = copy(Ca)
 
+    # TODO
+    # - is it possible to preserve the partition of unity property? Maybe not in
+    # general...
+    # - update docs
+
     let x = a
         is = ntuple(identity, Val(n + 1))  # = 1:(n + 1)
         # Evaluate n-th derivatives of bⱼ at the boundary.
         # TODO replace with analytical formula?
         bs = evaluate_bspline.(B, is, x, Derivative(n))
         for m = 1:n
-            Ca[m, m] = 1
-            Ca[n + 1, m] = -bs[m] / bs[n + 1]
+            Ca[m, m] = -bs[m + 1] / bs[m]
+            Ca[m + 1, m] = 1
         end
     end
 
@@ -126,8 +131,8 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
         is = ntuple(d -> N - d + 1, Val(n + 1))  # = N:-1:(N - n)
         bs = evaluate_bspline.(B, is, x, Derivative(n))
         for m = 1:n
-            Cb[1, m] = -bs[n + 1 - m] / bs[n + 1]
-            Cb[m + 1, m] = 1
+            Cb[m, m] = 1
+            Cb[m + 1, m] = -bs[n - m + 2] / bs[n - m + 1]
         end
     end
 

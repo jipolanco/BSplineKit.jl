@@ -56,8 +56,8 @@ boundary.
 Note that simply adding the first three B-splines, as in ``ϕ_1 = b_1 + b_2 +
 b_3``, makes the first derivative vanish as well as the second one, which is
 unwanted.
-The chosen solution is to set ``ϕ_i = b_i - α_i b_3`` for ``i ∈ \\{1, 2\\}``,
-with ``α_i = b_i'' / b_3''``. All these considerations apply similarly to the
+The chosen solution is to set ``ϕ_i = α_i b_i + b_{i + 1}`` for ``i ∈ \\{1, 2\\}``,
+with ``α_i = -b_{i + 1}'' / b_i''``. All these considerations apply similarly to the
 right boundary.
 
 This generalises easily to higher order BCs.
@@ -243,7 +243,7 @@ num_recombined(B::AbstractBSplineBasis) = 0
         # assuming that the local supports intersect (this is always true!).
         # Note that the `union` function in Base returns an array (because that
         # assumption is not true in general), and we don't want this.
-        @inbounds begin
+        @inbounds if !iszero(A[i, j])  # TODO check can be avoided...
             # Note that A[i, j] might be zero if we're in the boundary blocks
             # of the matrix. We don't check that here, because it's relatively
             # expensive, and because in the end it doesn't make a difference.

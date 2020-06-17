@@ -206,6 +206,7 @@ function test_galerkin_recombined()
         B = BSplineBasis(6, knots_base)
         R0 = RecombinedBSplineBasis(Derivative(0), B)
         R1 = RecombinedBSplineBasis(Derivative(1), B)
+        R2 = RecombinedBSplineBasis(Derivative(2), B)
 
         test_galerkin_tensor(R0)
         test_galerkin_tensor(R1)
@@ -217,6 +218,15 @@ function test_galerkin_recombined()
         G = galerkin_matrix(B)
         G0 = galerkin_matrix(R0)
         G1 = galerkin_matrix(R1)
+        G2 = galerkin_matrix(R2)
+
+        # Due to the partition of unity property, the sum of all elements
+        # must be the size of the domain (= ∫ 1 dx).
+        L = -(boundaries(B)...) * -1
+        @test sum(G) ≈ L
+        @test sum(G0) < L  # Dirichlet: ϕ_1 = b_2 => PoU is not satisfied
+        @test sum(G1) ≈ L  # Neumann: ϕ_1 = b_1 + b_2 => PoU is satisfied
+        @test !(sum(G2) ≈ L)  # here it's not true!
 
         Sym{M} = Hermitian{T,A} where {T, A<:M}
 
