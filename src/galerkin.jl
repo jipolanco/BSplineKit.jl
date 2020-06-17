@@ -38,7 +38,7 @@ The mass matrix is banded with ``2k - 1`` bands.
 Moreover, the matrix is symmetric and positive definite, and only ``k`` bands are
 needed to fully describe the matrix.
 Hence, a
-[`Symmetric`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Symmetric)
+[`Hermitian`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/index.html#LinearAlgebra.Hermitian)
 view of an underlying matrix is returned.
 
 By default, the underlying matrix holding the data is a `BandedMatrix` that
@@ -54,7 +54,7 @@ constructed using the optional `deriv` parameter.
 For instance, if `deriv = (Derivative(0), Derivative(2))`, the matrix
 ``⟨ ϕ_i, ϕ_j'' ⟩`` is constructed, where primes denote derivatives.
 Note that, if the derivative orders are different, the resulting matrix is not
-symmetric, and a `Symmetric` view is not returned in those cases.
+symmetric, and a `Hermitian` view is not returned in those cases.
 
 ## Combining different bases
 
@@ -83,7 +83,7 @@ function galerkin_matrix(
     A = allocate_galerkin_matrix(M, Bs, symmetry)
 
     # Make the matrix symmetric if possible.
-    S = symmetry ? Symmetric(A) : A
+    S = symmetry ? Hermitian(A) : A
 
     galerkin_matrix!(S, Bs, deriv)
 end
@@ -175,7 +175,7 @@ galerkin_tensor(B::AbstractBSplineBasis, args...) =
 
 Fill preallocated Galerkin matrix.
 
-The matrix may be a `Symmetric` view, in which case only one half of the matrix
+The matrix may be a `Hermitian` view, in which case only one half of the matrix
 will be filled. Note that, for the matrix to be symmetric, both derivative orders
 in `deriv` must be the same.
 
@@ -212,7 +212,7 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
     quad = _quadrature_prod(2k - 2)
     @assert length(quad[1]) == k  # this should correspond to k quadrature points
 
-    if S isa Symmetric
+    if S isa Hermitian
         deriv[1] === deriv[2] || error("matrix will not be symmetric with deriv = $deriv")
         B1 === B2 || error("matrix will not be symmetric if bases are different")
         fill_upper = S.uplo === 'U'
@@ -277,7 +277,7 @@ function galerkin_matrix!(
 
     same_deriv = deriv[1] === deriv[2]
 
-    if S isa Symmetric
+    if S isa Hermitian
         same_deriv || error("matrix will not be symmetric with deriv = $deriv")
         fill_upper = S.uplo === 'U'
         fill_lower = S.uplo === 'L'

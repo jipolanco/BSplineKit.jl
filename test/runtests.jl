@@ -218,7 +218,7 @@ function test_galerkin_recombined()
         G0 = galerkin_matrix(R0)
         G1 = galerkin_matrix(R1)
 
-        Sym{M} = Symmetric{T,A} where {T, A<:M}
+        Sym{M} = Hermitian{T,A} where {T, A<:M}
 
         # Some symmetric matrices
         @test galerkin_matrix(R1, Derivative.((1, 1))) isa Sym{BandedMatrix}
