@@ -19,6 +19,10 @@ function test_recombine_matrix(A::RecombineMatrix)
         n = num_recombined(A)
         c = num_constraints(A)
 
+        # The sum of all rows is 2 in the recombined regions (because 2
+        # recombined B-splines), and 1 in the centre.
+        @test vec(sum(A, dims=1)) ≈ vcat(2 * ones(n), ones(M - 2n), 2 * ones(n))
+
         # Upper left corner, lower right corner, and centre.
         @test @views A[1:(n + c), 1:n] == A.ul
         @test @views A[(N - n - c + 1):N, (M - n + 1):M] == A.lr
@@ -89,8 +93,9 @@ function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
         # We consider that the result is zero, if it is negligible wrt the
         # derivative at the border of the first B-spline of the original
         # basis.
+        # TODO ideally, the result should be exactly zero...
         B = parent(R)
-        ε = 2 * eps(BSpline(B, 1)(a, Derivative(n)))
+        ε = 2 * num_recombined(R) * eps(BSpline(B, 1)(a, Derivative(n)))
         if n ∈ orders
             @test bsum <= ε
         else

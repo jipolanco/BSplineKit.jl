@@ -97,21 +97,24 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
     # lower-order derivatives keep at least one degree of freedom (i.e. they do
     # *not* vanish). A simple solution is to choose:
     #
-    #     ϕ[1] = α[1] b[1] + b[2],
-    #     ϕ[2] = α[2] b[2] + b[3],
+    #     ϕ[i] = -α[i + 1] b[i] + α[i] b[i + 1]    for i = {1, 2},
     #
-    # with α[i] = -b[i + 1]'' / b[i]''.
+    # with α[j] = β b[j]'' evaluated at the boundary. The derivatives are
+    # rescaled by an arbitrary normalisation factor β.
     #
-    # This generalises to all orders `n ≥ 0`.
+    # For consistency with the Neumann BCs, we choose the normalisation factor
+    # such that each column of the recombination matrix has a sum equal to the
+    # number of B-splines involved in each recombination. For instance, if
+    # ϕ[i] is defined from 2 B-splines (as above), then the sum of the
+    # coefficients multiplying b[i] and b[i + 1] is 2.
+    #
+    # This generalises to all orders `n ≥ 0`. In all cases, each recombined
+    # function is defined from 2 neighbouring B-splines, to keep the support of
+    # the recombined functions as small as possible.
 
     a, b = boundaries(B)
     Ca = zeros(T, n + 1, n)
     Cb = copy(Ca)
-
-    # TODO
-    # - is it possible to preserve the partition of unity property? Maybe not in
-    # general...
-    # - update docs
 
     let x = a
         is = ntuple(identity, Val(n + 1))  # = 1:(n + 1)
@@ -119,8 +122,11 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
         # TODO replace with analytical formula?
         bs = evaluate_bspline.(B, is, x, Derivative(n))
         for m = 1:n
-            Ca[m, m] = -bs[m + 1] / bs[m]
-            Ca[m + 1, m] = 1
+            b0, b1 = bs[m], bs[m + 1]
+            @assert !(b0 ≈ b1)
+            r = 2 / (b0 - b1)  # normalisation factor
+            Ca[m, m] = -b1 * r
+            Ca[m + 1, m] = b0 * r
         end
     end
 
@@ -131,8 +137,11 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
         is = ntuple(d -> N - d + 1, Val(n + 1))  # = N:-1:(N - n)
         bs = evaluate_bspline.(B, is, x, Derivative(n))
         for m = 1:n
-            Cb[m, m] = 1
-            Cb[m + 1, m] = -bs[n - m + 2] / bs[n - m + 1]
+            b0, b1 = bs[n - m + 2], bs[n - m + 1]
+            @assert !(b0 ≈ b1)
+            r = 2 / (b0 - b1)
+            Cb[m, m] = -b1 * r
+            Cb[m + 1, m] = b0 * r
         end
     end
 
@@ -197,7 +206,8 @@ end
 """
     nzrows(A::RecombineMatrix, col::Integer) -> UnitRange{Int}
 
-Returns the range of row indices `i` such that `A[i, col]` is within the non-zero region of the matrix.
+Returns the range of row indices `i` such that `A[i, col]` is within the
+non-zero region of the matrix.
 """
 @propagate_inbounds function nzrows(A::RecombineMatrix,
                                     j::Integer) :: UnitRange{Int}

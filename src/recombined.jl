@@ -56,9 +56,9 @@ boundary.
 Note that simply adding the first three B-splines, as in ``ϕ_1 = b_1 + b_2 +
 b_3``, makes the first derivative vanish as well as the second one, which is
 unwanted.
-The chosen solution is to set ``ϕ_i = α_i b_i + b_{i + 1}`` for ``i ∈ \\{1, 2\\}``,
-with ``α_i = -b_{i + 1}'' / b_i''``. All these considerations apply similarly to the
-right boundary.
+The chosen solution is to set ``ϕ_i = α_i b_i + b_{i + 1}`` (up to a constant
+factor) for ``i ∈ \\{1, 2\\}``, with ``α_i = -b_{i + 1}'' / b_i''``. All these
+considerations apply similarly to the right boundary.
 
 This generalises easily to higher order BCs.
 First note that, due to the partition of unity property of the B-spline basis,
