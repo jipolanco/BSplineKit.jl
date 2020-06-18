@@ -24,12 +24,17 @@ basis.
 As in [`RecombinedBSplineBasis`](@ref), the type parameter `DiffOps` indicates
 the homogeneous boundary condition(s) satisfied by the recombined basis.
 
-Due to the local support of B-splines, the matrix is very sparse, being roughly
-described by a diagonal of ones, plus some extra elements in the upper left and
-lower right corners.
+Due to the local support of B-splines, basis recombination can be performed
+among neigbouring B-splines near the boundaries (see
+[`RecombinedBSplineBasis`](@ref)).
+This leads to a recombination matrix which is almost a diagonal of ones, plus
+a few extra super- and sub-diagonal elements in the upper left and lower right
+corners, respectively.
 The matrix is stored in a memory-efficient way that also allows fast access to
-its elements. For orders `n ∈ {0, 1}`, the matrix is made of zeroes and ones,
-and the default element type is `Bool`.
+its elements.
+
+For boundary condition orders `n ∈ {0, 1}`, the matrix is made of zeroes and
+ones, and the default element type is `Bool`.
 """
 struct RecombineMatrix{T,
                        DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},

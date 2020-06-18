@@ -29,7 +29,8 @@ is a bit more complex, but not much.
 ## Order of the boundary condition
 
 In this section, we consider the simplest case where a single homogeneous
-boundary condition of derivative order ``n`` is to be satisfied by the basis.
+boundary condition, ``\\mathrm{d}^n u / \\mathrm{d}x^n = 0``, is to be satisfied
+by the basis.
 
 The recombined basis requires the specification of a `Derivative` object
 determining the order of the homogeneous BCs to be applied at the two
@@ -56,13 +57,20 @@ boundary.
 Note that simply adding the first three B-splines, as in ``ϕ_1 = b_1 + b_2 +
 b_3``, makes the first derivative vanish as well as the second one, which is
 unwanted.
-The chosen solution is to set ``ϕ_i = α_i b_i + b_{i + 1}`` (up to a constant
-factor) for ``i ∈ \\{1, 2\\}``, with ``α_i = -b_{i + 1}'' / b_i''``. All these
-considerations apply similarly to the right boundary.
 
-This generalises easily to higher order BCs.
-First note that, due to the partition of unity property of the B-spline basis,
-we have
+The chosen solution is to set ``ϕ_i = α_i b_i + β_i b_{i + 1}`` for
+``i ∈ \\{1, 2\\}``.
+Since each boundary function ``ϕ_i`` is defined from only two neighbouring
+B-splines, its local support stays minimal, hence preserving the small bandwidth
+of the associated matrices.
+The ``α_i`` and ``β_i`` coefficients are chosen such that ``ϕ_i'' = 0`` at the
+boundary.
+Moreover, they satisfy the (somewhat arbitrary) constraint ``α_i + β_i = 2`` for
+each ``i``, for consistency with the Neumann case described above.
+
+All these considerations generalise to higher order BCs.
+To understand why this works, note that, due to the partition of unity property
+of the B-spline basis, we have
 
 ```math
 ∑_j b_j(x) = 1 \\quad ⇒
