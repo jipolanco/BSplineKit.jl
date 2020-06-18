@@ -212,15 +212,10 @@ Returns the range of row indices `i` such that `A[i, col]` is non-zero.
                                     j::Integer) :: UnitRange{Int}
     block = which_recombine_block(A, j)
     j += num_constraints(A)
-    if block == 2
-        # Shifted diagonal of ones.
-        return j:j
-    end
-    n = size(A.ul, 1)
-    @assert n === size(A.lr, 1)
-    r = num_recombined(A)
     if block == 1
         (j - 1):j
+    elseif block == 2
+        j:j  # shifted diagonal of ones
     else
         j:(j + 1)
     end
