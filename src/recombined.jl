@@ -241,16 +241,12 @@ num_recombined(B::AbstractBSplineBasis) = 0
     for i in nzrows(A, j)
         # We compute the union of the individual supports of each B-spline,
         # assuming that the local supports intersect (this is always true!).
-        # Note that the `union` function in Base returns an array (because that
-        # assumption is not true in general), and we don't want this.
-        @inbounds if !iszero(A[i, j])  # TODO check can be avoided...
-            # Note that A[i, j] might be zero if we're in the boundary blocks
-            # of the matrix. We don't check that here, because it's relatively
-            # expensive, and because in the end it doesn't make a difference.
-            s = support(B, i)
-            a = min(a, first(s)) :: Int
-            b = max(b, last(s))  :: Int
-        end
+        # We don't use the `union` function in Base because it returns an array
+        # (since that assumption is not true in general), and we don't want
+        # this.
+        s = support(B, i)
+        a = min(a, first(s)) :: Int
+        b = max(b, last(s))  :: Int
     end
     a:b
 end

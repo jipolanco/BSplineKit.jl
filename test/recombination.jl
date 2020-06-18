@@ -1,5 +1,26 @@
+function test_nzrows(A::RecombineMatrix)
+    # Compare output of nzrows with similar functions for sparse arrays.
+    # See ?nzrange.
+    @testset "nzrows" begin
+        S = sparse(A)
+        rows = rowvals(S)
+        vals = nonzeros(S)
+        for j in axes(A, 2)
+            ra = nzrows(A, j)
+            rs = nzrange(S, j)
+            @test length(ra) == length(rs)  # same number of non-zero rows
+            for (ia, is) in zip(ra, rs)
+                @test ia == rows[is]        # same non-zero rows
+                @test A[ia, j] == vals[is]  # same values
+            end
+        end
+    end
+    nothing
+end
+
 function test_recombine_matrix(A::RecombineMatrix)
-    @testset "Recombination matrix" begin
+    @testset "Recombination matrix: $(constraints(A))" begin
+        test_nzrows(A)
         N, M = size(A)
         @test M == N - 2 * num_constraints(A)
 
@@ -57,7 +78,6 @@ function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
     a, b = boundaries(R)
     N = length(R)
     k = order(R)
-    test_recombine_matrix(recombination_matrix(R))
 
     # Verify that all basis functions satisfy the boundary conditions
     # for the derivative `D`, while they leave at least one degree of freedom
@@ -104,10 +124,12 @@ function test_basis_recombination()
         @test_throws ArgumentError RecombineMatrix(Derivative.((0, 2)), B)
         @test_throws ArgumentError RecombineMatrix(Derivative.((1, 2)), B)
         M = RecombineMatrix(Derivative.((0, 1)), B)
+        test_recombine_matrix(M)
     end
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
         @test constraints(R) === (Derivative(D), )
+        test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)
 
         # Simultaneously satisfies BCs of orders 0 to D.
@@ -115,6 +137,7 @@ function test_basis_recombination()
             derivs = ntuple(d -> Derivative(d - 1), D + 1)
             Rs = RecombinedBSplineBasis(derivs, B)
             @test constraints(Rs) === ntuple(n -> Derivative(n - 1), D + 1)
+            test_recombine_matrix(recombination_matrix(Rs))
             test_boundary_conditions(Rs)
         end
     end

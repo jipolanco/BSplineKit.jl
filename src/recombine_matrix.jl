@@ -206,24 +206,23 @@ end
 """
     nzrows(A::RecombineMatrix, col::Integer) -> UnitRange{Int}
 
-Returns the range of row indices `i` such that `A[i, col]` is within the
-non-zero region of the matrix.
+Returns the range of row indices `i` such that `A[i, col]` is non-zero.
 """
 @propagate_inbounds function nzrows(A::RecombineMatrix,
                                     j::Integer) :: UnitRange{Int}
     block = which_recombine_block(A, j)
+    j += num_constraints(A)
     if block == 2
         # Shifted diagonal of ones.
-        j += num_constraints(A)
         return j:j
     end
     n = size(A.ul, 1)
     @assert n === size(A.lr, 1)
+    r = num_recombined(A)
     if block == 1
-        1:n
+        (j - 1):j
     else
-        N = size(A, 1)
-        (N - n + 1):N
+        j:(j + 1)
     end
 end
 
