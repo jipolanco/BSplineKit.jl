@@ -35,7 +35,8 @@ struct BSplineOrder{k} end
 
 @inline BSplineOrder(k::Integer) = BSplineOrder{k}()
 
-include("differential_ops.jl")
+include("DifferentialOps.jl")
+using .DifferentialOps
 
 include("knots.jl")
 include("basis.jl")

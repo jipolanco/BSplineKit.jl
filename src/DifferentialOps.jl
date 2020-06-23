@@ -1,4 +1,20 @@
 """
+    DifferentialOps
+
+Module defining types describing differential operators and compositions
+thereof.
+"""
+module DifferentialOps
+
+export
+    AbstractDifferentialOp,
+    Derivative,
+    ScaledDerivative,
+    DifferentialOpSum,
+    max_order,
+    get_orders
+
+"""
     AbstractDifferentialOp
 
 Represents a general diferential operator.
@@ -72,3 +88,5 @@ Base.show(io::IO, D::DifferentialOpSum) = join(io, D.ops, " + ")
 max_order(D::DifferentialOpSum) = max_order(D.ops...)
 
 Base.:+(ops::Vararg{AbstractDifferentialOp}) = DifferentialOpSum(ops...)
+
+end

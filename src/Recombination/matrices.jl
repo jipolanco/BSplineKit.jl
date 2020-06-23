@@ -208,7 +208,7 @@ constraints(A::RecombineMatrix) = A.ops
 num_constraints(A::RecombineMatrix) = length(constraints(A))
 num_constraints(::UniformScaling) = 0  # case of non-recombined bases
 
-max_order(A::RecombineMatrix) = max_order(constraints(A)...)
+DifferentialOps.max_order(A::RecombineMatrix) = max_order(constraints(A)...)
 
 # Returns number of basis functions that are recombined from the original basis
 # near each boundary.

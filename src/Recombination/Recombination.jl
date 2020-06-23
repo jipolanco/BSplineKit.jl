@@ -17,12 +17,10 @@ using LinearAlgebra: UniformScaling, ldiv!
 using StaticArrays
 
 using ..BasisSplines
+using ..BasisSplines.DifferentialOps
 
-# TODO put more stuff inside modules...
 import ..BasisSplines:
     AbstractBSplineBasis,
-    # These will be in a DifferentialOps module:
-    AbstractDifferentialOp, get_orders, max_order,
     # These are redefined for RecombinedBSplineBasis:
     boundaries, knots, order, evaluate_bspline, support
 

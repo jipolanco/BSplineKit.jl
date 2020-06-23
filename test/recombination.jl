@@ -29,6 +29,7 @@ function test_recombine_matrix(A::RecombineMatrix)
 
         # The sum of all rows is 2 in the recombined regions (because 2
         # recombined B-splines), and 1 in the centre.
+        # Note that this is an arbitrary choice of the implementation.
         @test vec(sum(A, dims=1)) ≈ vcat(2 * ones(n), ones(M - 2n), 2 * ones(n))
 
         # Upper left corner, lower right corner, and centre.
@@ -104,7 +105,6 @@ function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
         # We consider that the result is zero, if it is negligible wrt the
         # derivative at the border of the first B-spline of the original
         # basis.
-        # TODO ideally, the result should be exactly zero...
         B = parent(R)
         ε = 2 * num_recombined(R) * eps(BSpline(B, 1)(a, Derivative(n)))
         if Derivative(n) ∈ ops
