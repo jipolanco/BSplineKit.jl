@@ -124,12 +124,28 @@ the B-spline basis.
 Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs
 associated to multiple differential operators.
 
-Currently, only some specific combinations of differential operators are
+Currently, the following specific combinations of differential operators are
 supported:
 
-1. all derivatives up to order `n`: `ops = (Derivative(0), ..., Derivative(n))`.
-   This boundary condition amounts to removing the first `n + 1` B-splines from
-   the original basis.
+1. all derivatives up to order `m`:
+
+        ops = (Derivative(0), ..., Derivative(m))
+
+   This boundary condition is obtained by removing the first `m + 1` B-splines
+   from the original basis.
+
+2. an extension of the above, with an additional differential operator of order
+   `n` at the end:
+
+        ops = (Derivative(0), ..., Derivative(m), D(n))
+
+   The operator `D(n)` may be a `Derivative`, or a linear combination of
+   derivatives.
+   The only restriction is that its maximum degree must satisfy `n ≥ m + 1`.
+
+   One example is the combination of homogeneous Dirichlet BCs, ``u = 0`` on the
+   boundaries, with Robin BCs for the derivative, ``u' + λ u'' = 0``, which
+   corresponds to `ops = (Derivative(0), Derivative(1) + λ Derivative(2))`.
 
 In all cases, the degrees of the differential operators must be in increasing
 order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.

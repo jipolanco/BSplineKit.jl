@@ -1,9 +1,11 @@
 """
-    RecombineMatrix{T, DiffOps} <: AbstractMatrix{T}
+    RecombineMatrix{T} <: AbstractMatrix{T}
 
 Matrix for transformation from B-spline basis to recombined basis.
 
-The transform matrix ``M`` is defined by
+# Extended help
+
+The transformation matrix ``M`` is defined by
 ```math
 ϕ_j = M_{ij} b_i,
 ```
@@ -18,11 +20,8 @@ basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
 ```
 
 Note that the matrix is not square: it has dimensions ``N × M``, where ``N``
-is the length of the B-spline basis, and ``M < N`` is that of the recombined
-basis.
-
-As in [`RecombinedBSplineBasis`](@ref), the type parameter `DiffOps` indicates
-the homogeneous boundary condition(s) satisfied by the recombined basis.
+is the length of the B-spline basis, and ``M = N - 2c`` is that of the
+recombined basis (with ``c`` the number of constraints on each boundary).
 
 Due to the local support of B-splines, basis recombination can be performed
 among neigbouring B-splines near the boundaries (see
@@ -33,8 +32,33 @@ corners, respectively.
 The matrix is stored in a memory-efficient way that also allows fast access to
 its elements.
 
-For boundary condition orders `n ∈ {0, 1}`, the matrix is made of zeroes and
-ones, and the default element type is `Bool`.
+Efficient implementations of matrix-vector products (using the `*` operator or
+`LinearAlgebra.mul!`) and of left division of vectors (using `\\` or
+`LinearAlgebra.ldiv!`) are included.
+These two operations can be used to transform between coefficients in the
+original and recombined bases.
+
+Note that, since the recombined basis forms a subspace of the original basis
+(which is related to the rectangular shape of the matrix),
+it is generally not possible to obtain recombined coefficients from original
+coefficients, unless the latter already satisfy the constraints encoded in the
+recombined basis.
+The left division operation will throw a [`NoUniqueSolutionError`](@ref) if that
+is not the case.
+
+---
+
+    RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
+                    B::BSplineBasis, [T])
+
+Construct recombination matrix describing a B-spline basis recombination.
+
+The default element type `T` is generally `Float64`, except for specific
+differential operators which yield a matrix of zeroes and ones, for which `Bool`
+is the default.
+
+See the [`RecombinedBSplineBasis`](@ref) constructor for details on the
+`ops` argument.
 """
 struct RecombineMatrix{T,
                        DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},
