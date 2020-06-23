@@ -95,7 +95,7 @@ function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
     # etc...
 
     for n = 0:(k - 1)
-        # We cound use `mirror` here, but it doesn't make a difference for
+        # We cound use `dot` here, but it doesn't make a difference for
         # single derivatives. It does make a difference for linear combinations
         # of derivatives (e.g. Robin BCs).
         bsum = sum(1:N) do i
@@ -130,7 +130,7 @@ function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
     N = length(R)
 
     for op in ops
-        op_a, op_b = mirror(op), op
+        op_a, op_b = dot.(op, (LeftNormal(), RightNormal()))
         bsum = sum(1:N) do i
             f = BSpline(R, i)
             fa = f(a, op_a)

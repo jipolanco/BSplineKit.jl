@@ -13,7 +13,7 @@ export recombination_matrix, nzrows, constraints
 import Base: @propagate_inbounds
 import LinearAlgebra
 
-using LinearAlgebra: UniformScaling, ldiv!
+using LinearAlgebra: UniformScaling, ldiv!, dot
 using StaticArrays
 
 using ..BasisSplines

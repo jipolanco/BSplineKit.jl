@@ -18,5 +18,5 @@ bandshift
 bandwidth
 band_indices
 setindex!
-dot
+dot(::AbstractVector, ::SubMatrix, ::AbstractVector)
 ```

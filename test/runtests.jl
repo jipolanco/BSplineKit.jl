@@ -9,7 +9,8 @@ using Test
 import BasisSplines:
     AbstractDifferentialOp,
     DifferentialOpSum,
-    mirror
+    LeftNormal,
+    RightNormal
 
 import BasisSplines.Recombinations:
     NoUniqueSolutionError,

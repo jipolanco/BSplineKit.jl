@@ -145,11 +145,11 @@ function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
 
         # Coefficients of odd derivatives must change sign, since d/dn = -d/dx
         # on the left boundary.
-        op_left = mirror(op)
+        opn = dot(op, LeftNormal())
 
         # Evaluate n-th derivatives of bⱼ at the boundary.
         # TODO replace with analytical formula?
-        bs = evaluate_bspline.(B, is, x, op_left)
+        bs = evaluate_bspline.(B, is, x, opn)
         for l = 1:q
             b0, b1 = bs[l], bs[l + 1]
             @assert !(b0 ≈ b1)
@@ -162,7 +162,9 @@ function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
     let x = b
         M = N - m  # index of last undropped B-spline
         is = ntuple(d -> M - d + 1, Val(q + 1))
-        bs = evaluate_bspline.(B, is, x, op)
+        opn = dot(op, RightNormal())
+        @assert opn === op  # the right normal is in the x direction
+        bs = evaluate_bspline.(B, is, x, opn)
         for l = 1:q
             b0, b1 = bs[q - l + 2], bs[q - l + 1]
             @assert !(b0 ≈ b1)
