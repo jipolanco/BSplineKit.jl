@@ -14,12 +14,15 @@ The constructed function can be evaluated as `b(x)`, returning a value of type
 
 ---
 
-    (b::BSpline)(x, [deriv = Derivative(0)])
+    (b::BSpline)(x, [op::AbstractDifferentialOp])
 
 Evaluate B-spline at coordinate `x`.
 
-To evaluate a derivative, pass the `deriv` parameter with the wanted
-differentiation order.
+To evaluate a derivative, pass `Derivative(n)` as the `op` argument, with `n`
+the derivative order.
+
+More general differential operators, such as `Derivative(n) + λ Derivative(m)`,
+are also supported.
 """
 struct BSpline{Basis <: AnyBSplineBasis, T}
     basis :: Basis
@@ -63,25 +66,28 @@ using `isempty`, which returns `true` for such a range.
 """
 common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
 
-(b::BSpline)(x, deriv=Derivative(0)) =
-    evaluate_bspline(basis(b), b.i, x, deriv, eltype(b))
+(b::BSpline)(x, op=Derivative(0)) =
+    evaluate_bspline(basis(b), b.i, x, op, eltype(b))
 
 """
     evaluate_bspline(
         B::AbstractBSplineBasis, i::Integer, x,
-        [deriv=Derivative(0)], [T=Float64],
+        [op::AbstractDifferentialOp], [T=Float64],
     )
 
 Evaluate ``i``-th B-spline in the given basis at `x` (can be a coordinate or a
 vector of coordinates).
 
-The ``N``-th derivative of ``b_i(x)`` may be evaluated by passing
-`Derivative(N)`.
+To evaluate a derivative, pass `Derivative(n)` as the `op` argument, with `n`
+the derivative order.
+
+More general differential operators, such as `Derivative(n) + λ Derivative(m)`,
+are also supported.
 
 See also [`evaluate_bspline!`](@ref).
 """
 function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
-                          deriv::Derivative = Derivative(0),
+                          op::AbstractDifferentialOp = Derivative(0),
                           ::Type{T} = Float64) where {T}
     N = length(B)
     if !(1 <= i <= N)
@@ -89,7 +95,7 @@ function evaluate_bspline(B::BSplineBasis, i::Integer, x::Real,
     end
     k = order(B)
     t = knots(B)
-    evaluate_bspline_diff(deriv, BSplineOrder(k), t, i, x, T)
+    evaluate_bspline_diff(op, BSplineOrder(k), t, i, x, T)
 end
 
 # No derivative
@@ -113,9 +119,19 @@ function evaluate_bspline_diff(::Derivative{N}, ::BSplineOrder{k}, t, i, x,
         y -= evaluate_bspline_diff(
             Derivative(N - 1), BSplineOrder(k - 1), t, i + 1, x, T) / dt
     end
-    y * (k - 1)
+    (y * (k - 1)) :: T
 end
 
+# More general diff operators
+evaluate_bspline_diff(S::ScaledDerivative, etc...) =
+    S.α * evaluate_bspline_diff(S.D, etc...)
+
+function evaluate_bspline_diff(S::DifferentialOpSum, etc...)
+    vals = map(D -> evaluate_bspline_diff(D, etc...), S.ops)
+    sum(vals)
+end
+
+# For evaluation at multiple locations (allocates a vector).
 evaluate_bspline(B::BSplineBasis, i, x::AbstractVector, args...) =
     evaluate_bspline.(B, i, x, args...)
 
@@ -172,7 +188,7 @@ function _evaluate_bspline(::BSplineOrder{k}, t::AbstractVector, i::Integer,
             (tb - x) / (tb - ta1)
     end
 
-    y
+    y :: T
 end
 
 # In principle, the support of a B-spline is [ta, tb[.

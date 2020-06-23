@@ -29,6 +29,7 @@ function test_recombine_matrix(A::RecombineMatrix)
 
         # The sum of all rows is 2 in the recombined regions (because 2
         # recombined B-splines), and 1 in the centre.
+        # Note that this is an arbitrary choice of the implementation.
         @test vec(sum(A, dims=1)) ≈ vcat(2 * ones(n), ones(M - 2n), 2 * ones(n))
 
         # Upper left corner, lower right corner, and centre.
@@ -52,9 +53,9 @@ function test_recombine_matrix(A::RecombineMatrix)
             u2 = A \ v
             @test u2 ≈ u
 
-            # Modify coefficient of original basis near the border, so that the
+            # Modify coefficients of original basis near the border, so that the
             # resulting function has no representation in the recombined basis.
-            v[1] = randn()
+            rand!(v)
             @test_throws NoUniqueSolutionError A \ v
         end
 
@@ -70,10 +71,14 @@ function test_recombine_matrix(A::RecombineMatrix)
     nothing
 end
 
-function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
-    orders = BasisSplines.get_orders(constraints(R)...)
-    @test length(orders) == BasisSplines.num_constraints(R)
-    @test length(R) == length(parent(R)) - 2 * length(orders)
+test_boundary_conditions(R::RecombinedBSplineBasis) =
+    test_boundary_conditions(constraints(R), R)
+
+function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
+                                  R::RecombinedBSplineBasis)
+    @assert ops === constraints(R)
+    @test length(ops) == BasisSplines.num_constraints(R)
+    @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)
     N = length(R)
@@ -90,6 +95,9 @@ function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
     # etc...
 
     for n = 0:(k - 1)
+        # We cound use `dot` here, but it doesn't make a difference for
+        # single derivatives. It does make a difference for linear combinations
+        # of derivatives (e.g. Robin BCs).
         bsum = sum(1:N) do i
             f = BSpline(R, i)
             fa = f(a, Derivative(n))
@@ -100,14 +108,38 @@ function test_boundary_conditions(R::RecombinedBSplineBasis{D}) where {D}
         # We consider that the result is zero, if it is negligible wrt the
         # derivative at the border of the first B-spline of the original
         # basis.
-        # TODO ideally, the result should be exactly zero...
         B = parent(R)
         ε = 2 * num_recombined(R) * eps(BSpline(B, 1)(a, Derivative(n)))
-        if n ∈ orders
-            @test bsum <= ε
+        if Derivative(n) ∈ ops
+            @test bsum ≤ ε
         else
             @test bsum > 1
         end
+    end
+
+    nothing
+end
+
+# More general BCs (Robin-like BCs and more combinations).
+function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
+    @assert ops === constraints(R)
+    @test length(ops) == BasisSplines.num_constraints(R)
+    @test length(R) == length(parent(R)) - 2 * length(ops)
+
+    a, b = boundaries(R)
+    N = length(R)
+
+    for op in ops
+        op_a, op_b = dot.(op, (LeftNormal(), RightNormal()))
+        bsum = sum(1:N) do i
+            f = BSpline(R, i)
+            fa = f(a, op_a)
+            fb = f(b, op_b)
+            abs(fa) + abs(fb)
+        end
+        B = parent(R)
+        ε = 2 * num_recombined(R) * eps(BSpline(B, 1)(a, op_a))
+        @test bsum ≤ ε
     end
 
     nothing
@@ -121,21 +153,53 @@ function test_basis_recombination()
     @test constraints(B) === ()
     @testset "Mixed derivatives" begin
         @inferred RecombineMatrix(Derivative.((0, 1)), B)
-        @test_throws ArgumentError RecombineMatrix(Derivative.((0, 2)), B)
+        @inferred RecombineMatrix(Derivative.((0, 2)), B)
+
+        # Derivative orders must be in increasing order.
+        @test_throws ArgumentError RecombineMatrix(Derivative.((1, 0)), B)
+
+        # Unsupported combinations of derivatives.
         @test_throws ArgumentError RecombineMatrix(Derivative.((1, 2)), B)
+
         M = RecombineMatrix(Derivative.((0, 1)), B)
         test_recombine_matrix(M)
     end
+
+    @test_throws ArgumentError RecombinedBSplineBasis(Derivative(k), B)
+
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
         @test constraints(R) === (Derivative(D), )
         test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)
 
+        @testset "Robin-like BCs" begin
+            op = 1.1 * Derivative(D) + 4.2 * Derivative(D + 1)
+            @test BasisSplines.max_order(op) == D + 1
+            if D + 1 == k
+                # "cannot resolve operators (...) with B-splines of order 4"
+                @test_throws ArgumentError RecombinedBSplineBasis(op, B)
+            else
+                let Rs = RecombinedBSplineBasis(op, B)
+                    @test constraints(Rs) === (op, )
+                    test_recombine_matrix(recombination_matrix(Rs))
+                    test_boundary_conditions(Rs)
+                end
+                if D != 0
+                    # Combine with Dirichlet BCs
+                    ops = (Derivative(0), op)
+                    Rs = RecombinedBSplineBasis(ops, B)
+                    @test constraints(Rs) === ops
+                    test_recombine_matrix(recombination_matrix(Rs))
+                    test_boundary_conditions(Rs)
+                end
+            end
+        end
+
         # Simultaneously satisfies BCs of orders 0 to D.
         @testset "Mixed BCs" begin
-            derivs = ntuple(d -> Derivative(d - 1), D + 1)
-            Rs = RecombinedBSplineBasis(derivs, B)
+            ops = ntuple(d -> Derivative(d - 1), D + 1)
+            Rs = RecombinedBSplineBasis(ops, B)
             @test constraints(Rs) === ntuple(n -> Derivative(n - 1), D + 1)
             test_recombine_matrix(recombination_matrix(Rs))
             test_boundary_conditions(Rs)

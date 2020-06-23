@@ -46,13 +46,11 @@ struct RecombineMatrix{T,
     ul :: Corner  # upper-left corner of matrix, size (n1, n)
     lr :: Corner  # lower-right corner of matrix, size (n1, n)
     function RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                             N::Integer, ul::SMatrix, lr::SMatrix)
-        n1, n = size(ul)
-        nc = n1 - n  # number of BCs per boundary
-        if nc <= 0
+                             N::Integer, ul::SMatrix{n1,n}, lr::SMatrix{n1,n}) where {n1,n}
+        if n1 <= n
             throw(ArgumentError("matrices must have dimensions (m, n) with m > n"))
         end
-        M = N - 2nc
+        M = N - 2 * length(ops)
         T = eltype(ul)
         Corner = typeof(ul)
         Ops = typeof(ops)
@@ -75,6 +73,7 @@ RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, B::BSplineBasis) =
 # Specialisation for Dirichlet BCs.
 function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
                          ::Type{T}) where {T}
+    _check_bspline_order(op, B)
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
@@ -84,99 +83,139 @@ end
 # Specialisation for Neumann BCs.
 function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis,
                          ::Type{T}) where {T}
+    _check_bspline_order(op, B)
     N = length(B)
     ul = SMatrix{2,1,T}(1, 1)
     lr = copy(ul)
     RecombineMatrix(op, N, ul, lr)
 end
 
-# Generalisation to higher orders.
-function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
-                         ::Type{T}) where {n,T}
-    @assert n >= 0
-
-    # Example for case n = 2.
-    #
-    # At each border, we want 2 independent linear combinations of
-    # the first 3 B-splines such that ϕ₁'' = ϕ₂'' = 0 at x = a, and such that
-    # lower-order derivatives keep at least one degree of freedom (i.e. they do
-    # *not* vanish). A simple solution is to choose:
-    #
-    #     ϕ[i] = -α[i + 1] b[i] + α[i] b[i + 1]    for i = {1, 2},
-    #
-    # with α[j] = β b[j]'' evaluated at the boundary. The derivatives are
-    # rescaled by an arbitrary normalisation factor β.
-    #
-    # For consistency with the Neumann BCs, we choose the normalisation factor
-    # such that each column of the recombination matrix has a sum equal to the
-    # number of B-splines involved in each recombination. For instance, if
-    # ϕ[i] is defined from 2 B-splines (as above), then the sum of the
-    # coefficients multiplying b[i] and b[i + 1] is 2.
-    #
-    # This generalises to all orders `n ≥ 0`. In all cases, each recombined
-    # function is defined from 2 neighbouring B-splines, to keep the support of
-    # the recombined functions as small as possible.
-
-    a, b = boundaries(B)
-    Ca = zeros(T, n + 1, n)
-    Cb = copy(Ca)
-
-    let x = a
-        is = ntuple(identity, Val(n + 1))  # = 1:(n + 1)
-        # Evaluate n-th derivatives of bⱼ at the boundary.
-        # TODO replace with analytical formula?
-        bs = evaluate_bspline.(B, is, x, Derivative(n))
-        for m = 1:n
-            b0, b1 = bs[m], bs[m + 1]
-            @assert !(b0 ≈ b1)
-            r = 2 / (b0 - b1)  # normalisation factor
-            Ca[m, m] = -b1 * r
-            Ca[m + 1, m] = b0 * r
-        end
-    end
-
-    N = length(B)
-    M = N - 2
-
-    let x = b
-        is = ntuple(d -> N - d + 1, Val(n + 1))  # = N:-1:(N - n)
-        bs = evaluate_bspline.(B, is, x, Derivative(n))
-        for m = 1:n
-            b0, b1 = bs[n - m + 2], bs[n - m + 1]
-            @assert !(b0 ≈ b1)
-            r = 2 / (b0 - b1)
-            Cb[m, m] = -b1 * r
-            Cb[m + 1, m] = b0 * r
-        end
-    end
-
-    ul = SMatrix{n + 1, n}(Ca)
-    lr = SMatrix{n + 1, n}(Cb)
-
-    RecombineMatrix(op, N, ul, lr)
+# Generalisation to higher orders and to more general differential operators
+# (this includes Robin BCs, for instance).
+#
+# If more than one operator is passed, they must be of the form
+#
+#    (D(0), D(1), ..., D(m - 2), D(m - 1), [D(n)]),
+#
+# where the last D(n) is optional, and satisfies n ≥ m + 1.
+# In this case, the first `m` B-splines are dropped, and the next `n - m + 1`
+# B-splines are recombined into `q = n - m` functions.
+#
+# That last operator is allowed to be a linear combination of `Derivative`s.
+# In that case, `n` is the maximum degree of the operator.
+function RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
+                         B::BSplineBasis, ::Type{T}) where {T}
+    _check_bspline_order(ops, B)
+    op = last(ops)
+    n = max_order(op)
+    m = _bsplines_to_drop(ops...)
+    _make_matrix(Val(n + 1), Val(m), ops, B, T)
 end
 
-# Mixed derivatives.
-# Specific case 1: (D(0), D(1), ..., D(Nc - 1))
-# This actually generalises the Dirichlet case above.
-function RecombineMatrix(ops::Tuple{Vararg{Derivative}}, B::BSplineBasis,
-                         ::Type{T}) where {T}
-    orders = get_orders(ops...)
-    Nc = length(orders)
+# Case of mixed BCs (D(0), D(1), ..., D(n)).
+# B-splines are dropped, and new functions are not created.
+# This is a generalisation of the Dirichlet case.
+function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
+    Nc = length(ops)
     @assert Nc >= 2  # case Nc = 1 is treated by different functions
-    _check_supported_orders(Val(orders))
     N = length(B)
     ul = SMatrix{Nc,0,T}()
     lr = copy(ul)
     RecombineMatrix(ops, N, ul, lr)
 end
 
-function _check_supported_orders(::Val{orders}) where {orders}
-    length(orders) === 1 && return  # single BC
-    if orders !== ntuple(d -> d - 1, Val(length(orders)))  # mixed BCs
-        throw(ArgumentError("unsupported case: derivatives = $orders"))
+# Case of single BC, or mixed BCs where the last one is "different" from the
+# others.
+function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
+    n = n1 - 1
+    q = n - m
+    @assert q >= 1
+
+    Nc = length(ops)  # this is the number of constraints
+    a, b = boundaries(B)
+    Ca = zeros(T, q + Nc, q)
+    Cb = copy(Ca)
+
+    N = length(B)
+    op = last(ops)
+
+    let x = a
+        # Indices of B-splines to recombine.
+        is = ntuple(d -> m + d, Val(q + 1))
+
+        # Coefficients of odd derivatives must change sign, since d/dn = -d/dx
+        # on the left boundary.
+        opn = dot(op, LeftNormal())
+
+        # Evaluate n-th derivatives of bⱼ at the boundary.
+        # TODO replace with analytical formula?
+        bs = evaluate_bspline.(B, is, x, opn)
+        for l = 1:q
+            b0, b1 = bs[l], bs[l + 1]
+            @assert !(b0 ≈ b1)
+            r = 2 / (b0 - b1)  # normalisation factor
+            Ca[l + Nc - 1, l] = -b1 * r
+            Ca[l + Nc, l] = b0 * r
+        end
+    end
+
+    let x = b
+        M = N - m  # index of last undropped B-spline
+        is = ntuple(d -> M - d + 1, Val(q + 1))
+        opn = dot(op, RightNormal())
+        @assert opn === op  # the right normal is in the x direction
+        bs = evaluate_bspline.(B, is, x, opn)
+        for l = 1:q
+            b0, b1 = bs[q - l + 2], bs[q - l + 1]
+            @assert !(b0 ≈ b1)
+            r = 2 / (b0 - b1)
+            Cb[l, l] = -b1 * r
+            Cb[l + 1, l] = b0 * r
+        end
+    end
+
+    ul = SMatrix{q + Nc, q}(Ca)
+    lr = SMatrix{q + Nc, q}(Cb)
+
+    RecombineMatrix(ops, N, ul, lr)
+end
+
+# Verify that the B-spline order is compatible with the given differential
+# operators.
+function _check_bspline_order(ops::Tuple, B::BSplineBasis)
+    n = max_order(ops...)
+    k = order(B)
+    if n >= k
+        throw(ArgumentError(
+            "cannot resolve operators $ops with B-splines of order $k"))
     end
     nothing
+end
+
+# Single BC: no B-splines are dropped.
+# (Except if op = Derivative{0}, but that case is treated separately.)
+_bsplines_to_drop(op::AbstractDifferentialOp) = 0
+
+_unval(::Val{n}) where {n} = n
+_bsplines_to_drop(ops...) = _bsplines_to_drop(Val(0), ops...) |> _unval
+
+function _bsplines_to_drop(::Val{n}, a, b, etc...) where {n}
+    if a !== Derivative(n)
+        throw(ArgumentError("unsupported combination of boundary conditions"))
+    end
+    _bsplines_to_drop(Val(n + 1), b, etc...)
+end
+
+# This is the case of the last operator, which is allowed to be something
+# different than Derivative{n}.
+function _bsplines_to_drop(::Val{n}, op) where {n}
+    if op === Derivative(n)
+        return Val(n + 1)
+    end
+    if max_order(op) ≤ n
+        throw(ArgumentError("order of last operator is too low"))
+    end
+    Val(n)
 end
 
 # Unsupported cases
@@ -189,7 +228,7 @@ constraints(A::RecombineMatrix) = A.ops
 num_constraints(A::RecombineMatrix) = length(constraints(A))
 num_constraints(::UniformScaling) = 0  # case of non-recombined bases
 
-max_order(A::RecombineMatrix) = max_order(constraints(A)...)
+DifferentialOps.max_order(A::RecombineMatrix) = max_order(constraints(A)...)
 
 # Returns number of basis functions that are recombined from the original basis
 # near each boundary.
@@ -257,7 +296,7 @@ end
 
     @assert j > h
     C = A.lr
-    ii = i - h - 1
+    ii = i - h - num_constraints(A)
     if ii ∈ axes(C, 1)
         return @inbounds C[ii, j - h] :: T
     end
@@ -365,13 +404,21 @@ function _ldiv_unique_solution(A::SMatrix, y::AbstractVector)
     @assert length(y) == N
     @assert N > M "system must be overdetermined"
 
-    # Solve the first M equations.
-    @inbounds Am = SMatrix{M,M}(view(A, 1:M, :))
-    @inbounds ym = SVector{M}(view(y, 1:M))
+    # Solve the first non-trivial M equations, skipping rows of zeroes.
+    n = 1
+    if M != 0
+        @inbounds while n ≤ N && all(iszero.(A[n, :]))
+            n += 1
+        end
+    end
+    m = n + M - 1
+    @assert m <= N
+    @inbounds Am = SMatrix{M,M}(view(A, n:m, :))
+    @inbounds ym = SVector{M}(view(y, n:m))
     x = Am \ ym
 
-    # Check that equations (M+1):N are satisfied.
-    @inbounds for i = (M + 1):N
+    # Check that equations (m+1):N are satisfied.
+    @inbounds for i = (m + 1):N
         res = zero(eltype(x))
         for j in axes(A, 2)
             res += A[i, j] * x[j]

@@ -1,7 +1,11 @@
 # Basis recombination
 
 ```@meta
-CurrentModule = BasisSplines
+CurrentModule = BasisSplines.Recombinations
+```
+
+```@docs
+Recombinations
 ```
 
 ## Types

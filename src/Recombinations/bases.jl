@@ -1,5 +1,5 @@
 """
-    RecombinedBSplineBasis{orders, k, T}
+    RecombinedBSplineBasis{k, T}
 
 Functional basis defined from the recombination of a [`BSplineBasis`](@ref)
 in order to satisfy certain homogeneous boundary conditions (BCs).
@@ -24,7 +24,7 @@ Thanks to the local support of B-splines, basis recombination involves only a
 little portion of the original B-spline basis. For instance, since there is only
 one B-spline that is non-zero at each boundary, removing that function from the
 basis is enough to apply homogeneous Dirichlet BCs. Imposing BCs for derivatives
-is a bit more complex, but not much.
+is slightly more complex, but still possible.
 
 ## Order of the boundary condition
 
@@ -35,21 +35,31 @@ by the basis.
 The recombined basis requires the specification of a `Derivative` object
 determining the order of the homogeneous BCs to be applied at the two
 boundaries.
+Linear combinations of `Derivative`s are also supported.
 Evidently, the order of the B-spline needs to be ``k ≥ n + 1``, since a B-spline
 of order ``k`` is a ``C^{k - 1}``-continuous function (except on the knots
 where it is ``C^{k - 1 - p}``, with ``p`` the knot multiplicity).
 
 Some usual choices are:
 
-- `Derivative(0)` sets homogeneous Dirichlet BCs (``u = 0`` at the
-  boundaries) by removing the first and last B-splines, i.e. ``ϕ_1 = b_2``;
+- `Derivative(0)` sets homogeneous [Dirichlet
+  BCs](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition) (``u = 0`` at
+  the boundaries) by removing the first and last B-splines, i.e. ``ϕ_1 = b_2``;
 
-- `Derivative(1)` sets homogeneous Neumann BCs (``u' = 0`` at the
-  boundaries) by adding the two first (and two last) B-splines,
-  i.e. ``ϕ_1 = b_1 + b_2``.
+- `Derivative(1)` sets homogeneous [Neumann
+  BCs](https://en.wikipedia.org/wiki/Neumann_boundary_condition) (``u' = 0`` at
+  the boundaries) by adding the two first (and two last) B-splines, i.e. ``ϕ_1 =
+  b_1 + b_2``.
 
-Higher order BCs are also possible (although it's probably not very useful in
-real applications!).
+- more generally, `α Derivative(0) + β Derivative(1)` sets homogeneous [Robin
+  BCs](https://en.wikipedia.org/wiki/Robin_boundary_condition) by defining
+  ``ϕ_1`` as a linear combination of ``b_1`` and ``b_2``.
+  Here it's important to note that `Derivative(1)` denotes the [normal
+  derivative](https://en.wikipedia.org/wiki/Directional_derivative#Normal_derivative)
+  at the boundary, ``\\frac{∂u}{∂n}``, which is equal to ``-\\frac{∂u}{∂x}`` on
+  the left boundary.
+
+Higher order BCs are also possible.
 For instance, `Derivative(2)` recombines the first three B-splines into two
 basis functions that satisfy ``ϕ_1'' = ϕ_2'' = 0`` at the left boundary, while
 ensuring that lower and higher-order derivatives keep degrees of freedom at the
@@ -58,29 +68,16 @@ Note that simply adding the first three B-splines, as in ``ϕ_1 = b_1 + b_2 +
 b_3``, makes the first derivative vanish as well as the second one, which is
 unwanted.
 
-The chosen solution is to set ``ϕ_i = α_i b_i + β_i b_{i + 1}`` for
-``i ∈ \\{1, 2\\}``.
-Since each boundary function ``ϕ_i`` is defined from only two neighbouring
-B-splines, its local support stays minimal, hence preserving the small bandwidth
-of the associated matrices.
+For `Derivative(2)`, the chosen solution is to set ``ϕ_i = α_i b_i + β_i b_{i +
+1}`` for ``i ∈ \\{1, 2\\}``.
 The ``α_i`` and ``β_i`` coefficients are chosen such that ``ϕ_i'' = 0`` at the
 boundary.
 Moreover, they satisfy the (somewhat arbitrary) constraint ``α_i + β_i = 2`` for
 each ``i``, for consistency with the Neumann case described above.
-
-All these considerations generalise to higher order BCs.
-To understand why this works, note that, due to the partition of unity property
-of the B-spline basis, we have
-
-```math
-∑_j b_j(x) = 1 \\quad ⇒
-\\quad ∑_j \\frac{\\mathrm{d}^n b_j}{\\mathrm{d}x^n}(x) = 0
-\\text{ for } n ≥ 1.
-```
-
-Secondly, only the first ``n + 1`` B-splines have non-zero ``n``-th derivative on
-the left boundary. Hence, to enforce a derivative to be zero, the first ``n + 1``
-B-splines should be recombined linearly into ``n`` independent basis functions.
+This generalises to higher order BCs.
+Note that, since each boundary function ``ϕ_i`` is defined from only two
+neighbouring B-splines, its local support stays minimal, hence preserving the
+small bandwidth of the resulting matrices.
 
 Finally, note that in the current implementation, it is not possible to impose
 different boundary conditions on both boundaries.
@@ -89,7 +86,6 @@ different boundary conditions on both boundaries.
 
 As an option, the recombined basis may simultaneously satisfy homogeneous BCs of
 different orders. In this case, a list of `Derivative`s must be passed.
-The list must be sorted in increasing order.
 
 Presently, the only supported case is where all orders from ``0`` to ``n`` are
 present.
@@ -105,19 +101,38 @@ The resulting basis is ``ϕ_1 = b_3, ϕ_2 = b_4, …, ϕ_{N - 4} = b_{N - 2}``.
 
 ---
 
-    RecombinedBSplineBasis(::Derivative{n}, B::BSplineBasis)
+    RecombinedBSplineBasis(op::AbstractDifferentialOp, B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
-homogeneous boundary conditions of order ``n ≥ 0``.
+homogeneous boundary conditions associated to the given differential operator.
+
+For instance, `op = Derivative(0)` and `op = Derivative(1)` correspond to
+homogeneous Dirichlet and Neumann BCs, respectively.
+
+Linear combinations of differential operators are also supported.
+For instance, `op = Derivative(0) + λ Derivative(1)` corresponds to homogeneous
+Robin BCs.
+
+Higher-order derivatives are also allowed, being only limited by the order of
+the B-spline basis.
 
 ---
 
-    RecombinedBSplineBasis((::Derivative{n1}, ::Derivative{n2}, ...),
+    RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
                            B::BSplineBasis)
 
-Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs of
-all the given derivative orders.
-The list of derivative orders must be sorted in increasing order.
+Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs
+associated to multiple differential operators.
+
+Currently, only some specific combinations of differential operators are
+supported:
+
+1. all derivatives up to order `n`: `ops = (Derivative(0), ..., Derivative(n))`.
+   This boundary condition amounts to removing the first `n + 1` B-splines from
+   the original basis.
+
+In all cases, the degrees of the differential operators must be in increasing
+order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
 """
 struct RecombinedBSplineBasis{
             k, T, Parent <: BSplineBasis{k,T},
@@ -152,10 +167,10 @@ function Base.show(io::IO, R::RecombinedBSplineBasis)
 end
 
 """
-    RecombinedBSplineBasis(order, args...; kwargs...)
+    RecombinedBSplineBasis(ops, args...; kwargs...)
 
 Construct [`RecombinedBSplineBasis`](@ref) from B-spline basis, satisfying
-homogeneous boundary conditions of order ``n ≥ 0``.
+homogeneous boundary conditions associated one or more differential operators.
 
 This variant does not require a previously constructed [`BSplineBasis`](@ref).
 Arguments are passed to the `BSplineBasis` constructor.
