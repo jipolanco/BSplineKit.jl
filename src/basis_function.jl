@@ -66,8 +66,8 @@ using `isempty`, which returns `true` for such a range.
 """
 common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
 
-(b::BSpline)(x, deriv=Derivative(0)) =
-    evaluate_bspline(basis(b), b.i, x, deriv, eltype(b))
+(b::BSpline)(x, op=Derivative(0)) =
+    evaluate_bspline(basis(b), b.i, x, op, eltype(b))
 
 """
     evaluate_bspline(
@@ -119,7 +119,7 @@ function evaluate_bspline_diff(::Derivative{N}, ::BSplineOrder{k}, t, i, x,
         y -= evaluate_bspline_diff(
             Derivative(N - 1), BSplineOrder(k - 1), t, i + 1, x, T) / dt
     end
-    y * (k - 1)
+    (y * (k - 1)) :: T
 end
 
 # More general diff operators
@@ -188,7 +188,7 @@ function _evaluate_bspline(::BSplineOrder{k}, t::AbstractVector, i::Integer,
             (tb - x) / (tb - ta1)
     end
 
-    y
+    y :: T
 end
 
 # In principle, the support of a B-spline is [ta, tb[.
