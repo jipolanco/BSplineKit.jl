@@ -7,11 +7,13 @@ using SparseArrays
 using Test
 
 import BasisSplines:
-    num_constraints,
-    num_recombined,
-    NoUniqueSolutionError,
     AbstractDifferentialOp,
     DifferentialOpSum
+
+import BasisSplines.Recombination:
+    NoUniqueSolutionError,
+    num_constraints,
+    num_recombined
 
 # Chebyshev (Gauss-Lobatto) points.
 gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]

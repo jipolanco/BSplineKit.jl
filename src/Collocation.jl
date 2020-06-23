@@ -90,7 +90,7 @@ function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
 
     # For recombined bases, skip points at the boundaries.
     # Note that j = 0 for non-recombined bases, i.e. boundaries are included.
-    j = BasisSplines.num_constraints(B)
+    j = Recombination.num_constraints(B)
 
     v::T = inv(k - 1)
     a::T, b::T = boundaries(B)
