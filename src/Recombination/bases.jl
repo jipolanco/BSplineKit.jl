@@ -54,6 +54,10 @@ Some usual choices are:
 - more generally, `α Derivative(0) + β Derivative(1)` sets homogeneous [Robin
   BCs](https://en.wikipedia.org/wiki/Robin_boundary_condition) by defining
   ``ϕ_1`` as a linear combination of ``b_1`` and ``b_2``.
+  Here it's important to note that `Derivative(1)` denotes the [normal
+  derivative](https://en.wikipedia.org/wiki/Directional_derivative#Normal_derivative)
+  at the boundary, ``\\frac{∂u}{∂n}``, which is equal to ``-\\frac{∂u}{∂x}`` on
+  the left boundary.
 
 Higher order BCs are also possible.
 For instance, `Derivative(2)` recombines the first three B-splines into two
@@ -126,6 +130,9 @@ supported:
 1. all derivatives up to order `n`: `ops = (Derivative(0), ..., Derivative(n))`.
    This boundary condition amounts to removing the first `n + 1` B-splines from
    the original basis.
+
+In all cases, the degrees of the differential operators must be in increasing
+order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
 """
 struct RecombinedBSplineBasis{
             k, T, Parent <: BSplineBasis{k,T},

@@ -8,7 +8,8 @@ using Test
 
 import BasisSplines:
     AbstractDifferentialOp,
-    DifferentialOpSum
+    DifferentialOpSum,
+    mirror
 
 import BasisSplines.Recombination:
     NoUniqueSolutionError,

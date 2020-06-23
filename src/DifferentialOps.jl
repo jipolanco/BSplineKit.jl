@@ -12,7 +12,7 @@ export
     ScaledDerivative,
     DifferentialOpSum,
     max_order,
-    get_orders
+    mirror
 
 """
     AbstractDifferentialOp
@@ -31,6 +31,16 @@ Get maximum derivative order of one or more differential operators.
 """
 function max_order end
 
+"""
+    mirror(op::AbstractDifferentialOp)
+
+Change the sign of odd derivatives in differential operator.
+
+This is useful for specifying boundary conditions on the left boundary, where
+the normal direction is opposite to the coordinate direction ``x``.
+"""
+function mirror end
+
 max_order(ops::Vararg{AbstractDifferentialOp}) = max(max_order.(ops)...)
 
 """
@@ -43,10 +53,10 @@ struct Derivative{n} <: AbstractDifferentialOp end
 Derivative(n::Integer) = Derivative{n}()
 max_order(::Derivative{n}) where {n} = n
 
-Base.show(io::IO, D::Derivative{n}) where {n} = print(io, "D{", n, "}")
+# We always return a ScaledDerivative for type stability...
+mirror(D::Derivative) = mirror(1 * D)
 
-get_orders(::Derivative{n}, etc...) where {n} = (n, get_orders(etc...)...)
-get_orders() = ()
+Base.show(io::IO, D::Derivative{n}) where {n} = print(io, "D{", n, "}")
 
 """
     ScaledDerivative{n} <: AbstractDifferentialOp
@@ -64,10 +74,13 @@ struct ScaledDerivative{n,T<:Number} <: AbstractDifferentialOp
     end
 end
 
-Base.show(io::IO, s::ScaledDerivative) = print(io, s.α, " * ", s.D)
+Base.show(io::IO, S::ScaledDerivative) = print(io, S.α, " * ", S.D)
+max_order(S::ScaledDerivative) = max_order(S.D)
 
-max_order(s::ScaledDerivative) = max_order(s.D)
-get_orders(s::ScaledDerivative, etc...) = get_orders(s.D, etc...)
+function mirror(S::ScaledDerivative{n}) where {n}
+    r = isodd(n) ? -1 : 1
+    ScaledDerivative(S.D, r * S.α)
+end
 
 Base.:*(α::Number, D::Derivative) = ScaledDerivative(D, α)
 Base.:*(D::Derivative, α) = α * D
@@ -86,6 +99,8 @@ end
 Base.show(io::IO, D::DifferentialOpSum) = join(io, D.ops, " + ")
 
 max_order(D::DifferentialOpSum) = max_order(D.ops...)
+
+mirror(D::DifferentialOpSum) = DifferentialOpSum(map(mirror, D.ops)...)
 
 Base.:+(ops::Vararg{AbstractDifferentialOp}) = DifferentialOpSum(ops...)
 
