@@ -1,11 +1,11 @@
 """
-    Recombination
+    Recombinations
 
 Basis recombination module.
 
 Defines [`RecombinedBSplineBasis`](@ref) and [`RecombineMatrix`](@ref) types.
 """
-module Recombination
+module Recombinations
 
 export RecombinedBSplineBasis, RecombineMatrix
 export recombination_matrix, nzrows, constraints

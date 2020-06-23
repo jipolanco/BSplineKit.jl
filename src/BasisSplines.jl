@@ -45,9 +45,9 @@ const AnyBSplineBasis = Union{<:AbstractBSplineBasis, BSplines.BSplineBasis}
 
 include("basis_function.jl")
 
-include("Recombination/Recombination.jl")
-@reexport using .Recombination
-import .Recombination: num_constraints  # used in galerkin
+include("Recombinations/Recombinations.jl")
+@reexport using .Recombinations
+import .Recombinations: num_constraints  # used in galerkin
 
 include("spline.jl")
 

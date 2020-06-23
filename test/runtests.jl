@@ -11,7 +11,7 @@ import BasisSplines:
     DifferentialOpSum,
     mirror
 
-import BasisSplines.Recombination:
+import BasisSplines.Recombinations:
     NoUniqueSolutionError,
     num_constraints,
     num_recombined
