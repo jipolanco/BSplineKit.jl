@@ -1,12 +1,14 @@
-# Internals
+# Differential operators
 
 ```@meta
-CurrentModule = BasisSplines
+CurrentModule = BasisSplines.DifferentialOps
 ```
 
-## Differential operators
+```@docs
+DifferentialOps
+```
 
-### Types
+## Types
 
 ```@docs
 AbstractDifferentialOp
@@ -15,7 +17,7 @@ ScaledDerivative
 DifferentialOpSum
 ```
 
-### Functions
+## Functions
 
 ```@docs
 max_order
