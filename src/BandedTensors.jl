@@ -50,7 +50,7 @@ To define the elements of the tensor, each slice `A[:, :, k]` must be set at
 once. For instance:
 
 ```julia
-A = BandedTensor3D(undef, 20, 2)  # tensor of size 20×20×20 and band width b = 2
+A = BandedTensor3D(undef, 20, Val(2))  # tensor of size 20×20×20 and band width b = 2
 for k in axes(A, 3)
     A[:, :, k] = rand(5, 5)
 end
@@ -68,8 +68,8 @@ In this case, the bands are given by ``|i - j| ≤ b``, ``|i - (k + δ)| ≤ b``
 
 ---
 
-    BandedTensor3D{T}(undef, (Ni, Nj, Nk), b; [bandshift = (0, 0, 0)])
-    BandedTensor3D{T}(undef, N, b; ...)
+    BandedTensor3D{T}(undef, (Ni, Nj, Nk), Val(b); [bandshift = (0, 0, 0)])
+    BandedTensor3D{T}(undef, N, Val(b); ...)
 
 Construct 3D banded tensor with band widths `b`.
 
@@ -122,7 +122,7 @@ struct BandedTensor3D{T, b, r, M <: AbstractMatrix} <: AbstractArray{T,3}
         BandedTensor3D{T,b}(init, dims...; kwargs...)
 end
 
-@inline BandedTensor3D{T}(init, dims, b::Int; kwargs...) where {T} =
+BandedTensor3D{T}(init, dims, ::Val{b}; kwargs...) where {T,b} =
     BandedTensor3D{T,b}(init, dims; kwargs...)
 
 for func in (:rand, :randn, :randexp)

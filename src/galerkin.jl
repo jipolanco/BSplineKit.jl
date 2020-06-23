@@ -4,7 +4,7 @@ const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
     galerkin_matrix(
         B::AbstractBSplineBasis,
         [deriv = (Derivative(0), Derivative(0))],
-        [MatrixType = BandedMatrix{Float64}],
+        [MatrixType = Hermitian{BandedMatrix{Float64}],
     )
 
 Compute Galerkin mass or stiffness matrix, as well as more general variants
@@ -79,18 +79,27 @@ function galerkin_matrix(
         ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
     B1, B2 = Bs
-    symmetry = deriv[1] === deriv[2] && B1 === B2
-    A = allocate_galerkin_matrix(M, Bs, symmetry)
-
-    # Make the matrix symmetric if possible.
-    S = symmetry ? Hermitian(A) : A
-
-    galerkin_matrix!(S, Bs, deriv)
+    symmetry = M <: Hermitian
+    if symmetry && (deriv[1] !== deriv[2] || B1 !== B2)
+        throw(ArgumentError(
+            "input matrix type incorrectly assumes symmetry"))
+    end
+    A = allocate_galerkin_matrix(M, Bs)
+    galerkin_matrix!(A, Bs, deriv)
 end
 
-galerkin_matrix(B::AnyBSplineBasis, args...) = galerkin_matrix((B, B), args...)
+function galerkin_matrix(
+        B::AnyBSplineBasis,
+        deriv::DerivativeCombination{2} = Derivative.((0, 0)),
+        ::Type{Min} = BandedMatrix{Float64},
+    ) where {Min <: AbstractMatrix}
+    symmetry = deriv[1] === deriv[2]
+    T = eltype(Min)
+    M = symmetry ? Hermitian{T,Min} : Min
+    galerkin_matrix((B, B), deriv, M)
+end
 
-galerkin_matrix(B::NTuple{2,AnyBSplineBasis}, ::Type{M}) where {M <: AbstractMatrix} =
+galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
 
 function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
@@ -103,10 +112,17 @@ function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
     nothing
 end
 
-allocate_galerkin_matrix(::Type{M}, Bs, etc...) where {M <: AbstractMatrix} =
+allocate_galerkin_matrix(::Type{Hermitian{T,M}},
+                         Bs) where {T, M <: AbstractMatrix} =
+    Hermitian(allocate_galerkin_matrix(M, Bs, true))
+
+allocate_galerkin_matrix(::Type{M}, Bs) where {M} =
+    allocate_galerkin_matrix(M, Bs, false)
+
+allocate_galerkin_matrix(::Type{M}, Bs, _symmetry) where {M <: AbstractMatrix} =
     M(undef, length.(Bs)...)
 
-allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, Bs, etc...) where {T} =
+allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, Bs, _symmetry) where {T} =
     spzeros(T, length.(Bs)...)
 
 function allocate_galerkin_matrix(
@@ -162,7 +178,7 @@ function galerkin_tensor(
         throw(ArgumentError("the first two bases must have the same lengths"))
     end
     δ = num_constraints(Bs[3]) - num_constraints(Bs[1])
-    A = BandedTensor3D{T}(undef, dims, b, bandshift=(0, 0, δ))
+    A = BandedTensor3D{T}(undef, dims, Val(b), bandshift=(0, 0, δ))
     galerkin_tensor!(A, Bs, deriv)
 end
 

@@ -8,8 +8,8 @@ using Random
 using Test
 
 function test_banded_tensors()
-    @inferred (() -> BandedTensor3D{Int}(undef, (20, 20, 16), 2))()
-    A = BandedTensor3D{Int}(undef, (20, 20, 16), 2)
+    @inferred BandedTensor3D{Int}(undef, (20, 20, 16), Val(2))
+    A = BandedTensor3D{Int}(undef, (20, 20, 16), Val(2))
     rand!(A, -99:99)
 
     @testset "Slices" begin

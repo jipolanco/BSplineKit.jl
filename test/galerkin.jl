@@ -31,6 +31,8 @@ function test_galerkin_recombined()
         Ñ = length(R0)
         @test Ñ == N - 2
 
+        @inferred galerkin_matrix(B)
+        @inferred galerkin_matrix(R2)
         G = galerkin_matrix(B)
         G0 = galerkin_matrix(R0)
         G1 = galerkin_matrix(R1)
@@ -47,12 +49,15 @@ function test_galerkin_recombined()
         Sym{M} = Hermitian{T,A} where {T, A<:M}
 
         # Some symmetric matrices
+        @inferred galerkin_matrix(R1, Derivative.((1, 1)))
         @test galerkin_matrix(R1, Derivative.((1, 1))) isa Sym{BandedMatrix}
         @test galerkin_matrix(R1, SparseMatrixCSC{Float32}) isa Sym{SparseMatrixCSC{Float32}}
 
         # Some non-symmetric matrices
+        @inferred galerkin_matrix(R1, Derivative.((0, 1)))
         @test galerkin_matrix(R1, Derivative.((0, 1))) isa BandedMatrix
         @test galerkin_matrix(R1, Derivative.((0, 1)), Matrix{Float64}) isa Matrix{Float64}
+        @inferred galerkin_matrix((B, R1))
         @test galerkin_matrix((B, R1)) isa BandedMatrix
 
         @test size(G) == (N, N)
@@ -134,6 +139,7 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
 
     A_base = galerkin_tensor((B, B, B), derivs)
     A = galerkin_tensor((B, B, R), derivs)
+    @inferred galerkin_tensor((B, B, R), derivs)
 
     N1, N2, N3 = size(A)
     δ = num_constraints(R)
