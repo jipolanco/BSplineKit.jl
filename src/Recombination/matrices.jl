@@ -167,7 +167,8 @@ end
 # This actually generalises the Dirichlet case above.
 function RecombineMatrix(ops::Tuple{Derivative,Derivative,Vararg{Derivative}},
                          B::BSplineBasis, ::Type{T}) where {T}
-    orders = get_orders(ops...)
+    orders_in = get_orders(ops...)  # note that this is a compile-time constant...
+    orders = _sort_orders(Val(orders_in))
     Nc = length(orders)
     @assert Nc >= 2  # case Nc = 1 is treated by different functions
     _check_bspline_order(ops, B)
@@ -176,6 +177,12 @@ function RecombineMatrix(ops::Tuple{Derivative,Derivative,Vararg{Derivative}},
     ul = SMatrix{Nc,0,T}()
     lr = copy(ul)
     RecombineMatrix(ops, N, ul, lr)
+end
+
+@generated function _sort_orders(::Val{orders}) where {orders}
+    N = length(orders)
+    v = typeof(orders)(sort([orders...]))
+    :( $v )
 end
 
 # Verify that the B-spline order is compatible with the given differential

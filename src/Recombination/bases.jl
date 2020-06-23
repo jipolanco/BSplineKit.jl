@@ -89,7 +89,6 @@ different boundary conditions on both boundaries.
 
 As an option, the recombined basis may simultaneously satisfy homogeneous BCs of
 different orders. In this case, a list of `Derivative`s must be passed.
-The list must be sorted in increasing order.
 
 Presently, the only supported case is where all orders from ``0`` to ``n`` are
 present.
@@ -105,19 +104,35 @@ The resulting basis is ``ϕ_1 = b_3, ϕ_2 = b_4, …, ϕ_{N - 4} = b_{N - 2}``.
 
 ---
 
-    RecombinedBSplineBasis(::Derivative{n}, B::BSplineBasis)
+    RecombinedBSplineBasis(op::AbstractDifferentialOp, B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
-homogeneous boundary conditions of order ``n ≥ 0``.
+homogeneous boundary conditions associated to the given differential operator.
+
+For instance, `op = Derivative(0)` and `op = Derivative(1)` correspond to
+homogeneous Dirichlet and Neumann BCs, respectively.
+
+Linear combinations of differential operators are also supported.
+For instance, `op = Derivative(0) + λ Derivative(1)` corresponds to homogeneous
+[Robin BCs](https://en.wikipedia.org/wiki/Robin_boundary_condition).
+
+Higher-order derivatives are also allowed, being only limited by the order of
+the B-spline basis.
 
 ---
 
-    RecombinedBSplineBasis((::Derivative{n1}, ::Derivative{n2}, ...),
+    RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
                            B::BSplineBasis)
 
-Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs of
-all the given derivative orders.
-The list of derivative orders must be sorted in increasing order.
+Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs
+associated to multiple differential operators.
+
+Currently, only some specific combinations of differential operators are
+supported:
+
+1. all derivatives up to order `n`: `ops = (Derivative(0), ..., Derivative(n))`.
+   This boundary condition amounts to removing the first `n + 1` B-splines from
+   the original basis.
 """
 struct RecombinedBSplineBasis{
             k, T, Parent <: BSplineBasis{k,T},
@@ -152,10 +167,10 @@ function Base.show(io::IO, R::RecombinedBSplineBasis)
 end
 
 """
-    RecombinedBSplineBasis(order, args...; kwargs...)
+    RecombinedBSplineBasis(ops, args...; kwargs...)
 
 Construct [`RecombinedBSplineBasis`](@ref) from B-spline basis, satisfying
-homogeneous boundary conditions of order ``n ≥ 0``.
+homogeneous boundary conditions associated one or more differential operators.
 
 This variant does not require a previously constructed [`BSplineBasis`](@ref).
 Arguments are passed to the `BSplineBasis` constructor.

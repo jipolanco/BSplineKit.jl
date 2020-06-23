@@ -149,12 +149,14 @@ function test_basis_recombination()
     @test constraints(B) === ()
     @testset "Mixed derivatives" begin
         @inferred RecombineMatrix(Derivative.((0, 1)), B)
+        @inferred RecombineMatrix(Derivative.((1, 0)), B)
 
         # Unsupported combinations of derivatives
         @test_throws ArgumentError RecombineMatrix(Derivative.((0, 2)), B)
         @test_throws ArgumentError RecombineMatrix(Derivative.((1, 2)), B)
 
         M = RecombineMatrix(Derivative.((0, 1)), B)
+        @test M == RecombineMatrix(Derivative.((1, 0)), B)
         test_recombine_matrix(M)
     end
 
