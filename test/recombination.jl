@@ -179,31 +179,30 @@ function test_basis_recombination()
             if D + 1 == k
                 # "cannot resolve operators (...) with B-splines of order 4"
                 @test_throws ArgumentError RecombinedBSplineBasis(op, B)
-                return
-            end
-            let Rs = RecombinedBSplineBasis(op, B)
-                @test constraints(Rs) === (op, )
-                test_recombine_matrix(recombination_matrix(Rs))
-                test_boundary_conditions(Rs)
-            end
-            if D != 0
-                # Combine with Dirichlet BCs
-                ops = (Derivative(0), op)
-                Rs = RecombinedBSplineBasis(ops, B)
-                @test constraints(Rs) === ops
-                test_recombine_matrix(recombination_matrix(Rs))
-                test_boundary_conditions(Rs)
+            else
+                let Rs = RecombinedBSplineBasis(op, B)
+                    @test constraints(Rs) === (op, )
+                    test_recombine_matrix(recombination_matrix(Rs))
+                    test_boundary_conditions(Rs)
+                end
+                if D != 0
+                    # Combine with Dirichlet BCs
+                    ops = (Derivative(0), op)
+                    Rs = RecombinedBSplineBasis(ops, B)
+                    @test constraints(Rs) === ops
+                    test_recombine_matrix(recombination_matrix(Rs))
+                    test_boundary_conditions(Rs)
+                end
             end
         end
 
         # Simultaneously satisfies BCs of orders 0 to D.
         @testset "Mixed BCs" begin
-            let ops = ntuple(d -> Derivative(d - 1), D + 1)
-                Rs = RecombinedBSplineBasis(ops, B)
-                @test constraints(Rs) === ntuple(n -> Derivative(n - 1), D + 1)
-                test_recombine_matrix(recombination_matrix(Rs))
-                test_boundary_conditions(Rs)
-            end
+            ops = ntuple(d -> Derivative(d - 1), D + 1)
+            Rs = RecombinedBSplineBasis(ops, B)
+            @test constraints(Rs) === ntuple(n -> Derivative(n - 1), D + 1)
+            test_recombine_matrix(recombination_matrix(Rs))
+            test_boundary_conditions(Rs)
         end
     end
     nothing
