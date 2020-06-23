@@ -1,5 +1,5 @@
 """
-    RecombinedBSplineBasis{orders, k, T}
+    RecombinedBSplineBasis{k, T}
 
 Functional basis defined from the recombination of a [`BSplineBasis`](@ref)
 in order to satisfy certain homogeneous boundary conditions (BCs).

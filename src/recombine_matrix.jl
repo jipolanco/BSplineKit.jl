@@ -75,6 +75,7 @@ RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, B::BSplineBasis) =
 # Specialisation for Dirichlet BCs.
 function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
                          ::Type{T}) where {T}
+    _check_bspline_order(op, B)
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
@@ -84,18 +85,23 @@ end
 # Specialisation for Neumann BCs.
 function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis,
                          ::Type{T}) where {T}
+    _check_bspline_order(op, B)
     N = length(B)
     ul = SMatrix{2,1,T}(1, 1)
     lr = copy(ul)
     RecombineMatrix(op, N, ul, lr)
 end
 
-# Generalisation to higher orders.
-function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
-                         ::Type{T}) where {n,T}
+# Generalisation to higher orders and to more general differential operators
+# (this includes Robin BCs, for instance).
+function RecombineMatrix(ops::Tuple{AbstractDifferentialOp}, B::BSplineBasis,
+                         ::Type{T}) where {T}
+    _check_bspline_order(ops, B)
+    op = first(ops)
+    n = max_order(op)
     @assert n >= 0
 
-    # Example for case n = 2.
+    # Example for ops = (Derivative(2), ).
     #
     # At each border, we want 2 independent linear combinations of
     # the first 3 B-splines such that ϕ₁'' = ϕ₂'' = 0 at x = a, and such that
@@ -125,7 +131,7 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
         is = ntuple(identity, Val(n + 1))  # = 1:(n + 1)
         # Evaluate n-th derivatives of bⱼ at the boundary.
         # TODO replace with analytical formula?
-        bs = evaluate_bspline.(B, is, x, Derivative(n))
+        bs = evaluate_bspline.(B, is, x, op)
         for m = 1:n
             b0, b1 = bs[m], bs[m + 1]
             @assert !(b0 ≈ b1)
@@ -140,7 +146,7 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
 
     let x = b
         is = ntuple(d -> N - d + 1, Val(n + 1))  # = N:-1:(N - n)
-        bs = evaluate_bspline.(B, is, x, Derivative(n))
+        bs = evaluate_bspline.(B, is, x, op)
         for m = 1:n
             b0, b1 = bs[n - m + 2], bs[n - m + 1]
             @assert !(b0 ≈ b1)
@@ -153,25 +159,38 @@ function RecombineMatrix(op::Tuple{Derivative{n}}, B::BSplineBasis,
     ul = SMatrix{n + 1, n}(Ca)
     lr = SMatrix{n + 1, n}(Cb)
 
-    RecombineMatrix(op, N, ul, lr)
+    RecombineMatrix(ops, N, ul, lr)
 end
 
 # Mixed derivatives.
-# Specific case 1: (D(0), D(1), ..., D(Nc - 1))
+# Specific case (D(0), D(1), ..., D(Nc - 1)).
 # This actually generalises the Dirichlet case above.
-function RecombineMatrix(ops::Tuple{Vararg{Derivative}}, B::BSplineBasis,
-                         ::Type{T}) where {T}
+function RecombineMatrix(ops::Tuple{Derivative,Derivative,Vararg{Derivative}},
+                         B::BSplineBasis, ::Type{T}) where {T}
     orders = get_orders(ops...)
     Nc = length(orders)
     @assert Nc >= 2  # case Nc = 1 is treated by different functions
-    _check_supported_orders(Val(orders))
+    _check_bspline_order(ops, B)
+    _check_mixed_derivatives(Val(orders))
     N = length(B)
     ul = SMatrix{Nc,0,T}()
     lr = copy(ul)
     RecombineMatrix(ops, N, ul, lr)
 end
 
-function _check_supported_orders(::Val{orders}) where {orders}
+# Verify that the B-spline order is compatible with the given differential
+# operators.
+function _check_bspline_order(ops::Tuple, B::BSplineBasis)
+    n = max_order(ops...)
+    k = order(B)
+    if n >= k
+        throw(ArgumentError(
+            "cannot resolve operators $ops with B-splines of order $k"))
+    end
+    nothing
+end
+
+function _check_mixed_derivatives(::Val{orders}) where {orders}
     length(orders) === 1 && return  # single BC
     if orders !== ntuple(d -> d - 1, Val(length(orders)))  # mixed BCs
         throw(ArgumentError("unsupported case: derivatives = $orders"))
