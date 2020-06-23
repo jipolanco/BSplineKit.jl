@@ -101,28 +101,6 @@ function RecombineMatrix(ops::Tuple{AbstractDifferentialOp}, B::BSplineBasis,
     n = max_order(op)
     @assert n >= 0
 
-    # Example for ops = (Derivative(2), ).
-    #
-    # At each border, we want 2 independent linear combinations of
-    # the first 3 B-splines such that ϕ₁'' = ϕ₂'' = 0 at x = a, and such that
-    # lower-order derivatives keep at least one degree of freedom (i.e. they do
-    # *not* vanish). A simple solution is to choose:
-    #
-    #     ϕ[i] = -α[i + 1] b[i] + α[i] b[i + 1]    for i = {1, 2},
-    #
-    # with α[j] = β b[j]'' evaluated at the boundary. The derivatives are
-    # rescaled by an arbitrary normalisation factor β.
-    #
-    # For consistency with the Neumann BCs, we choose the normalisation factor
-    # such that each column of the recombination matrix has a sum equal to the
-    # number of B-splines involved in each recombination. For instance, if
-    # ϕ[i] is defined from 2 B-splines (as above), then the sum of the
-    # coefficients multiplying b[i] and b[i + 1] is 2.
-    #
-    # This generalises to all orders `n ≥ 0`. In all cases, each recombined
-    # function is defined from 2 neighbouring B-splines, to keep the support of
-    # the recombined functions as small as possible.
-
     a, b = boundaries(B)
     Ca = zeros(T, n + 1, n)
     Cb = copy(Ca)
