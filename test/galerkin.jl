@@ -46,6 +46,14 @@ function test_galerkin_recombined()
         @test sum(G1) ≈ L  # Neumann: ϕ_1 = b_1 + b_2 => PoU is satisfied
         @test !(sum(G2) ≈ L)  # here it's not true!
 
+        # Similarly, the sum along each column (or row) is
+        #       ∫ b_i dx = (t[i + k] - t[i]) / k
+        t = knots(B)
+        k = order(B)
+        @test all(1:N) do i
+            sum(view(G, :, i)) ≈ (t[i + k] - t[i]) / k
+        end
+
         Sym{M} = Hermitian{T,A} where {T, A<:M}
 
         # Some symmetric matrices
@@ -133,6 +141,15 @@ end
 function test_galerkin_tensor(R::RecombinedBSplineBasis,
                               derivs=Derivative.((0, 1, 0)))
     B = parent(R) :: BSplineBasis
+
+    if derivs[3] === Derivative(0)
+        # Because of partition of unity, ∑_k T_{ijk} = M_{ij}.
+        let M = galerkin_matrix(B, (derivs[1], derivs[2]))
+            T = galerkin_tensor(B, derivs)
+            Tsum = sum(T, dims=3)
+            @test dropdims(Tsum, dims=3) ≈ M
+        end
+    end
 
     # The first two bases must be the same
     @test_throws ArgumentError galerkin_tensor((B, R, R), derivs)
