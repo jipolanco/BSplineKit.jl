@@ -1,7 +1,7 @@
 # Banded tensors
 
 ```@meta
-CurrentModule = BasisSplines.BandedTensors
+CurrentModule = BSplineKit.BandedTensors
 ```
 
 ## Types

@@ -1,7 +1,7 @@
-import BasisSplines
-using BasisSplines.BandedTensors
+import BSplineKit
+using BSplineKit.BandedTensors
 
-import BasisSplines.BandedTensors: SubMatrix
+import BSplineKit.BandedTensors: SubMatrix
 
 using LinearAlgebra: dot
 using Random

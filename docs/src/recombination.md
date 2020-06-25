@@ -1,7 +1,7 @@
 # Basis recombination
 
 ```@meta
-CurrentModule = BasisSplines.Recombinations
+CurrentModule = BSplineKit.Recombinations
 ```
 
 ```@docs

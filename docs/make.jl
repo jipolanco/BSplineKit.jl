@@ -1,25 +1,25 @@
 using Documenter
-using BasisSplines
+using BSplineKit
 
 const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
 
 # This is to make sure that doctests in docstrings are executed correctly.
-DocMeta.setdocmeta!(BasisSplines, :DocTestSetup,
-                    :(using BasisSplines); recursive=false)
-DocMeta.setdocmeta!(BasisSplines.BandedTensors, :DocTestSetup,
-                    :(using BasisSplines.BandedTensors); recursive=true)
+DocMeta.setdocmeta!(BSplineKit, :DocTestSetup,
+                    :(using BSplineKit); recursive=false)
+DocMeta.setdocmeta!(BSplineKit.BandedTensors, :DocTestSetup,
+                    :(using BSplineKit.BandedTensors); recursive=true)
 
 with_checks = !MAKE_FAST
 
 @time makedocs(
-    sitename="BasisSplines.jl",
+    sitename="BSplineKit.jl",
     format=Documenter.HTML(
         prettyurls=true,
         # load assets in <head>
         # assets=["assets/custom.css",
         #         "assets/matomo.js"],
     ),
-    modules=[BasisSplines],
+    modules=[BSplineKit],
     pages=[
         "Home" => "index.md",
         "bsplines.md",
@@ -40,6 +40,6 @@ with_checks = !MAKE_FAST
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo="github.com/jipolanco/BasisSplines.jl",
+    repo="github.com/jipolanco/BSplineKit.jl",
     forcepush=true,
 )

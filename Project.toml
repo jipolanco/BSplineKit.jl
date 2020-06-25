@@ -1,4 +1,4 @@
-name = "BasisSplines"
+name = "BSplineKit"
 uuid = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 authors = ["Juan Ignacio Polanco <jipolanc@gmail.com>"]
 version = "0.1.0"

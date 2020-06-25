@@ -77,7 +77,7 @@ test_boundary_conditions(R::RecombinedBSplineBasis) =
 function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
                                   R::RecombinedBSplineBasis)
     @assert ops === constraints(R)
-    @test length(ops) == BasisSplines.num_constraints(R)
+    @test length(ops) == BSplineKit.num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)
@@ -123,7 +123,7 @@ end
 # More general BCs (Robin-like BCs and more combinations).
 function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
     @assert ops === constraints(R)
-    @test length(ops) == BasisSplines.num_constraints(R)
+    @test length(ops) == BSplineKit.num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)
@@ -175,7 +175,7 @@ function test_basis_recombination()
 
         @testset "Robin-like BCs" begin
             op = 1.1 * Derivative(D) + 4.2 * Derivative(D + 1)
-            @test BasisSplines.max_order(op) == D + 1
+            @test BSplineKit.max_order(op) == D + 1
             if D + 1 == k
                 # "cannot resolve operators (...) with B-splines of order 4"
                 @test_throws ArgumentError RecombinedBSplineBasis(op, B)

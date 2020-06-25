@@ -1,4 +1,4 @@
-module BasisSplines
+module BSplineKit
 
 export Collocation
 

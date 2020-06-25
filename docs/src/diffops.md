@@ -1,7 +1,7 @@
 # Differential operators
 
 ```@meta
-CurrentModule = BasisSplines.DifferentialOps
+CurrentModule = BSplineKit.DifferentialOps
 ```
 
 ```@docs

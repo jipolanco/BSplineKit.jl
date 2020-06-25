@@ -16,10 +16,10 @@ import LinearAlgebra
 using LinearAlgebra: UniformScaling, ldiv!, dot
 using StaticArrays
 
-using ..BasisSplines
-using ..BasisSplines.DifferentialOps
+using ..BSplineKit
+using ..BSplineKit.DifferentialOps
 
-import ..BasisSplines:
+import ..BSplineKit:
     AbstractBSplineBasis,
     # These are redefined for RecombinedBSplineBasis:
     boundaries, knots, order, evaluate_bspline, support

@@ -1,7 +1,7 @@
 # Collocation methods
 
 ```@meta
-CurrentModule = BasisSplines.Collocation
+CurrentModule = BSplineKit.Collocation
 ```
 
 ## Functions

@@ -1,7 +1,7 @@
 # Galerkin methods
 
 ```@meta
-CurrentModule = BasisSplines
+CurrentModule = BSplineKit
 ```
 
 ```@docs

@@ -1,4 +1,4 @@
-using BasisSplines
+using BSplineKit
 
 using BandedMatrices
 using LinearAlgebra
@@ -6,13 +6,13 @@ using Random
 using SparseArrays
 using Test
 
-import BasisSplines:
+import BSplineKit:
     AbstractDifferentialOp,
     DifferentialOpSum,
     LeftNormal,
     RightNormal
 
-import BasisSplines.Recombinations:
+import BSplineKit.Recombinations:
     NoUniqueSolutionError,
     num_constraints,
     num_recombined
