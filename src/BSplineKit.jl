@@ -6,7 +6,7 @@ export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
 export Spline, BSpline, BSplineOrder, Derivative
 export knots, order, coefficients, boundaries
 export augment_knots
-export evaluate_bspline, evaluate_bspline!
+export evaluate, evaluate!
 export integral
 export galerkin_matrix, galerkin_matrix!, galerkin_tensor
 

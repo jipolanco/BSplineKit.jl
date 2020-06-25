@@ -253,7 +253,7 @@ function collocation_matrix!(
     b_lo, b_hi = bandwidths(C)
 
     for j = 1:Nb, i = 1:Nx
-        b = evaluate_bspline(B, j, x[i], deriv, T)
+        b = evaluate(B, j, x[i], deriv, T)
 
         # Skip very small values (and zeros).
         # This is important for SparseMatrixCSC, which also stores explicit

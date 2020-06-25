@@ -247,14 +247,14 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
     for j = 1:M
         i0 = j + δ
         tj = support(B2, j)
-        fj = x -> evaluate_bspline(B2, j, x, deriv[2])
+        fj = x -> evaluate(B2, j, x, deriv[2])
         istart = fill_upper ? 1 : i0
         iend = fill_lower ? N : i0
         for i = istart:iend
             ti = support(B1, i)
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             isempty(t_inds) && continue
-            fi = x -> evaluate_bspline(B1, i, x, deriv[1])
+            fi = x -> evaluate(B1, i, x, deriv[1])
             f = x -> fi(x) * fj(x)
             A[i, j] = _integrate(f, t, t_inds, quad)
         end
@@ -317,14 +317,14 @@ function galerkin_tensor!(A::BandedTensor3D,
         fill!(Al, 0)
 
         tl = support(Bl, l)
-        fl = x -> evaluate_bspline(Bl, l, x, deriv[3])
+        fl = x -> evaluate(Bl, l, x, deriv[3])
 
         for j in js
             tj = support(Bj, j)
-            fj = x -> evaluate_bspline(Bj, j, x, deriv[2])
+            fj = x -> evaluate(Bj, j, x, deriv[2])
             for i in is
                 ti = support(Bi, i)
-                fi = x -> evaluate_bspline(Bi, i, x, deriv[1])
+                fi = x -> evaluate(Bi, i, x, deriv[1])
                 t_inds = intersect(ti, tj, tl)
                 isempty(t_inds) && continue
                 f = x -> fi(x) * fj(x) * fl(x)

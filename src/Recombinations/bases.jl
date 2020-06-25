@@ -292,13 +292,13 @@ end
 
 # For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
 # TODO check that this variant is actually being called...
-evaluate_bspline(
+evaluate(
         R::RecombinedBSplineBasis{k,T,P,Tuple{Derivative{0}}} where {k,T,P},
         j, args...,
-    ) = evaluate_bspline(parent(R), j + 1, args...)
+    ) = evaluate(parent(R), j + 1, args...)
 
 # Generalisation for D >= 1
-function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
+function evaluate(R::RecombinedBSplineBasis, j, args...)
     B = parent(R)
     A = recombination_matrix(R)
     n = num_recombined(A)
@@ -308,7 +308,7 @@ function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
     block = which_recombine_block(A, j)
 
     j1 = j + c
-    ϕ = evaluate_bspline(B, j1, args...)  # this B-spline is always needed
+    ϕ = evaluate(B, j1, args...)  # this B-spline is always needed
     T = typeof(ϕ)
 
     if block == 2
@@ -328,7 +328,7 @@ function evaluate_bspline(R::RecombinedBSplineBasis, j, args...)
         i == j1 && continue  # already added
         α = A[i, j]
         iszero(α) && continue
-        ϕ::T += α * evaluate_bspline(B, i, args...)
+        ϕ::T += α * evaluate(B, i, args...)
     end
 
     ϕ::T

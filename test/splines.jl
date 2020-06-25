@@ -14,12 +14,12 @@ function test_splines(B::BSplineBasis, knots_in)
 
     @testset "B-splines (k = $k)" begin
         N = length(B)
-        @test_throws DomainError evaluate_bspline(B, 0, 0.2)
-        @test_throws DomainError evaluate_bspline(B, N + 1, 0.2)
+        @test_throws DomainError evaluate(B, 0, 0.2)
+        @test_throws DomainError evaluate(B, N + 1, 0.2)
 
         # Verify values at the boundaries.
-        @test evaluate_bspline(B, 1, t[1]) == 1.0
-        @test evaluate_bspline(B, N, t[end]) == 1.0
+        @test evaluate(B, 1, t[1]) == 1.0
+        @test evaluate(B, N, t[end]) == 1.0
     end
 
     xcol = collocation_points(B, method=Collocation.AvgKnots())

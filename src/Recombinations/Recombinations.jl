@@ -22,7 +22,7 @@ using ..BSplineKit.DifferentialOps
 import ..BSplineKit:
     AbstractBSplineBasis,
     # These are redefined for RecombinedBSplineBasis:
-    boundaries, knots, order, evaluate_bspline, support
+    boundaries, knots, order, evaluate, support
 
 include("matrices.jl")
 include("bases.jl")

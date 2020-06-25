@@ -23,8 +23,8 @@ order
 length
 support
 common_support
-evaluate_bspline
-evaluate_bspline!
+evaluate
+evaluate!
 ```
 
 #### Knots
