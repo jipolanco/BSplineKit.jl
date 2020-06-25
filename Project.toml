@@ -4,7 +4,6 @@ authors = ["Juan Ignacio Polanco <jipolanc@gmail.com>"]
 version = "0.1.0"
 
 [deps]
-BSplines = "488c2830-172b-11e9-1591-253b8a7df96d"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

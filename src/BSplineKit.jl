@@ -19,10 +19,6 @@ using SparseArrays
 
 import LinearAlgebra
 
-# For some comparisons with the registered BSplines package...
-import BSplines
-import BSplines: order, knots
-
 include("BandedTensors.jl")
 @reexport using .BandedTensors
 
@@ -40,9 +36,6 @@ using .DifferentialOps
 
 include("knots.jl")
 include("basis.jl")
-
-const AnyBSplineBasis = Union{<:AbstractBSplineBasis, BSplines.BSplineBasis}
-
 include("basis_function.jl")
 
 include("Recombinations/Recombinations.jl")

@@ -173,7 +173,7 @@ struct RecombinedBSplineBasis{
 end
 
 function Base.show(io::IO, R::RecombinedBSplineBasis)
-    # This is somewhat consistent with the output of the BSplines package.
+    # This is inspired by the BSplines package.
     print(io, length(R), "-element ", typeof(R), ':')
     print(io, "\n boundary conditions: ")
     join(io, constraints(R), ", ")

@@ -5,7 +5,7 @@ Describes a single basis function.
 
 ---
 
-    BSpline(basis::AnyBSplineBasis, i::Int, [T = Float64])
+    BSpline(basis::AbstractBSplineBasis, i::Int, [T = Float64])
 
 Construct i-th basis function of the given basis.
 
@@ -24,10 +24,10 @@ the derivative order.
 More general differential operators, such as `Derivative(n) + λ Derivative(m)`,
 are also supported.
 """
-struct BSpline{Basis <: AnyBSplineBasis, T}
+struct BSpline{Basis <: AbstractBSplineBasis, T}
     basis :: Basis
     i     :: Int
-    function BSpline(b::AnyBSplineBasis, i, ::Type{T} = Float64) where {T}
+    function BSpline(b::AbstractBSplineBasis, i, ::Type{T} = Float64) where {T}
         Basis = typeof(b)
         new{Basis, T}(b, i)
     end

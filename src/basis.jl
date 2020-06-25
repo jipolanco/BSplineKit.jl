@@ -43,7 +43,7 @@ end
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
 function Base.show(io::IO, B::BSplineBasis)
-    # This is somewhat consistent with the output of the BSplines package.
+    # This is inspired by the BSplines package.
     println(io, length(B), "-element ", typeof(B), ':')
     println(io, " order: ", order(B))
     print(io, " knots: ", knots(B))

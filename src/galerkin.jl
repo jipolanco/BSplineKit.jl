@@ -74,7 +74,7 @@ In practice, this feature may be used to combine a B-spline basis `B`, with a
 recombined basis `R` generated from `B` (see [Basis recombination](@ref)).
 """
 function galerkin_matrix(
-        Bs::NTuple{2,AnyBSplineBasis},
+        Bs::NTuple{2,AbstractBSplineBasis},
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
         ::Type{M} = BandedMatrix{Float64},
     ) where {M <: AbstractMatrix}
@@ -89,7 +89,7 @@ function galerkin_matrix(
 end
 
 function galerkin_matrix(
-        B::AnyBSplineBasis,
+        B::AbstractBSplineBasis,
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
         ::Type{Min} = BandedMatrix{Float64},
     ) where {Min <: AbstractMatrix}
@@ -102,7 +102,7 @@ end
 galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
 
-function _check_bases(Bs::Tuple{Vararg{AnyBSplineBasis}})
+function _check_bases(Bs::Tuple{Vararg{AbstractBSplineBasis}})
     ps = parent.(Bs)
     if any(ps .!== ps[1])
         throw(ArgumentError(
@@ -202,7 +202,7 @@ See [`galerkin_matrix`](@ref) for details.
 """
 function galerkin_matrix! end
 
-galerkin_matrix!(M, B::AnyBSplineBasis, args...) =
+galerkin_matrix!(M, B::AbstractBSplineBasis, args...) =
     galerkin_matrix!(M, (B, B), args...)
 
 function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
@@ -257,86 +257,6 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
             fi = x -> evaluate_bspline(B1, i, x, deriv[1])
             f = x -> fi(x) * fj(x)
             A[i, j] = _integrate(f, t, t_inds, quad)
-        end
-    end
-
-    S
-end
-
-# Alternative using the BSplineBasis type defined in the BSplines package.
-# TODO merge this with other variant!
-function galerkin_matrix!(
-        S::AbstractMatrix, Bs::NTuple{2,BSplines.BSplineBasis},
-        deriv = Derivative.((0, 0)),
-    )
-    if Bs[1] !== Bs[2]
-        throw(ArgumentError(
-            "for now, this variant of galerkin_matrix! doesn't support combinations of different B-spline bases"
-        ))
-    end
-    B = first(Bs)
-    N = size(S, 1)
-
-    if N != length(B)
-        throw(ArgumentError("wrong dimensions of Galerkin matrix"))
-    end
-
-    fill!(S, 0)
-
-    k = order(B)
-    t = knots(B)
-    T = eltype(S)
-
-    # Quadrature information (weights, nodes).
-    quad = _quadrature_prod(2k - 2)
-    @assert length(quad[1]) == k
-
-    same_deriv = deriv[1] === deriv[2]
-
-    if S isa Hermitian
-        same_deriv || error("matrix will not be symmetric with deriv = $deriv")
-        fill_upper = S.uplo === 'U'
-        fill_lower = S.uplo === 'L'
-        A = parent(S)
-    else
-        fill_upper = true
-        fill_lower = true
-        A = S
-    end
-
-    # B-splines evaluated at a given point.
-    bi = zeros(T, k)
-    bj = copy(bi)
-
-    # Integrate over each segment between knots.
-    for l = k:N
-        a, b = t[l], t[l + 1]  # segment (t[l], t[l + 1])
-        α = (b - a) / 2
-        β = (a + b) / 2
-
-        x, w = quad
-        for n in eachindex(w)
-            y = α * x[n] + β
-
-            # Evaluate B-splines at quadrature point.
-            # This evaluates B-splines (i, j) ∈ [(off + 1):(off + k)].
-            off = BSplines.bsplines!(bi, B, y, deriv[1], leftknot=l) :: Int
-            if same_deriv
-                copy!(bj, bi)
-            else
-                δ = BSplines.bsplines!(bj, B, y, deriv[2], leftknot=l) :: Int
-                @assert δ === off
-            end
-
-            @assert off === l - k
-
-            for j = 1:k
-                istart = fill_upper ? 1 : j
-                iend = fill_lower ? k : j
-                for i = istart:iend
-                    A[off + i, off + j] += α * w[n] * bi[i] * bj[j]
-                end
-            end
         end
     end
 
