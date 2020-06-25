@@ -32,3 +32,13 @@ At this moment, this package provides:
 
 - efficient "banded" 3D arrays as an extension of banded matrices.
   These can store 3D tensors associated to quadratic terms in Galerkin methods.
+
+## References
+
+- C. de Boor, *A Practical Guide to Splines*. New York: Springer-Verlag, 1978.
+
+- J. P. Boyd, *Chebyshev and Fourier Spectral Methods*, Second Edition.
+  Mineola, N.Y: Dover Publications, 2001.
+
+- O. Botella and K. Shariff, *B-spline Methods in Fluid Dynamics*, Int. J. Comput.
+  Fluid Dyn. 17, 133 (2003).
