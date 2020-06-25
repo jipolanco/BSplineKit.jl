@@ -17,12 +17,10 @@ At this moment, this package provides:
 
 - B-spline bases of arbitrary order on uniform and non-uniform grids;
 
-- evaluation of splines and derivatives;
-
-- spline interpolation of data on grids;
+- evaluation of splines and their derivatives, as well as data interpolation;
 
 - basis recombination, for generating bases satisfying homogeneous boundary
-  conditions.
+  conditions, using linear combinations of B-splines.
   A wide variety of boundary conditions is supported, including Dirichlet,
   Neumann, Robin, and more complex variants;
 
