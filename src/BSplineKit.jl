@@ -8,7 +8,7 @@ export knots, order, coefficients, boundaries
 export augment_knots
 export evaluate, evaluate!
 export integral
-export galerkin_matrix, galerkin_matrix!, galerkin_tensor
+export galerkin_matrix, galerkin_matrix!, galerkin_tensor, galerkin_tensor!
 
 using BandedMatrices: BandedMatrix
 using FastGaussQuadrature: gausslegendre

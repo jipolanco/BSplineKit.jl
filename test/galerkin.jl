@@ -12,6 +12,11 @@ function test_galerkin()
         @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
     end
 
+    let B3 = BSplineBasis(3, knots_base)
+        # "all bases must share the same parent B-spline basis"
+        @test_throws ArgumentError galerkin_matrix((B, B3))
+    end
+
     nothing
 end
 
@@ -27,6 +32,10 @@ function test_galerkin_recombined()
         test_galerkin_tensor(R0)
         test_galerkin_tensor(R1)
 
+        # "the first two bases must have the same lengths"
+        @test_throws ArgumentError galerkin_tensor((B, R0, R0),
+                                                   Derivative.((0, 0, 0)))
+
         N = length(B)
         Ñ = length(R0)
         @test Ñ == N - 2
@@ -37,6 +46,16 @@ function test_galerkin_recombined()
         G0 = galerkin_matrix(R0)
         G1 = galerkin_matrix(R1)
         G2 = galerkin_matrix(R2)
+
+        let M2 = copy(G2), M = copy(G)
+            @test M isa Hermitian && M2 isa Hermitian
+            # "matrix will not be symmetric with deriv = $deriv"
+            @test_throws ArgumentError galerkin_matrix!(M, (B, B), Derivative.((0, 1)))
+            # "matrix will not be symmetric if bases are different"
+            @test_throws ArgumentError galerkin_matrix!(M, (B, R0))
+            # "wrong dimensions of Galerkin matrix"
+            @test_throws ArgumentError galerkin_matrix!(M2, (B, B))
+        end
 
         # Due to the partition of unity property, the sum of all elements
         # must be the size of the domain (= ∫ 1 dx).
@@ -151,7 +170,7 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
         end
     end
 
-    # The first two bases must be the same
+    # The first two bases must have the same lengths
     @test_throws ArgumentError galerkin_tensor((B, R, R), derivs)
 
     A_base = galerkin_tensor((B, B, B), derivs)
@@ -169,6 +188,21 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
     m, n = N2, N3
     I = (p + 1):(m - p)
     @test view(A, I, I, (r + 1):(n - r)) == view(A_base, I, I, I)
+
+    # "BandedTensor3D must have bandshift = (0, 0, 0)"
+    @test_throws ArgumentError galerkin_tensor!(A, (B, B, B), derivs)
+
+    let A = BandedTensor3D{Float64}(undef, size(A_base), Val(order(B)),
+                                    bandshift=bandshift(A_base))
+        # "BandedTensor3D must have bandwidth = $(k - 1)"
+        @test_throws ArgumentError galerkin_tensor!(A, (B, B, B), derivs)
+    end
+
+    let k = order(B)
+        Bp = BSplineBasis(k - 1, knots(B))
+        # "wrong dimensions of Galerkin tensor"
+        @test_throws ArgumentError galerkin_tensor!(A_base, (Bp, Bp, Bp), derivs)
+    end
 
     nothing
 end

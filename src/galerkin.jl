@@ -106,7 +106,7 @@ function _check_bases(Bs::Tuple{Vararg{AbstractBSplineBasis}})
     ps = parent.(Bs)
     if any(ps .!== ps[1])
         throw(ArgumentError(
-            "all bases be constructed from the same parent B-spline basis"
+            "all bases must share the same parent B-spline basis"
         ))
     end
     nothing
@@ -229,8 +229,10 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
     @assert length(quad[1]) == k  # this should correspond to k quadrature points
 
     if S isa Hermitian
-        deriv[1] === deriv[2] || error("matrix will not be symmetric with deriv = $deriv")
-        B1 === B2 || error("matrix will not be symmetric if bases are different")
+        deriv[1] === deriv[2] ||
+            throw(ArgumentError("matrix will not be symmetric with deriv = $deriv"))
+        B1 === B2 ||
+            throw(ArgumentError("matrix will not be symmetric if bases are different"))
         fill_upper = S.uplo === 'U'
         fill_lower = S.uplo === 'L'
         A = parent(S)
@@ -298,9 +300,6 @@ function galerkin_tensor!(A::BandedTensor3D,
     end
 
     for l = 1:Nl
-        # TODO
-        # - verify this for non-cubic tensors
-        # - add tests!
         ll = l + δ
         istart = clamp(ll - h, 1, Ni)
         iend = clamp(ll + h, 1, Nj)
