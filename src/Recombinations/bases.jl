@@ -270,7 +270,6 @@ For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
 num_recombined(R::RecombinedBSplineBasis) = num_recombined(recombination_matrix(R))
 num_recombined(B::AbstractBSplineBasis) = 0
 
-# Support is generally shifted wrt BSplineBasis.
 @propagate_inbounds function support(R::RecombinedBSplineBasis,
                                      j::Integer) :: UnitRange
     A = recombination_matrix(R)
@@ -290,45 +289,25 @@ num_recombined(B::AbstractBSplineBasis) = 0
     a:b
 end
 
-# For homogeneous Dirichlet BCs: just shift the B-spline basis (removing b₁).
-# TODO check that this variant is actually being called...
-evaluate(
-        R::RecombinedBSplineBasis{k,T,P,Tuple{Derivative{0}}} where {k,T,P},
-        j, args...,
-    ) = evaluate(parent(R), j + 1, args...)
-
-# Generalisation for D >= 1
-function evaluate(R::RecombinedBSplineBasis, j, args...)
+@propagate_inbounds function evaluate(R::RecombinedBSplineBasis, j, args...)
     B = parent(R)
     A = recombination_matrix(R)
-    n = num_recombined(A)
-    c = num_constraints(A)
-    N = size(A, 1)
+    is = nzrows(A, j)
+    @assert !isempty(is)
 
-    block = which_recombine_block(A, j)
-
-    j1 = j + c
-    ϕ = evaluate(B, j1, args...)  # this B-spline is always needed
+    i1 = is[1]
+    ϕ = evaluate(B, i1, args...)
     T = typeof(ϕ)
 
-    if block == 2
-        # @assert A[j1, j] == 1
+    if length(is) == 1  # avoid accessing A[i1, j] (we know it's 1)
+        # @assert A[i1, j] == 1
         return ϕ
     end
 
-    ϕ::T *= A[j1, j]
+    ϕ::T *= A[i1, j]
 
-    js = if block == 1
-        1:(n + 1)
-    else
-        (N - n):N
-    end
-
-    for i ∈ js
-        i == j1 && continue  # already added
-        α = A[i, j]
-        iszero(α) && continue
-        ϕ::T += α * evaluate(B, i, args...)
+    for i ∈ is[2:end]
+        ϕ::T += A[i, j] * evaluate(B, i, args...)
     end
 
     ϕ::T
