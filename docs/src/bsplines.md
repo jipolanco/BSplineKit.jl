@@ -1,12 +1,14 @@
-# B-splines and splines
+# B-splines
 
 ```@meta
 CurrentModule = BSplineKit.BSplines
 ```
 
-## B-splines
+```@docs
+BSplines
+```
 
-### Types
+## Types
 
 ```@docs
 AbstractBSplineBasis
@@ -15,7 +17,7 @@ BSpline
 BSplineOrder
 ```
 
-### Functions
+## Functions
 
 ```@docs
 boundaries
@@ -27,26 +29,10 @@ evaluate
 evaluate!
 ```
 
-#### Knots
+### Knots
 
 ```@docs
 augment_knots
 knots
 multiplicity
-```
-
-## Splines
-
-### Types
-
-```@docs
-Spline
-```
-
-### Functions
-
-```@docs
-coefficients
-diff
-integral
 ```

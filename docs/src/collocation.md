@@ -1,4 +1,4 @@
-# Collocation methods
+# Collocation arrays
 
 ```@meta
 CurrentModule = BSplineKit.Collocation
