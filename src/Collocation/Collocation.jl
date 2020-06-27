@@ -1,14 +1,19 @@
 module Collocation
 
+export
+    collocation_points,
+    collocation_points!,
+    collocation_matrix,
+    collocation_matrix!
+
 using ..BSplines
 using ..DifferentialOps
-using ..Recombinations: num_constraints
+using ..Recombinations:
+    num_constraints,
+    RecombinedBSplineBasis  # for Documenter
 
 using BandedMatrices
 using SparseArrays
-
-export collocation_points, collocation_points!
-export collocation_matrix, collocation_matrix!
 
 """
     SelectionMethod
