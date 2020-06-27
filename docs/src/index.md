@@ -22,7 +22,7 @@ At this moment, this package provides:
   collocation matrices for solving differential equations, using B-spline and
   recombined bases.
   Integrals for Galerkin matrices are computed exactly (up to machine
-  precision) using [Gauss—Legendre
+  precision) using [Gauss–Legendre
   quadratures](https://github.com/JuliaApproximation/FastGaussQuadrature.jl);
 
 - efficient "banded" 3D arrays as an extension of banded matrices.
