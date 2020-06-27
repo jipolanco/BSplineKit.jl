@@ -54,6 +54,7 @@ end
 Get B-spline coefficients of the spline.
 """
 coefficients(S::Spline) = S.coefs
+
 basis(S::Spline) = S.basis
 knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{k}}) where {k} = k

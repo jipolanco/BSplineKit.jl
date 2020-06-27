@@ -77,7 +77,7 @@ test_boundary_conditions(R::RecombinedBSplineBasis) =
 function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
                                   R::RecombinedBSplineBasis)
     @assert ops === constraints(R)
-    @test length(ops) == BSplineKit.num_constraints(R)
+    @test length(ops) == num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)
@@ -123,7 +123,7 @@ end
 # More general BCs (Robin-like BCs and more combinations).
 function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
     @assert ops === constraints(R)
-    @test length(ops) == BSplineKit.num_constraints(R)
+    @test length(ops) == num_constraints(R)
     @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)

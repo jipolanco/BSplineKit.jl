@@ -16,12 +16,11 @@ import LinearAlgebra
 using LinearAlgebra: UniformScaling, ldiv!, dot
 using StaticArrays
 
-using ..BSplineKit
-using ..BSplineKit.DifferentialOps
+using ..BSplines
+using ..DifferentialOps
 
-import ..BSplineKit:
-    AbstractBSplineBasis,
-    # These are redefined for RecombinedBSplineBasis:
+# These are redefined for RecombinedBSplineBasis.
+import ..BSplines:
     boundaries, knots, order, evaluate, support
 
 include("matrices.jl")

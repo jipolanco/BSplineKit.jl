@@ -1,12 +1,19 @@
 module Collocation
 
-using ..BSplineKit
+export
+    collocation_points,
+    collocation_points!,
+    collocation_matrix,
+    collocation_matrix!
+
+using ..BSplines
+using ..DifferentialOps
+using ..Recombinations:
+    num_constraints,
+    RecombinedBSplineBasis  # for Documenter
 
 using BandedMatrices
 using SparseArrays
-
-export collocation_points, collocation_points!
-export collocation_matrix, collocation_matrix!
 
 """
     SelectionMethod
@@ -90,7 +97,7 @@ function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
 
     # For recombined bases, skip points at the boundaries.
     # Note that j = 0 for non-recombined bases, i.e. boundaries are included.
-    j = Recombinations.num_constraints(B)
+    j = num_constraints(B)
 
     v::T = inv(k - 1)
     a::T, b::T = boundaries(B)

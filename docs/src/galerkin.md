@@ -1,4 +1,4 @@
-# Galerkin methods
+# Galerkin arrays
 
 ```@meta
 CurrentModule = BSplineKit

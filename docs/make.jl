@@ -16,17 +16,19 @@ with_checks = !MAKE_FAST
     format=Documenter.HTML(
         prettyurls=true,
         # load assets in <head>
-        # assets=["assets/custom.css",
-        #         "assets/matomo.js"],
+        assets=["assets/matomo.js"],
     ),
     modules=[BSplineKit],
     pages=[
         "Home" => "index.md",
-        "bsplines.md",
-        "recombination.md",
-        "tensors.md",
-        "galerkin.md",
-        "collocation.md",
+        "Library" => [
+            "bsplines.md",
+            "splines.md",
+            "recombination.md",
+            "tensors.md",
+            "galerkin.md",
+            "collocation.md",
+        ],
         "Internals" => [
             "diffops.md",
         ],
