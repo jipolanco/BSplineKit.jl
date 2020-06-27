@@ -1,7 +1,7 @@
 # B-splines and splines
 
 ```@meta
-CurrentModule = BSplineKit
+CurrentModule = BSplineKit.BSplines
 ```
 
 ## B-splines

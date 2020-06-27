@@ -38,7 +38,7 @@ augment_knots(knots, ::BSplineOrder{k}) where {k} = augment_knots(knots, k)
 Determine multiplicity of knot `knots[i]`.
 """
 function multiplicity(knots::AbstractVector, i)
-    @assert Base.require_one_based_indexing(knots)
+    Base.require_one_based_indexing(knots)
     v = knots[i]
     m = 1
 

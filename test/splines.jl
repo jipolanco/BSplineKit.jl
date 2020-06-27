@@ -1,9 +1,12 @@
+using BSplineKit: BSplineOrder
+using BSplineKit.BSplines: multiplicity
+
 function test_splines(B::BSplineBasis, knots_in)
     k = order(B)
     t = knots(B)
 
     @testset "Knots (k = $k)" begin
-        let (ka, kb) = BSplineKit.multiplicity.(Ref(t), (1, length(t)))
+        let (ka, kb) = multiplicity.(Ref(t), (1, length(t)))
             @test ka == kb == k
         end
 

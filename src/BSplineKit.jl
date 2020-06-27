@@ -2,12 +2,8 @@ module BSplineKit
 
 export Collocation
 
-export AbstractBSplineBasis, BSplineBasis, RecombinedBSplineBasis
-export Spline, BSpline, BSplineOrder, Derivative
-export knots, order, coefficients, boundaries
-export augment_knots
-export evaluate, evaluate!
-export integral
+export Derivative
+export Spline, coefficients, integral
 export galerkin_matrix, galerkin_matrix!, galerkin_tensor, galerkin_tensor!
 
 using BandedMatrices: BandedMatrix
@@ -22,26 +18,17 @@ import LinearAlgebra
 include("BandedTensors.jl")
 @reexport using .BandedTensors
 
-"""
-    BSplineOrder(k::Integer)
-
-Specifies the B-spline order `k`.
-"""
-struct BSplineOrder{k} end
-
-@inline BSplineOrder(k::Integer) = BSplineOrder{k}()
-
 include("DifferentialOps.jl")
 using .DifferentialOps
 
-include("knots.jl")
-include("basis.jl")
-include("basis_function.jl")
+include("BSplines/BSplines.jl")
+@reexport using .BSplines
 
 include("Recombinations/Recombinations.jl")
 @reexport using .Recombinations
 import .Recombinations: num_constraints  # used in galerkin
 
+import .BSplines: basis, knots, order  # for spline.jl
 include("spline.jl")
 
 include("galerkin.jl")

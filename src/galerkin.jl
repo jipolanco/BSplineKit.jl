@@ -4,7 +4,7 @@ const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
     galerkin_matrix(
         B::AbstractBSplineBasis,
         [deriv = (Derivative(0), Derivative(0))],
-        [MatrixType = Hermitian{BandedMatrix{Float64}],
+        [MatrixType = BandedMatrix{Float64}],
     )
 
 Compute Galerkin mass or stiffness matrix, as well as more general variants
