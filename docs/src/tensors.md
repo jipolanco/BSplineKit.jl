@@ -4,19 +4,24 @@
 CurrentModule = BSplineKit.BandedTensors
 ```
 
-## Types
+## Banded tensors
 
 ```@docs
 BandedTensor3D
-SubMatrix
-```
-
-## Functions
-
-```@docs
 bandshift
 bandwidth
 band_indices
+```
+
+## Slices
+
+```@docs
+SubMatrix
 setindex!
+```
+
+## Linear algebra
+
+```@docs
 dot(::AbstractVector, ::SubMatrix, ::AbstractVector)
 ```

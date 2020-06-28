@@ -4,16 +4,17 @@
 CurrentModule = BSplineKit.Splines
 ```
 
-## Types
+## Splines
 
 ```@docs
 Spline
+coefficients
+length(::Spline)
 ```
 
-## Functions
+## Derivatives and integrals
 
 ```@docs
-coefficients
 diff
 integral
 ```

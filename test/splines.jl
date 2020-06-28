@@ -85,7 +85,7 @@ function test_splines(B::BSplineBasis, knots_in)
         @test all(S.(xcol) .≈ ucol)
         @test coefficients(S) === coefs
         @test diff(S, Derivative(0)) === S
-        @test_nowarn println(devnull, S)
+        @test_nowarn show(devnull, S)
 
         # Create new spline, then compare it to S.
         let P = Spline(B)

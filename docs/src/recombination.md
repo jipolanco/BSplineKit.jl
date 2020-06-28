@@ -8,21 +8,27 @@ CurrentModule = BSplineKit.Recombinations
 Recombinations
 ```
 
-## Types
+## Recombined bases
 
 ```@docs
 RecombinedBSplineBasis
-RecombineMatrix
-NoUniqueSolutionError
+parent(::RecombinedBSplineBasis)
+length(::RecombinedBSplineBasis)
+constraints
+num_constraints
+num_recombined
+recombination_matrix
 ```
 
-## Functions
+## Recombination matrix
 
 ```@docs
-num_recombined
-num_constraints
-constraints
-parent
-recombination_matrix
+RecombineMatrix
 nzrows
+```
+
+## Internals
+
+```@docs
+NoUniqueSolutionError
 ```

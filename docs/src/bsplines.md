@@ -8,31 +8,31 @@ CurrentModule = BSplineKit.BSplines
 BSplines
 ```
 
-## Types
+## B-spline bases
 
 ```@docs
 AbstractBSplineBasis
 BSplineBasis
-BSpline
-BSplineOrder
-```
-
-## Functions
-
-```@docs
 boundaries
 order
-length
+knots
+length(::BSplineBasis)
+```
+
+## Basis functions
+
+```@docs
+BSpline
 support
 common_support
 evaluate
 evaluate!
 ```
 
-### Knots
+## Internals
 
 ```@docs
+BSplineOrder
 augment_knots
-knots
 multiplicity
 ```

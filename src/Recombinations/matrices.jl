@@ -1,7 +1,8 @@
 """
     RecombineMatrix{T} <: AbstractMatrix{T}
 
-Matrix for transformation from B-spline basis to recombined basis.
+Matrix for transformation from coefficients of the recombined basis, to the
+corresponding B-spline basis coefficients.
 
 # Extended help
 

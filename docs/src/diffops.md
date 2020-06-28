@@ -8,21 +8,21 @@ CurrentModule = BSplineKit.DifferentialOps
 DifferentialOps
 ```
 
-## Types
+## Operators
 
 ```@docs
 AbstractDifferentialOp
 Derivative
 ScaledDerivative
 DifferentialOpSum
+max_order
+```
+
+## Projections
+
+```@docs
 AbstractNormalDirection
 LeftNormal
 RightNormal
-```
-
-## Functions
-
-```@docs
 dot(::AbstractDifferentialOp, ::AbstractNormalDirection)
-max_order
 ```

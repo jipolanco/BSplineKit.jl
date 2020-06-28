@@ -28,9 +28,7 @@ with_checks = !MAKE_FAST
             "tensors.md",
             "galerkin.md",
             "collocation.md",
-        ],
-        "Internals" => [
-            "diffops.md",
+            "Internals" => ["diffops.md"],
         ],
     ],
     doctest=with_checks,
