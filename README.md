@@ -88,7 +88,7 @@ the idea of a `Derivative` type).
 Some design differences with the BSplines package include:
 
 - in BSplineKit, the B-spline order `k` is considered a compile-time
-  constant, as it is encoded in the BSplineBasis type. This may lead to some
+  constant, as it is encoded in the `BSplineBasis` type. This may lead to some
   performance improvements. More importantly, it enables the construction of
   efficient 3D banded structures based on stack-allocated
   [StaticArrays](https://github.com/JuliaArrays/StaticArrays.jl);

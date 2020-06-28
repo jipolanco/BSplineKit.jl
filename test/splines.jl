@@ -1,6 +1,46 @@
 using BSplineKit: BSplineOrder
 using BSplineKit.BSplines: multiplicity
 
+# Define a polynomial of degree p and its first derivative.
+poly(x, ::Val{p}, ::Derivative{0}) where {p} =
+    (p - x) * poly(x, Val(p - 1), Derivative(0))
+poly(x, ::Val{0}, ::Derivative{0}) = one(x)
+
+function poly(x, ::Val{p}, ::Derivative{1}) where {p}
+    -poly(x, Val(p - 1), Derivative(0)) +
+    (p - x) * poly(x, Val(p - 1), Derivative(1))
+end
+poly(x, ::Val{0}, ::Derivative{1}) = zero(x)
+
+# Test a polynomial of degree k - 1.
+# The splines should approximate the polynomial (and its derivatives) perfectly.
+function test_polynomial(B::BSplineBasis)
+    k = order(B)
+    P = x -> poly(x, Val(k - 1), Derivative(0))
+    P′ = x -> poly(x, Val(k - 1), Derivative(1))
+
+    # Get coefficients using values at collocation points.
+    # (TODO: use higher level interpolation function)
+    coefs = let x = collocation_points(B)
+        C = collocation_matrix(B, x)
+        values = P.(x)
+        C \ values
+    end
+
+    S = Spline(B, coefs)
+    S′ = diff(S, Derivative(1))
+
+    # Compare values on a finer grid.
+    let Nx = 9 * length(B) + 42
+        a, b = boundaries(B)
+        x = LinRange(a, b, Nx)
+        @test P.(x) ≈ S.(x)
+        @test P′.(x) ≈ S′.(x)
+    end
+
+    nothing
+end
+
 function test_splines(B::BSplineBasis, knots_in)
     k = order(B)
     t = knots(B)
@@ -32,6 +72,10 @@ function test_splines(B::BSplineBasis, knots_in)
     C = collocation_matrix(B, xcol)
 
     @testset "Spline (k = $k)" begin
+        @testset "Polynomial" begin
+            test_polynomial(B)
+        end
+
         # Generate data at collocation points and get B-spline coefficients.
         ucol = cos.(xcol)
         coefs = C \ ucol
@@ -39,6 +83,19 @@ function test_splines(B::BSplineBasis, knots_in)
         @inferred Spline(B, coefs)
         S = Spline(B, coefs)
         @test all(S.(xcol) .≈ ucol)
+        @test coefficients(S) === coefs
+
+        # Create new spline, then compare it to S.
+        let P = Spline(B)
+            cp = coefficients(P)
+            fill!(cp, 0)
+            @test P != S
+            @test !(P ≈ S)
+
+            copy!(cp, coefs)  # copy coefficients of S
+            @test P == S
+            @test P ≈ S
+        end
     end
 
     nothing

@@ -38,6 +38,21 @@ struct Spline{k,  # B-spline order
     end
 end
 
+function Base.show(io::IO, S::Spline)
+    println(io, length(S), "-element ", typeof(S), ':')
+    println(io, " order: ", order(S))
+    println(io, " knots: ", knots(S))
+    print(io, " coefficients: ", coefficients(S))
+    nothing
+end
+
+Base.:(==)(P::Spline, Q::Spline) =
+    basis(P) === basis(Q) && coefficients(P) == coefficients(Q)
+
+Base.isapprox(P::Spline, Q::Spline; kwargs...) =
+    basis(P) === basis(Q) &&
+    isapprox(coefficients(P), coefficients(Q); kwargs...)
+
 """
     Spline(B::BSplineBasis, [T=Float64])
 
@@ -55,18 +70,19 @@ Get B-spline coefficients of the spline.
 """
 coefficients(S::Spline) = S.coefs
 
+Base.length(S::Spline) = length(coefficients(S))
 basis(S::Spline) = S.basis
 knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{k}}) where {k} = k
 order(S::Spline) = order(typeof(S))
 
+# TODO allow evaluating derivatives at point `x` (should be much cheaper than
+# constructing a new Spline for the derivative)
 function (S::Spline)(x)
     T = eltype(S.coefs)
     t = knots(S)
     n = get_knot_interval(t, x)
-
     n === nothing && return zero(T)  # x is outside of knot domain
-
     k = order(S)
     @inbounds let c = S.coefs, d = S.buf
         for j = 1:k
