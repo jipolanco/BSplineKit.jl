@@ -1,41 +1,40 @@
 using BSplineKit: BSplineOrder
 using BSplineKit.BSplines: multiplicity
 
-# Define a polynomial of degree p and its first derivative.
-poly(x, ::Val{p}, ::Derivative{0}) where {p} =
-    (p - x) * poly(x, Val(p - 1), Derivative(0))
-poly(x, ::Val{0}, ::Derivative{0}) = one(x)
-
-function poly(x, ::Val{p}, ::Derivative{1}) where {p}
-    -poly(x, Val(p - 1), Derivative(0)) +
-    (p - x) * poly(x, Val(p - 1), Derivative(1))
-end
-poly(x, ::Val{0}, ::Derivative{1}) = zero(x)
-
 # Test a polynomial of degree k - 1.
 # The splines should approximate the polynomial (and its derivatives) perfectly.
 function test_polynomial(B::BSplineBasis)
     k = order(B)
-    P = x -> poly(x, Val(k - 1), Derivative(0))
-    P′ = x -> poly(x, Val(k - 1), Derivative(1))
+
+    # Coefficients of polynomial of degree k - 1 (see ?evalpoly).
+    # P(x) = -1 + 2x - 3x^2 + 4x^3 - ...
+    P = ntuple(d -> (-d)^d, Val(k))
+    P′ = ntuple(d -> d * P[d + 1], Val(k - 1))    # derivative
+    Pint = (0, ntuple(d -> P[d] / d, Val(k))...)  # antiderivative
 
     # Get coefficients using values at collocation points.
     # (TODO: use higher level interpolation function)
     coefs = let x = collocation_points(B)
         C = collocation_matrix(B, x)
-        values = P.(x)
+        values = [@evalpoly(x, P...) for x in x]
         C \ values
     end
 
     S = Spline(B, coefs)
     S′ = diff(S, Derivative(1))
+    Sint = integral(S)
+
+    a, b = boundaries(B)
+
+    @test Sint(a) == 0  # this is an arbitrary choice
+    Pint_a = @evalpoly(a, Pint...)
 
     # Compare values on a finer grid.
     let Nx = 9 * length(B) + 42
-        a, b = boundaries(B)
         x = LinRange(a, b, Nx)
-        @test P.(x) ≈ S.(x)
-        @test P′.(x) ≈ S′.(x)
+        @test all(@evalpoly(x, P...) ≈ S(x) for x in x)
+        @test all(@evalpoly(x, P′...) ≈ S′(x) for x in x)
+        @test all(@evalpoly(x, Pint...) - Pint_a ≈ Sint(x) for x in x)
     end
 
     nothing
@@ -82,8 +81,11 @@ function test_splines(B::BSplineBasis, knots_in)
 
         @inferred Spline(B, coefs)
         S = Spline(B, coefs)
+        @test length(S) == length(B)
         @test all(S.(xcol) .≈ ucol)
         @test coefficients(S) === coefs
+        @test diff(S, Derivative(0)) === S
+        @test_nowarn println(devnull, S)
 
         # Create new spline, then compare it to S.
         let P = Spline(B)

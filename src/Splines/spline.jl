@@ -70,7 +70,15 @@ Get B-spline coefficients of the spline.
 """
 coefficients(S::Spline) = S.coefs
 
+"""
+    length(S::Spline)
+
+Returns the number of coefficients in the spline.
+
+Note that this is equal to the number of basis functions, `length(basis(S))`.
+"""
 Base.length(S::Spline) = length(coefficients(S))
+
 basis(S::Spline) = S.basis
 knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{k}}) where {k} = k
