@@ -88,7 +88,7 @@ function test_splines(B::BSplineBasis, knots_in)
         @test_nowarn show(devnull, S)
 
         # Create new spline, then compare it to S.
-        let P = Spline(B)
+        let P = Spline(undef, B)
             cp = coefficients(P)
             fill!(cp, 0)
             @test P != S
