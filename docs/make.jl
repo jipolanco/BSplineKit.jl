@@ -24,6 +24,7 @@ with_checks = !MAKE_FAST
         "Library" => [
             "bsplines.md",
             "splines.md",
+            "interpolation.md",
             "recombination.md",
             "tensors.md",
             "galerkin.md",
