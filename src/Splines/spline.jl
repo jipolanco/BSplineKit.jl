@@ -11,20 +11,25 @@ Construct a spline from a B-spline basis and a vector of B-spline coefficients.
 
 ---
 
+    Spline(undef, B::BSplineBasis, [T=Float64])
+
+Construct a spline with uninitialised vector of coefficients.
+
+---
+
     (S::Spline)(x)
 
 Evaluate spline at coordinate `x`.
-
-The implementation uses [De Boor's algorithm](https://en.wikipedia.org/wiki/De_Boor's_algorithm).
 """
-struct Spline{k,  # B-spline order
-              Basis <: BSplineBasis,
-              T,  # type of coefficient (e.g. Float64, ComplexF64)
-              CoefVector <: AbstractVector{T}}
+struct Spline{
+        T,  # type of coefficient (e.g. Float64, ComplexF64)
+        Basis <: BSplineBasis,
+        CoefVector <: AbstractVector{T},
+        BufVector  <: AbstractVector{T},
+    }
     basis :: Basis
     coefs :: CoefVector
-    buf   :: MVector{k,T}  # buffer for evaluation of splines
-
+    buf   :: BufVector  # buffer for evaluation of splines
     function Spline(B::BSplineBasis, coefs::AbstractVector)
         length(coefs) == length(B) ||
             throw(ArgumentError("wrong number of coefficients"))
@@ -33,8 +38,9 @@ struct Spline{k,  # B-spline order
         CoefVector = typeof(coefs)
         k = order(B)
         @assert k >= 1
-        buf = MVector(ntuple(d -> zero(T), Val(k)))
-        new{k, Basis, T, CoefVector}(B, coefs, buf)
+        buf = MVector{k,T}(ntuple(d -> zero(T), Val(k)))
+        BufVector = typeof(buf)
+        new{T, Basis, CoefVector, BufVector}(B, coefs, buf)
     end
 end
 
@@ -53,12 +59,8 @@ Base.isapprox(P::Spline, Q::Spline; kwargs...) =
     basis(P) === basis(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
-"""
-    Spline(B::BSplineBasis, [T=Float64])
-
-Construct spline with uninitialised vector of coefficients.
-"""
-function Spline(B::BSplineBasis, ::Type{T}=Float64) where {T}
+function Spline(::UndefInitializer, B::BSplineBasis,
+                ::Type{T}=Float64) where {T}
     coefs = Vector{T}(undef, length(B))
     Spline(B, coefs)
 end
@@ -79,19 +81,33 @@ Note that this is equal to the number of basis functions, `length(basis(S))`.
 """
 Base.length(S::Spline) = length(coefficients(S))
 
+"""
+    eltype(S::Spline)
+
+Returns type of element returned when evaluating the [`Spline`](@ref).
+"""
+Base.eltype(S::Spline{T}) where {T} = T
+
+"""
+    basis(S::Spline) -> BSplineBasis
+
+Returns the associated B-spline basis.
+"""
 basis(S::Spline) = S.basis
+
 knots(S::Spline) = knots(basis(S))
-order(::Type{<:Spline{k}}) where {k} = k
+order(::Type{<:Spline{T,Basis}}) where {T,Basis} = order(Basis)
 order(S::Spline) = order(typeof(S))
 
 # TODO allow evaluating derivatives at point `x` (should be much cheaper than
 # constructing a new Spline for the derivative)
 function (S::Spline)(x)
-    T = eltype(S.coefs)
+    T = eltype(S)
     t = knots(S)
     n = get_knot_interval(t, x)
     n === nothing && return zero(T)  # x is outside of knot domain
     k = order(S)
+    # Adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
     @inbounds let c = S.coefs, d = S.buf
         for j = 1:k
             d[j] = c[j + n - k]
@@ -150,7 +166,7 @@ function Base.diff(S::Spline,
 end
 
 # Zeroth derivative: return S itself.
-@inline Base.diff(S::Spline, ::Derivative{0}) = S
+Base.diff(S::Spline, ::Derivative{0}) = S
 
 """
     integral(S::Spline)
@@ -190,9 +206,8 @@ function integral(S::Spline)
 end
 
 function get_knot_interval(t::AbstractVector, x)
-    # The result is such that t[n] <= x < t[n + 1]
-    n = searchsortedlast(t, x)
-    n == 0 && return nothing  # x < t[1]
+    n = searchsortedlast(t, x)  # t[n] <= x < t[n + 1]
+    n == 0 && return nothing    # x < t[1]
 
     Nt = length(t)
 

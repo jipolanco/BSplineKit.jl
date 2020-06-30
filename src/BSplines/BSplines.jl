@@ -13,6 +13,7 @@ export
     boundaries,
     order,
     knots,
+    basis,
     evaluate,
     evaluate!,
     support
@@ -36,7 +37,7 @@ Specifies the B-spline order `k`.
 """
 struct BSplineOrder{k} end
 
-@inline BSplineOrder(k::Integer) = BSplineOrder{k}()
+@inline BSplineOrder(k::Integer) = BSplineOrder{Int(k)}()
 
 include("basis.jl")
 include("basis_function.jl")
