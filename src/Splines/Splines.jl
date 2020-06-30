@@ -2,6 +2,7 @@ module Splines
 
 export Spline, coefficients, integral
 
+using Base.Cartesian: @nexprs
 using StaticArrays: MVector
 
 using ..BSplines

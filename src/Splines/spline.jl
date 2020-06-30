@@ -25,11 +25,9 @@ struct Spline{
         T,  # type of coefficient (e.g. Float64, ComplexF64)
         Basis <: BSplineBasis,
         CoefVector <: AbstractVector{T},
-        BufVector  <: AbstractVector{T},
     }
     basis :: Basis
     coefs :: CoefVector
-    buf   :: BufVector  # buffer for evaluation of splines
     function Spline(B::BSplineBasis, coefs::AbstractVector)
         length(coefs) == length(B) ||
             throw(ArgumentError("wrong number of coefficients"))
@@ -38,9 +36,7 @@ struct Spline{
         CoefVector = typeof(coefs)
         k = order(B)
         @assert k >= 1
-        buf = MVector{k,T}(ntuple(d -> zero(T), Val(k)))
-        BufVector = typeof(buf)
-        new{T, Basis, CoefVector, BufVector}(B, coefs, buf)
+        new{T, Basis, CoefVector}(B, coefs)
     end
 end
 
@@ -107,16 +103,46 @@ function (S::Spline)(x)
     n = get_knot_interval(t, x)
     n === nothing && return zero(T)  # x is outside of knot domain
     k = order(S)
-    # Adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
-    @inbounds let c = S.coefs, d = S.buf
-        for j = 1:k
-            d[j] = c[j + n - k]
+    spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
+end
+
+function spline_kernel(c::AbstractVector{T},
+                       t, n, x, ::BSplineOrder{k}) where {T,k}
+    # Algorithm adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
+    if @generated
+        quote
+            w_0 = zero(T)  # this is to make the compiler happy with w_{j - 1}
+            @nexprs $k j -> @inbounds d_j = c[j + n - $k]
+            for r = 2:$k  # TODO is it possible to also unroll this loop?
+                @nexprs $k j -> w_j = d_j  # copy coefficients
+                @nexprs(
+                    $k,
+                    j -> d_j = if j ≥ r
+                        α = @inbounds (x - t[j + n - k]) /
+                                      (t[j + n - r + 1] - t[j + n - k])
+                        (1 - α) * w_{j - 1} + α * w_{j}
+                    else
+                        w_j
+                    end
+                )
+            end
+            @nexprs 1 j -> d_{$k}  # return d_k
         end
-        for r = 2:k, j = k:-1:r
-            α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
-            d[j] = (1 - α) * d[j - 1] + α * d[j]
+    else
+        # Similar, using tuples.
+        # This version is a bit slower, but not much (25% slower in some tests).
+        d = ntuple(j -> c[j + n - k], Val(k))
+        for r = 2:k
+            w = d
+            d = ntuple(Val(k)) do j
+                if j ≥ r
+                    α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
+                    (1 - α) * w[j - 1] + α * w[j]
+                else
+                    w[j]
+                end
+            end
         end
-        d[k]
     end
 end
 
