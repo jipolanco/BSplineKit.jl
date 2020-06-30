@@ -24,14 +24,6 @@ knots.
 abstract type SelectionMethod end
 
 """
-    AtMaxima <: SelectionMethod
-
-Select collocation points as the locations where each B-spline has its
-maximum value.
-"""
-struct AtMaxima <: SelectionMethod end
-
-"""
     AvgKnots <: SelectionMethod
 
 Each collocation point is chosen as a sliding average over `k - 1` knots.
@@ -54,12 +46,11 @@ Note that if `B` is a [`RecombinedBSplineBasis`](@ref) (adapted for boundary val
 problems), collocation points are not included at the boundaries, since the
 boundary conditions are implicitly satisfied by the basis.
 
-Collocation points may be selected in different ways.
-The selection method can be chosen via the `method` argument, which accepts the
-following values:
+In principle, the choice of collocation points is not unique.
+The selection method can be chosen via the `method` argument.
+For now, only a single method is accepted:
 
-- [`Collocation.AvgKnots()`](@ref) (this is the default)
-- [`Collocation.AtMaxima()`](@ref) (not yet supported!)
+- [`Collocation.AvgKnots()`](@ref)
 
 See also [`collocation_points!`](@ref).
 """
