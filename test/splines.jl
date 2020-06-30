@@ -26,9 +26,9 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
         @test itp(x) == S(x)  # these are equivalent
     end
 
-    # "collocation matrix has wrong dimensions"
+    # "incompatible lengths of B-spline basis and collocation points"
     @test_throws(DimensionMismatch,
-                 Interpolations.Interpolation(basis(S), rand(3, 4)))
+                 Interpolations.Interpolation(basis(S), x[1:4], eltype(S)))
 
     # "input data has incorrect length"
     @test_throws DimensionMismatch interpolate!(itp, rand(length(x) - 1))

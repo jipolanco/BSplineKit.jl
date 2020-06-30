@@ -5,7 +5,7 @@ using ..Collocation
 using ..Splines
 
 using BandedMatrices
-using LinearAlgebra: ldiv!
+using LinearAlgebra
 
 export spline, interpolate, interpolate!
 
@@ -25,11 +25,12 @@ It can also be updated with new data on the same data points using
 struct Interpolation{
         T <: Number,
         S <: Spline{T},
-        CMatrix <: AbstractMatrix,
+        F <: Factorization,
     }
     s :: S
-    C :: CMatrix  # collocation matrix
-    function Interpolation(B::BSplineBasis, C)
+    C :: F  # factorisation of collocation matrix
+
+    function Interpolation(B::BSplineBasis, C::Factorization)
         N = length(B)
         if size(C) != (N, N)
             throw(DimensionMismatch("collocation matrix has wrong dimensions"))
@@ -37,6 +38,30 @@ struct Interpolation{
         T = eltype(C)
         s = Spline(undef, B, T)  # uninitialised spline
         new{T, typeof(s), typeof(C)}(s, C)
+    end
+
+    # Construct Interpolation from basis and collocation points.
+    function Interpolation(B, x::AbstractVector, ::Type{T}) where {T}
+        # We want to construct the collocation matrix and its factorisation.
+        # TODO
+        # Ideally, we'd like to perform the LU factorisation without pivoting:
+        #
+        # - From de Boor 2001, p. 175 ("The subroutine SPLINT"): pivoting is not
+        #   needed for the collocation matrix because of its local positivity.
+        #
+        # Unfortunately, LU factorisation without pivoting is not currently
+        # supported by BandedMatrices (or by LAPACK), so we perform pivoting.
+        # Because of this, we need to allocate `l` additional bands for storing
+        # the output of the factorisation.
+        l, u = Collocation.collocation_bandwidths(order(B))
+        N = length(B)
+        if length(x) != N
+            throw(DimensionMismatch(
+                "incompatible lengths of B-spline basis and collocation points"))
+        end
+        C = BandedMatrix{T}(undef, (N, N), (l, l + u))
+        collocation_matrix!(C, B, x)
+        Interpolation(B, lu!(C))
     end
 end
 
@@ -88,8 +113,8 @@ function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
     t = make_knots(x, order(k))
     B = BSplineBasis(k, t, augment=false)  # it's already augmented!
     T = float(eltype(y))
-    C = collocation_matrix(B, x, BandedMatrix{T})
-    interpolate!(Interpolation(B, C), y)
+    itp = Interpolation(B, x, T)
+    interpolate!(itp, y)
 end
 
 @inline interpolate(x, y, k::Integer) = interpolate(x, y, BSplineOrder(k))

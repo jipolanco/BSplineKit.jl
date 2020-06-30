@@ -233,9 +233,11 @@ function allocate_collocation_matrix(::Type{M}, dims, k) where {M <: BandedMatri
     # to an upper band of size k - 2.
     #
     # TODO is there a way to reduce the number of bands??
-    Nb = k - 2
-    M(undef, dims, (Nb, Nb))
+    bands = collocation_bandwidths(k)
+    M(undef, dims, bands)
 end
+
+collocation_bandwidths(k) = (k - 2, k - 2)
 
 """
     collocation_matrix!(
