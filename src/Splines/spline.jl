@@ -112,7 +112,7 @@ function spline_kernel(c::AbstractVector{T},
     if @generated
         quote
             w_0 = zero(T)  # this is to make the compiler happy with w_{j - 1}
-            @nexprs $k j -> @inbounds d_j = c[j + n - $k]
+            @nexprs $k j -> d_j = @inbounds c[j + n - $k]
             for r = 2:$k  # TODO is it possible to also unroll this loop?
                 @nexprs $k j -> w_j = d_j  # copy coefficients
                 @nexprs(
@@ -130,19 +130,21 @@ function spline_kernel(c::AbstractVector{T},
         end
     else
         # Similar, using tuples.
-        # This version is a bit slower, but not much (25% slower in some tests).
-        d = ntuple(j -> c[j + n - k], Val(k))
+        # This version is a bit slower, but not much (~15% slower in some tests).
+        d = @inbounds ntuple(j -> c[j + n - k], Val(k))
         for r = 2:k
             w = d
             d = ntuple(Val(k)) do j
                 if j ≥ r
-                    α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
+                    α = @inbounds (x - t[j + n - k]) /
+                                  (t[j + n - r + 1] - t[j + n - k])
                     (1 - α) * w[j - 1] + α * w[j]
                 else
                     w[j]
                 end
             end
         end
+        d[k]
     end
 end
 
