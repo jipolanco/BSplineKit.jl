@@ -1,36 +1,48 @@
 using BSplineKit: BSplineOrder
 using BSplineKit.BSplines: multiplicity
 
+eval_poly(x::AbstractVector, P) = [@evalpoly(t, P...) for t in x]
+
 # Test a polynomial of degree k - 1.
 # The splines should approximate the polynomial (and its derivatives) perfectly.
-function test_polynomial(B::BSplineBasis)
-    k = order(B)
-
+# This is also used to test the Interpolations module.
+function test_polynomial(x, ::BSplineOrder{k}) where {k}
     # Coefficients of polynomial of degree k - 1 (see ?evalpoly).
     # P(x) = -1 + 2x - 3x^2 + 4x^3 - ...
     P = ntuple(d -> (-d)^d, Val(k))
     P′ = ntuple(d -> d * P[d + 1], Val(k - 1))    # derivative
     Pint = (0, ntuple(d -> P[d] / d, Val(k))...)  # antiderivative
 
-    # Get coefficients using values at collocation points.
-    # (TODO: use higher level interpolation function)
-    coefs = let x = collocation_points(B)
-        C = collocation_matrix(B, x)
-        values = [@evalpoly(x, P...) for x in x]
-        C \ values
+    # Interpolate polynomial at `x` locations.
+    itp = let y = eval_poly(x, P)
+        @inferred interpolate(x, y, BSplineOrder(k))
+        interpolate(x, y, k)
     end
 
-    S = Spline(B, coefs)
+    S = spline(itp)
+    @test length(S) == length(x)
+
+    let x = (x[2] + x[3]) / 3
+        @test itp(x) == S(x)  # these are equivalent
+    end
+
+    # "collocation matrix has wrong dimensions"
+    @test_throws(DimensionMismatch,
+                 Interpolations.Interpolation(basis(S), rand(3, 4)))
+
+    # "input data has incorrect length"
+    @test_throws DimensionMismatch interpolate!(itp, rand(length(x) - 1))
+
     S′ = diff(S, Derivative(1))
     Sint = integral(S)
 
-    a, b = boundaries(B)
+    a, b = boundaries(basis(S))
 
     @test Sint(a) == 0  # this is an arbitrary choice
     Pint_a = @evalpoly(a, Pint...)
 
     # Compare values on a finer grid.
-    let Nx = 9 * length(B) + 42
+    let Nx = 9 * length(S) + 42
         x = LinRange(a, b, Nx)
         @test all(@evalpoly(x, P...) ≈ S(x) for x in x)
         @test all(@evalpoly(x, P′...) ≈ S′(x) for x in x)
@@ -72,7 +84,7 @@ function test_splines(B::BSplineBasis, knots_in)
 
     @testset "Spline (k = $k)" begin
         @testset "Polynomial" begin
-            test_polynomial(B)
+            test_polynomial(xcol, BSplineOrder(k))
         end
 
         # Generate data at collocation points and get B-spline coefficients.

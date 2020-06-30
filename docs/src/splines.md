@@ -11,6 +11,7 @@ Spline
 coefficients
 eltype(::Spline)
 length(::Spline)
+basis(::Spline)
 ```
 
 ## Derivatives and integrals

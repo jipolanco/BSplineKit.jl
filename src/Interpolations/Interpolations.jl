@@ -69,11 +69,18 @@ function interpolate!(I::Interpolation, y::AbstractVector)
 end
 
 """
-    interpolate(x, y, k) -> Interpolation
+    interpolate(x, y, k::Integer)
+    interpolate(x, y, BSplineOrder(k))
 
 Interpolate values `y` at locations `x` using B-splines of order `k`.
 
 Grid points `x` must be real-valued and are assumed to be in increasing order.
+
+Returns an [`Interpolation`](@ref) which can be evaluated at any intermediate
+point.
+
+The second form using [`BSplineOrder`](@ref) ensures that the type of the
+returned [`Interpolation`](@ref) is fully inferred by the compiler.
 
 See also [`interpolate!`](@ref).
 """

@@ -88,7 +88,13 @@ Returns type of element returned when evaluating the [`Spline`](@ref).
 """
 Base.eltype(S::Spline{T}) where {T} = T
 
+"""
+    basis(S::Spline) -> BSplineBasis
+
+Returns the associated B-spline basis.
+"""
 basis(S::Spline) = S.basis
+
 knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{T,Basis}}) where {T,Basis} = order(Basis)
 order(S::Spline) = order(typeof(S))
