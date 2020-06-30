@@ -16,7 +16,6 @@ collocation_points!
 ```@docs
 SelectionMethod
 AvgKnots
-AtMaxima
 ```
 
 ## Matrices
