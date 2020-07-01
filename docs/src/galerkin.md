@@ -15,4 +15,5 @@ galerkin_matrix!
 
 ```@docs
 galerkin_tensor
+galerkin_tensor!
 ```

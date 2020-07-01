@@ -35,6 +35,19 @@ end
 galerkin_tensor(B::AbstractBSplineBasis, args...) =
     galerkin_tensor((B, B, B), args...)
 
+"""
+    galerkin_tensor!(
+        A::BandedTensor3D,
+        B::AbstractBSplineBasis,
+        (D₁::Derivative, D₂::Derivative, D₃::Derivative),
+    )
+
+Compute 3D Galerkin tensor in-place.
+
+See [`galerkin_tensor`](@ref) for details.
+"""
+function galerkin_tensor! end
+
 function galerkin_tensor!(A::BandedTensor3D,
                           Bs::NTuple{3,AbstractBSplineBasis},
                           deriv::DerivativeCombination{3})

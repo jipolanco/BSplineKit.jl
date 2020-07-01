@@ -113,7 +113,7 @@ function spline_kernel(c::AbstractVector{T},
         quote
             w_0 = zero(T)  # this is to make the compiler happy with w_{j - 1}
             @nexprs $k j -> d_j = @inbounds c[j + n - $k]
-            for r = 2:$k  # TODO is it possible to also unroll this loop?
+            for r = 2:$k
                 @nexprs $k j -> w_j = d_j  # copy coefficients
                 @nexprs(
                     $k,
