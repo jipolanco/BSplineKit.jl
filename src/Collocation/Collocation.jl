@@ -250,7 +250,7 @@ function collocation_matrix!(
     end
 
     fill!(C, 0)
-    b_lo, b_hi = bandwidths(C)
+    b_lo, b_hi = max_bandwidths(C)
 
     for j = 1:Nb, i = 1:Nx
         b = evaluate(B, j, x[i], deriv, T)
@@ -272,5 +272,9 @@ function collocation_matrix!(
 
     C
 end
+
+# Maximum number of bandwidths allowed in a matrix container.
+max_bandwidths(A::BandedMatrix) = bandwidths(A)
+max_bandwidths(A::AbstractMatrix) = size(A) .- 1
 
 end  # module
