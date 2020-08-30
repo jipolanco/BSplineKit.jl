@@ -7,25 +7,32 @@ The basis is defined by a set of knots and by the B-spline order.
 
 ---
 
-    BSplineBasis(k::Union{BSplineOrder,Integer}, knots::Vector; augment=true)
+    BSplineBasis(
+        k::Union{BSplineOrder,Integer}, knots::Vector;
+        augment::Val = Val(true),
+    )
 
 Create B-spline basis of order `k` with the given knots.
 
-If `augment=true` (default), knots will be "augmented" so that both knot ends
-have multiplicity `k`. See also [`augment_knots`](@ref).
+If `augment = Val(true)` (default), knots will be "augmented" so that both knot
+ends have multiplicity `k`. See also [`augment_knots`](@ref).
 """
-struct BSplineBasis{k,T} <: AbstractBSplineBasis{k,T}
-    N :: Int             # number of B-splines ("resolution")
-    t :: Vector{T}       # knots (length = N + k)
-    function BSplineBasis(::BSplineOrder{k}, knots::AbstractVector{T};
-                          augment=true) where {k,T}
+struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,T}
+    N :: Int    # number of B-splines
+    t :: Knots  # knots (length = N + k)
+    function BSplineBasis(
+            ::BSplineOrder{k}, knots::AbstractVector{T};
+            augment::Val{Augment} = Val(true),
+        ) where {k,T,Augment}
         k :: Integer
+        Augment :: Bool
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        t = augment ? augment_knots(knots, k) : knots
+        t = Augment ? augment_knots(knots, k) : knots
         N = length(t) - k
-        new{k, T}(N, t)
+        Knots = typeof(t)
+        new{k, T, Knots}(N, t)
     end
 end
 

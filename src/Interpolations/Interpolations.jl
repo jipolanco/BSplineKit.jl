@@ -111,7 +111,7 @@ See also [`interpolate!`](@ref).
 """
 function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
     t = make_knots(x, order(k))
-    B = BSplineBasis(k, t, augment=false)  # it's already augmented!
+    B = BSplineBasis(k, t, augment=Val(false))  # it's already augmented!
     T = float(eltype(y))
     itp = Interpolation(B, x, T)
     interpolate!(itp, y)
