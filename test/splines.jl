@@ -119,6 +119,8 @@ function test_splines(::BSplineOrder{k}) where {k}
     knots_in = gauss_lobatto_points(10 + k)
 
     @inferred BSplineBasis(BSplineOrder(k), knots_in)
+    @inferred BSplineBasis(BSplineOrder(k), knots_in, augment=Val(false))
+    @inferred BSplineBasis(BSplineOrder(k), knots_in, augment=Val(true))
     @inferred (() -> BSplineBasis(k, knots_in))()
 
     g = BSplineBasis(k, knots_in)
