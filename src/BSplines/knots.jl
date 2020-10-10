@@ -2,35 +2,20 @@
     augment_knots(knots::AbstractVector, k::Union{Integer,BSplineOrder})
 
 Modifies the input knots to make sure that the first and last knot have
-the multiplicity `k` for splines of order `k`.
+multiplicity `k` for splines of order `k`.
+
+It is assumed that border knots have multiplicity 1 at the borders.
+That is, border coordinates should *not* be repeated in the input.
 """
-function augment_knots(knots::AbstractVector{T},
-                       k::Integer) :: Vector{T} where {T}
-    N = length(knots)
-
-    # Determine multiplicity of first and last knots in input.
-    m_first = multiplicity(knots, 1)
-    m_last = multiplicity(knots, N)
-
-    if m_first == m_last == k
-        return knots  # nothing to do
-    end
-
-    N_inner = N - m_first - m_last
-    Nnew = N_inner + 2k
-    t = Vector{float(T)}(undef, Nnew)  # augmented knots
-
-    t_first = knots[1]
-    t_last = knots[end]
-
-    t[1:k] .= t_first
-    t[(Nnew - k + 1):Nnew] .= t_last
-    t[(k + 1):(k + N_inner)] .= @view knots[(m_first + 1):(m_first + N_inner)]
-
-    t
+function augment_knots(knots::AbstractVector{T}, ::BSplineOrder{k}) where {T,k}
+    # The idea is to "sandwich" the input knots with static vectors, returning
+    # a lazy array.
+    t_left = @SVector fill(first(knots), k - 1)
+    t_right = @SVector fill(last(knots), k - 1)
+    ApplyArray(vcat, t_left, knots, t_right)
 end
 
-augment_knots(knots, ::BSplineOrder{k}) where {k} = augment_knots(knots, k)
+@inline augment_knots(knots, k::Integer) = augment_knots(knots, BSplineOrder(k))
 
 """
     multiplicity(knots, i)
