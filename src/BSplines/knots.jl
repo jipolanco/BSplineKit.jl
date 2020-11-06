@@ -12,7 +12,7 @@ function augment_knots(knots::AbstractVector{T}, ::BSplineOrder{k}) where {T,k}
     # a lazy array.
     t_left = @SVector fill(first(knots), k - 1)
     t_right = @SVector fill(last(knots), k - 1)
-    ApplyArray(vcat, t_left, knots, t_right)
+    Vcat(t_left, knots, t_right)
 end
 
 @inline augment_knots(knots, k::Integer) = augment_knots(knots, BSplineOrder(k))

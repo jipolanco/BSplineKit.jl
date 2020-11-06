@@ -18,7 +18,7 @@ export
     evaluate!,
     support
 
-using LazyArrays: ApplyArray
+using LazyArrays: Vcat
 using StaticArrays: @SVector
 
 using ..DifferentialOps
