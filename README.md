@@ -1,8 +1,9 @@
 # BSplineKit.jl
 
-[![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/BSplineKit.jl/dev/)
-[![Build status](https://travis-ci.com/jipolanco/BSplineKit.jl.svg?branch=master)](https://travis-ci.com/jipolanco/BSplineKit.jl)
-[![codecov](https://codecov.io/gh/jipolanco/BSplineKit.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jipolanco/BSplineKit.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jipolanco.github.io/BSplineKit.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/BSplineKit.jl/dev/)
+[![Build Status](https://github.com/jipolanco/BSplineKit.jl/workflows/CI/badge.svg)](https://github.com/jipolanco/BSplineKit.jl/actions)
+[![Coverage](https://codecov.io/gh/jipolanco/BSplineKit.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jipolanco/BSplineKit.jl)
 
 Tools for B-spline based Galerkin and collocation methods in Julia.
 
