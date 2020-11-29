@@ -46,7 +46,7 @@ function test_recombine_matrix(A::RecombineMatrix)
         # sparse matrix, which is less efficient.
         mul!(v1, A, u)
         mul!(v2, sparse(A), u)
-        @test v1 == v2
+        @test v1 ≈ v2
 
         # Test left division.
         let v = copy(v1)
@@ -61,11 +61,11 @@ function test_recombine_matrix(A::RecombineMatrix)
 
         # Test 5-argument mul!.
         mul!(v2, A, u, 1, 0)  # equivalent to 3-argument mul!
-        @test v1 == v2
+        @test v1 ≈ v2
 
         randn!(u)  # use different u, otherwise A * u = v1
         mul!(v2, A, u, 2, -3)
-        @test v2 == 2 * (A * u) - 3 * v1
+        @test v2 ≈ 2 * (A * u) - 3 * v1
     end
 
     nothing
