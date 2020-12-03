@@ -29,6 +29,7 @@ jobs:
           - version: 'nightly'
             os: ubuntu-latest
             experimental: true
+            arch: x64
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
