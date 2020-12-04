@@ -201,7 +201,7 @@ Base.diff(S::Spline, ::Derivative{0}) = S
 
 Returns an antiderivative of the given spline as a new spline.
 
-See de Boor 2001, p. 127.
+The algorithm is described in de Boor 2001, p. 127.
 """
 function integral(S::Spline)
     u = coefficients(S)

@@ -21,11 +21,11 @@ basis ``ϕ_j``, to the respective coefficients ``v_i`` in the B-spline basis
 ```
 
 Note that the matrix is not square: it has dimensions ``N × M``, where ``N``
-is the length of the B-spline basis, and ``M = N - 2c`` is that of the
-recombined basis (with ``c`` the number of constraints on each boundary).
+is the length of the B-spline basis, and ``M = N - δ`` is that of the
+recombined basis (see [`RecombinedBSplineBasis`](@ref) for details).
 
 Due to the local support of B-splines, basis recombination can be performed
-among neigbouring B-splines near the boundaries (see
+by combining just a small set of B-splines near the boundaries (as discussed in
 [`RecombinedBSplineBasis`](@ref)).
 This leads to a recombination matrix which is almost a diagonal of ones, plus
 a few extra super- and sub-diagonal elements in the upper left and lower right

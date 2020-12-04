@@ -133,7 +133,7 @@ evaluate(B::BSplineBasis, i, x::AbstractVector, args...) =
 
 """
     evaluate!(b::AbstractVector, B::BSplineBasis, i::Integer,
-    x::AbstractVector, args...)
+              x::AbstractVector, args...)
 
 Evaluate i-th B-spline at positions `x` and write result to `b`.
 
