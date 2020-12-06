@@ -39,6 +39,34 @@ end
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
+"""
+    getindex(B::AbstractBSplineBasis, i, [::Type{T} = Float64])
+
+Get ``i``-th basis function.
+
+This is an alias for `BSpline(B, i, T)`.
+
+The returned object can be evaluated at any point within the boundaries defined
+by the basis (see [`BSpline`](@ref) for details).
+"""
+@inline function Base.getindex(
+        B::AbstractBSplineBasis, i::Integer, ::Type{T} = Float64) where {T}
+    @boundscheck checkbounds(B, i)
+    BSpline(B, i, T)
+end
+
+@inline function Base.checkbounds(B::AbstractBSplineBasis, I)
+    checkbounds(eachindex(B), I)
+end
+
+@inline Base.eachindex(B::AbstractBSplineBasis) = Base.OneTo(length(B))
+
+@inline function Base.iterate(B::AbstractBSplineBasis, i = 0)
+    i == length(B) && return nothing
+    i += 1
+    B[i], i
+end
+
 function Base.show(io::IO, B::BSplineBasis)
     # This is inspired by the BSplines package.
     println(io, length(B), "-element ", typeof(B), ':')

@@ -71,15 +71,28 @@ function test_splines(B::BSplineBasis, knots_in)
         @test_throws DomainError evaluate(B, 0, 0.2)
         @test_throws DomainError evaluate(B, N + 1, 0.2)
 
+        @test_throws BoundsError B[0]
+        @test_throws BoundsError B[N + 1]
+
         # Verify values at the boundaries.
         @test evaluate(B, 1, t[1]) == 1.0
         @test evaluate(B, N, t[end]) == 1.0
 
         xs = range(boundaries(B)...; length = 4N + 1)
         us = similar(xs)
+        vs = similar(us)
         i = N >> 2
         evaluate!(us, B, i, xs)
         @test us == evaluate(B, i, xs)
+        @test us == BSpline(B, i).(xs)
+        @test us == B[i].(xs)
+        @test us == map!(B[i], vs, xs)
+
+        @testset "iterate" begin
+            for (i, b) in enumerate(B)
+                @test b === B[i]
+            end
+        end
     end
 
     xcol = collocation_points(B, method=Collocation.AvgKnots())

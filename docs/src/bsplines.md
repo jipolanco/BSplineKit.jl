@@ -16,6 +16,7 @@ BSplineBasis
 boundaries
 order
 knots
+getindex
 length(::BSplineBasis)
 ```
 

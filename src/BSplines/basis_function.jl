@@ -27,7 +27,8 @@ are also supported.
 struct BSpline{Basis <: AbstractBSplineBasis, T}
     basis :: Basis
     i     :: Int
-    function BSpline(b::AbstractBSplineBasis, i, ::Type{T} = Float64) where {T}
+    @inline function BSpline(
+            b::AbstractBSplineBasis, i, ::Type{T} = Float64) where {T}
         Basis = typeof(b)
         new{Basis, T}(b, i)
     end
