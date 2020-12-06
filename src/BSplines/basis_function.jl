@@ -95,6 +95,9 @@ function evaluate(B::BSplineBasis, i::Integer, x::Real,
     evaluate_diff(op, BSplineOrder(k), t, i, x, T)
 end
 
+evaluate(B::BSplineBasis, i::Integer, x::Real, ::Type{T}) where {T} =
+    evaluate(B, i, x, Derivative(0), T)
+
 # No derivative
 evaluate_diff(::Derivative{0}, ::BSplineOrder{k}, t, i, x,
               ::Type{T}) where {k,T} = _evaluate(BSplineOrder(k), t, i, x, T)
