@@ -7,15 +7,49 @@ The basis is defined by a set of knots and by the B-spline order.
 
 ---
 
-    BSplineBasis(
-        k::Union{BSplineOrder,Integer}, knots::Vector;
-        augment::Val = Val(true),
-    )
+    BSplineBasis(k, breakpoints::AbstractVector; augment = Val(true))
 
-Create B-spline basis of order `k` with the given knots.
+Create B-spline basis of order `k` with the given breakpoints.
 
-If `augment = Val(true)` (default), knots will be "augmented" so that both knot
-ends have multiplicity `k`. See also [`augment_knots`](@ref).
+If `augment = Val(true)` (default), breakpoints will be "augmented" so that
+boundary knots have multiplicity `k`. See also [`augment_knots`](@ref).
+
+# Examples
+
+```jldoctest BSplineBasis
+julia> breaks = range(-1, 1, length = 21)
+-1.0:0.1:1.0
+
+julia> B = BSplineBasis(5, breaks)
+24-element BSplineBasis: order 5, domain [-1.0, 1.0]
+```
+
+This is equivalent to the above:
+
+```jldoctest BSplineBasis
+julia> B = BSplineBasis(BSplineOrder(5), breaks)
+24-element BSplineBasis: order 5, domain [-1.0, 1.0]
+```
+
+Note that first and last knots have multiplicity ``k = 5``:
+
+```jldoctest BSplineBasis
+julia> show(knots(B))
+[-1.0, -1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0]
+```
+
+If `augment = Val(false)`, input breakpoints are taken without modification as
+the knots ``t_i`` of the B-spline basis. Note that the valid domain is reduced to
+``[-0.6, 0.6]``. The domain is always defined as the range ``[t_k, t_{N + 1}]``,
+where ``N`` is the length of the basis (below, ``N = 16``).
+
+```jldoctest BSplineBasis
+julia> Bn = BSplineBasis(5, breaks, augment = Val(false))
+16-element BSplineBasis: order 5, domain [-0.6, 0.6]
+
+julia> show(knots(Bn))
+-1.0:0.1:1.0
+```
 """
 struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,T}
     N :: Int    # number of B-splines
