@@ -1,3 +1,4 @@
+# TODO rename to BasisFunction
 """
     BSpline{B <: AbstractBSplineBasis, T}
 
@@ -38,6 +39,17 @@ basis(b::BSpline) = b.basis
 knots(b::BSpline) = knots(basis(b))
 order(b::BSpline) = order(basis(b))
 Base.eltype(::Type{BSpline{B,T}}) where {B,T} = T
+
+function Base.show(io::IO, b::BSpline)
+    print(io, "Basis function i = ", b.i, "\n")
+    print(io, "  from ")
+    summary(io, basis(b))
+    ind = support(b)
+    i, j = first(ind), last(ind)
+    ts = knots(b)
+    ti, tj = map(n -> ts[n], (i, j))
+    print(io, "\n  support: [", ti, ", ", tj, "] (", ind, ")")
+end
 
 """
     support(b::BSpline) -> UnitRange{Int}
