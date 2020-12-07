@@ -75,10 +75,13 @@ function test_splines(B::BSplineBasis, knots_in)
         @test_throws BoundsError B[N + 1]
 
         # Verify values at the boundaries.
-        @test evaluate(B, 1, t[1]) == 1.0
-        @test evaluate(B, N, t[end]) == 1.0
+        a, b = boundaries(B)
+        @test evaluate(B, 1, a) == 1.0
+        @test evaluate(B, N, b) == 1.0
 
-        xs = range(boundaries(B)...; length = 4N + 1)
+        @test string(B) == "$N-element BSplineBasis: order $k, domain [$a, $b]"
+
+        xs = range(a, b; length = 4N + 1)
         us = similar(xs)
         vs = similar(us)
         i = N >> 2

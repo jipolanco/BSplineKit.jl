@@ -21,7 +21,7 @@ using ..DifferentialOps
 
 # These are redefined for RecombinedBSplineBasis.
 import ..BSplines:
-    boundaries, knots, order, evaluate, support
+    boundaries, knots, order, evaluate, support, summary_basis
 
 include("matrices.jl")
 include("bases.jl")

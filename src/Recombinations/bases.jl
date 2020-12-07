@@ -173,13 +173,9 @@ struct RecombinedBSplineBasis{
         RecombinedBSplineBasis((op, ), args...)
 end
 
-function Base.show(io::IO, R::RecombinedBSplineBasis)
-    # This is inspired by the BSplines package.
-    print(io, length(R), "-element ", typeof(R), ':')
-    print(io, "\n boundary conditions: ")
-    join(io, constraints(R), ", ")
-    print(io, "\n order: ", order(R))
-    print(io, "\n knots: ", knots(R))
+function Base.summary(io::IO, R::RecombinedBSplineBasis)
+    summary_basis(io, R)
+    print(io, ", BCs ", constraints(R))
     nothing
 end
 

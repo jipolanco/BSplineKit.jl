@@ -173,6 +173,13 @@ function test_basis_recombination()
         test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)
 
+        let
+            N = length(R)
+            a, b = boundaries(R)
+            @test string(R) ==
+                "$N-element RecombinedBSplineBasis: order $k, domain [$a, $b], BCs (D{$D},)"
+        end
+
         @testset "Robin-like BCs" begin
             op = 1.1 * Derivative(D) + 4.2 * Derivative(D + 1)
             @test BSplineKit.max_order(op) == D + 1

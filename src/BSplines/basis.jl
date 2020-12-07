@@ -67,11 +67,13 @@ end
     B[i], i
 end
 
-function Base.show(io::IO, B::BSplineBasis)
-    # This is inspired by the BSplines package.
-    println(io, length(B), "-element ", typeof(B), ':')
-    println(io, " order: ", order(B))
-    print(io, " knots: ", knots(B))
+Base.show(io::IO, B::AbstractBSplineBasis) = summary(io, B)
+Base.summary(io::IO, B::BSplineBasis) = summary_basis(io, B)
+
+function summary_basis(io, B::AbstractBSplineBasis)
+    a, b = boundaries(B)
+    print(io, length(B), "-element ", nameof(typeof(B)))
+    print(io, ": order ", order(B), ", domain [", a, ", ", b, "]")
     nothing
 end
 
