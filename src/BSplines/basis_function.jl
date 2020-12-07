@@ -109,15 +109,16 @@ function evaluate_diff(::Derivative{N}, ::BSplineOrder{k}, t, i, x,
     @assert N > 0
     y = zero(T)
     dt = t[i + k - 1] - t[i]
+    local dy::T  # make sure `y` doesn't change type, e.g. if T = Float32
     if !iszero(dt)
         # Recursively evaluate derivative `N - 1` of B-spline of order `k - 1`.
-        y += evaluate_diff(
-            Derivative(N - 1), BSplineOrder(k - 1), t, i, x, T) / dt
+        dy = evaluate_diff(Derivative(N - 1), BSplineOrder(k - 1), t, i, x, T) / dt
+        y += dy
     end
     dt = t[i + k] - t[i + 1]
     if !iszero(dt)
-        y -= evaluate_diff(
-            Derivative(N - 1), BSplineOrder(k - 1), t, i + 1, x, T) / dt
+        dy = evaluate_diff(Derivative(N - 1), BSplineOrder(k - 1), t, i + 1, x, T) / dt
+        y -= dy
     end
     (y * (k - 1)) :: T
 end
@@ -177,15 +178,18 @@ function _evaluate(::BSplineOrder{k}, t::AbstractVector, i::Integer,
 
     # Recursively evaluate lower-order B-splines.
     y = zero(T)
+    local dy::T  # make sure `y` doesn't change type, e.g. if T = Float32
 
     if tb1 != ta
-        y += _evaluate(BSplineOrder(k - 1), t, i, x, T) *
+        dy = _evaluate(BSplineOrder(k - 1), t, i, x, T) *
             (x - ta) / (tb1 - ta)
+        y += dy
     end
 
     if ta1 != tb
-        y += _evaluate(BSplineOrder(k - 1), t, i + 1, x, T) *
+        dy = _evaluate(BSplineOrder(k - 1), t, i + 1, x, T) *
             (tb - x) / (tb - ta1)
+        y += dy
     end
 
     y :: T

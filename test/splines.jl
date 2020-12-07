@@ -90,6 +90,7 @@ function test_splines(B::BSplineBasis, knots_in)
         @test us == BSpline(B, i).(xs)
         @test us == B[i].(xs)
         @test us == map!(B[i], vs, xs)
+        @test us ≈ B[i, Float32].(xs)
 
         @testset "iterate" begin
             for (i, b) in enumerate(B)
