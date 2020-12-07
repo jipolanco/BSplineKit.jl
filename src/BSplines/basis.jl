@@ -44,7 +44,7 @@ end
 
 Get ``i``-th basis function.
 
-This is an alias for `BSpline(B, i, T)` (see [`BSpline`](@ref) for details).
+This is an alias for `BasisFunction(B, i, T)` (see [`BasisFunction`](@ref) for details).
 
 The returned object can be evaluated at any point within the boundaries defined
 by the basis.
@@ -58,7 +58,7 @@ julia> B = BSplineBasis(BSplineOrder(4), -1:0.1:1)
 julia> B[6]
 Basis function i = 6
   from 23-element BSplineBasis: order 4, domain [-1.0, 1.0]
-  support: [-0.8, -0.4] (6:10)
+  support: [-0.8, -0.4) (knots 6:10)
 
 julia> B[6](-0.5)
 0.16666666666666666
@@ -73,7 +73,7 @@ julia> B[6](-0.5, Derivative(1))
 @inline function Base.getindex(
         B::AbstractBSplineBasis, i::Integer, ::Type{T} = Float64) where {T}
     @boundscheck checkbounds(B, i)
-    BSpline(B, i, T)
+    BasisFunction(B, i, T)
 end
 
 @inline function Base.checkbounds(B::AbstractBSplineBasis, I)

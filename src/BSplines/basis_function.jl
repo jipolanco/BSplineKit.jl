@@ -1,12 +1,15 @@
-# TODO rename to BasisFunction
 """
-    BSpline{B <: AbstractBSplineBasis, T}
+    BasisFunction{B <: AbstractBSplineBasis, T}
 
 Describes a single basis function.
 
+The basis function may belong to a [`BSplineBasis`](@ref) (in which case it's
+effectively a B-spline), or to a basis derived from a B-spline basis (such as a
+`RecombinedBSplineBasis`).
+
 ---
 
-    BSpline(basis::AbstractBSplineBasis, i::Int, [T = Float64])
+    BasisFunction(basis::AbstractBSplineBasis, i::Int, [T = Float64])
 
 Construct i-th basis function of the given basis.
 
@@ -15,9 +18,9 @@ The constructed function can be evaluated as `b(x)`, returning a value of type
 
 ---
 
-    (b::BSpline)(x, [op::AbstractDifferentialOp])
+    (b::BasisFunction)(x, [op::AbstractDifferentialOp])
 
-Evaluate B-spline at coordinate `x`.
+Evaluate basis function at coordinate `x`.
 
 To evaluate a derivative, pass `Derivative(n)` as the `op` argument, with `n`
 the derivative order.
@@ -25,22 +28,22 @@ the derivative order.
 More general differential operators, such as `Derivative(n) + λ Derivative(m)`,
 are also supported.
 """
-struct BSpline{Basis <: AbstractBSplineBasis, T}
+struct BasisFunction{Basis <: AbstractBSplineBasis, T}
     basis :: Basis
     i     :: Int
-    @inline function BSpline(
+    @inline function BasisFunction(
             b::AbstractBSplineBasis, i, ::Type{T} = Float64) where {T}
         Basis = typeof(b)
         new{Basis, T}(b, i)
     end
 end
 
-basis(b::BSpline) = b.basis
-knots(b::BSpline) = knots(basis(b))
-order(b::BSpline) = order(basis(b))
-Base.eltype(::Type{BSpline{B,T}}) where {B,T} = T
+basis(b::BasisFunction) = b.basis
+knots(b::BasisFunction) = knots(basis(b))
+order(b::BasisFunction) = order(basis(b))
+Base.eltype(::Type{BasisFunction{B,T}}) where {B,T} = T
 
-function Base.show(io::IO, b::BSpline)
+function Base.show(io::IO, b::BasisFunction)
     print(io, "Basis function i = ", b.i, "\n")
     print(io, "  from ")
     summary(io, basis(b))
@@ -48,44 +51,44 @@ function Base.show(io::IO, b::BSpline)
     i, j = first(ind), last(ind)
     ts = knots(b)
     ti, tj = map(n -> ts[n], (i, j))
-    print(io, "\n  support: [", ti, ", ", tj, "] (", ind, ")")
+    print(io, "\n  support: [", ti, ", ", tj, ") (knots ", ind, ")")
 end
 
 """
-    support(b::BSpline) -> UnitRange{Int}
+    support(b::BasisFunction) -> UnitRange{Int}
 
-Get range of knots supported by the B-spline.
+Get range of knots supported by the basis function.
 
-Returns the knot range `i:j` such that the B-spline support is
-``t ∈ [t_i, t_{j + 1})``.
+Returns the knot range `i:j` such that the basis function support is
+``t ∈ [t_i, t_j)``.
 """
-support(b::BSpline) = support(basis(b), b.i)
+support(b::BasisFunction) = support(basis(b), b.i)
 
 """
     support(B::BSplineBasis, i::Integer) -> UnitRange{Int}
 
-Get range of knots supported by the ``i``-th B-spline.
+Get range of knots supported by the ``i``-th basis function.
 """
 support(B::BSplineBasis, i::Integer) = i:(i + order(B))
 
 """
-    common_support(b1::BSpline, b2::BSpline, ...) -> UnitRange{Int}
+    common_support(b1::BasisFunction, b2::BasisFunction, ...) -> UnitRange{Int}
 
-Get range of knots commonly supported by different B-splines.
+Get range of knots commonly supported by different basis functions.
 
 If the supports don't intersect, an empty range is returned (e.g. `6:5`),
 following the behaviour of `intersect`. The lack of intersection can be checked
 using `isempty`, which returns `true` for such a range.
 """
-common_support(bs::Vararg{BSpline}) = ∩(support.(bs)...)
+common_support(bs::Vararg{BasisFunction}) = ∩(support.(bs)...)
 
-(b::BSpline)(x, op=Derivative(0)) = evaluate(basis(b), b.i, x, op, eltype(b))
+(b::BasisFunction)(x, op=Derivative(0)) = evaluate(basis(b), b.i, x, op, eltype(b))
 
 """
     evaluate(B::AbstractBSplineBasis, i::Integer, x,
              [op::AbstractDifferentialOp], [T=Float64])
 
-Evaluate ``i``-th B-spline in the given basis at `x` (can be a coordinate or a
+Evaluate ``i``-th basis function in the given basis at `x` (can be a coordinate or a
 vector of coordinates).
 
 To evaluate a derivative, pass `Derivative(n)` as the `op` argument, with `n`
@@ -101,7 +104,7 @@ function evaluate(B::BSplineBasis, i::Integer, x::Real,
                   ::Type{T} = Float64) where {T}
     N = length(B)
     if !(1 <= i <= N)
-        throw(DomainError(i, "B-spline index must be in 1:$N"))
+        throw(DomainError(i, "Basis function index must be in 1:$N"))
     end
     k = order(B)
     t = knots(B)
@@ -152,7 +155,7 @@ evaluate(B::BSplineBasis, i, x::AbstractVector, args...) =
     evaluate!(b::AbstractVector, B::BSplineBasis, i::Integer,
               x::AbstractVector, args...)
 
-Evaluate i-th B-spline at positions `x` and write result to `b`.
+Evaluate i-th basis function at positions `x` and write result to `b`.
 
 See also [`evaluate`](@ref).
 """

@@ -23,7 +23,7 @@ length(::BSplineBasis)
 ## Basis functions
 
 ```@docs
-BSpline
+BasisFunction
 support
 common_support
 evaluate

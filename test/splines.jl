@@ -87,7 +87,7 @@ function test_splines(B::BSplineBasis, knots_in)
         i = N >> 2
         evaluate!(us, B, i, xs)
         @test us == evaluate(B, i, xs)
-        @test us == BSpline(B, i).(xs)
+        @test us == BasisFunction(B, i).(xs)
         @test us == B[i].(xs)
         @test us == map!(B[i], vs, xs)
         @test us ≈ B[i, Float32].(xs)

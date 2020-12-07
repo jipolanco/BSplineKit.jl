@@ -99,7 +99,7 @@ function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
         # single derivatives. It does make a difference for linear combinations
         # of derivatives (e.g. Robin BCs).
         bsum = sum(1:N) do i
-            f = BSpline(R, i)
+            f = R[i]
             fa = f(a, Derivative(n))
             fb = f(b, Derivative(n))
             abs(fa) + abs(fb)  # each of these must be 0 if n = D
@@ -109,7 +109,7 @@ function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
         # derivative at the border of the first B-spline of the original
         # basis.
         B = parent(R)
-        ε = 2 * num_recombined(R) * eps(BSpline(B, 1)(a, Derivative(n)))
+        ε = 2 * num_recombined(R) * eps(B[1](a, Derivative(n)))
         if Derivative(n) ∈ ops
             @test bsum ≤ ε
         else
@@ -132,13 +132,13 @@ function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
     for op in ops
         op_a, op_b = dot.(op, (LeftNormal(), RightNormal()))
         bsum = sum(1:N) do i
-            f = BSpline(R, i)
+            f = R[i]
             fa = f(a, op_a)
             fb = f(b, op_b)
             abs(fa) + abs(fb)
         end
         B = parent(R)
-        ε = 2 * num_recombined(R) * eps(BSpline(B, 1)(a, op_a))
+        ε = 2 * num_recombined(R) * eps(B[1](a, op_a))
         @test bsum ≤ ε
     end
 

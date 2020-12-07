@@ -7,7 +7,7 @@ module BSplines
 
 export
     AbstractBSplineBasis,
-    BSpline,
+    BasisFunction,
     BSplineBasis,
     BSplineOrder,
     boundaries,
