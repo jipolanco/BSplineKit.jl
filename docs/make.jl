@@ -5,7 +5,7 @@ const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
 
 # This is to make sure that doctests in docstrings are executed correctly.
 DocMeta.setdocmeta!(BSplineKit, :DocTestSetup,
-                    :(using BSplineKit); recursive=false)
+                    :(using BSplineKit); recursive=true)
 DocMeta.setdocmeta!(BSplineKit.BandedTensors, :DocTestSetup,
                     :(using BSplineKit.BandedTensors); recursive=true)
 

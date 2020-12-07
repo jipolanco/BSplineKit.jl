@@ -40,14 +40,35 @@ end
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
 """
-    getindex(B::AbstractBSplineBasis, i, [::Type{T} = Float64])
+    getindex(B::AbstractBSplineBasis, i, [T = Float64])
 
 Get ``i``-th basis function.
 
-This is an alias for `BSpline(B, i, T)`.
+This is an alias for `BSpline(B, i, T)` (see [`BSpline`](@ref) for details).
 
 The returned object can be evaluated at any point within the boundaries defined
-by the basis (see [`BSpline`](@ref) for details).
+by the basis.
+
+# Examples
+
+```jldoctest
+julia> B = BSplineBasis(BSplineOrder(4), -1:0.1:1)
+23-element BSplineBasis: order 4, domain [-1.0, 1.0]
+
+julia> B[6]
+Basis function i = 6
+  from 23-element BSplineBasis: order 4, domain [-1.0, 1.0]
+  support: [-0.8, -0.4] (6:10)
+
+julia> B[6](-0.5)
+0.16666666666666666
+
+julia> B[6, Float32](-0.5)
+0.16666667f0
+
+julia> B[6](-0.5, Derivative(1))
+-5.000000000000001
+```
 """
 @inline function Base.getindex(
         B::AbstractBSplineBasis, i::Integer, ::Type{T} = Float64) where {T}
