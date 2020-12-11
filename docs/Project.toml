@@ -1,3 +1,6 @@
 [deps]
 BSplineKit = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+
+[compat]
+Documenter = "0.26"
