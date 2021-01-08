@@ -14,7 +14,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-BandedMatrices = "0.15"
+BandedMatrices = "0.15, 0.16"
 FastGaussQuadrature = "0.4"
 LazyArrays = "0.18, 0.19"
 Reexport = "0.2, 1.0"
