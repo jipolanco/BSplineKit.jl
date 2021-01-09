@@ -16,7 +16,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 [compat]
 BandedMatrices = "0.15, 0.16"
 FastGaussQuadrature = "0.4"
-LazyArrays = "0.18, 0.19"
+LazyArrays = "0.18, 0.19, 0.20"
 Reexport = "0.2, 1.0"
 StaticArrays = "0.12, 1.0"
 julia = "1.4"
