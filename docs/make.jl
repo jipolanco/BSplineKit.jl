@@ -16,7 +16,7 @@ with_checks = !MAKE_FAST
     format=Documenter.HTML(
         prettyurls=true,
         # load assets in <head>
-        assets=["assets/matomo.js"],
+        assets=["assets/tomate.js"],
     ),
     modules=[BSplineKit],
     pages=[
