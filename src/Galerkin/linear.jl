@@ -137,11 +137,11 @@ function allocate_galerkin_matrix(
     bands = if symmetry
         (0, Nb)
     else
-        # If the bases have different lengths (⇔ δ ≠ 0), then the bands are
-        # shifted.
-        δ = num_constraints(B2) - num_constraints(B1)
-        @assert N1 == N2 + 2δ
-        (Nb + δ, Nb - δ)
+        # If the bases have different number of constraints (BCs) on the left
+        # boundary (⇔ δl ≠ 0), then the bands are shifted.
+        δl, δr = num_constraints(B2) .- num_constraints(B1)
+        @assert N1 == N2 + δl + δr
+        (Nb + δl, Nb - δl)
     end
     M(undef, (N1, N2), bands)
 end
@@ -204,11 +204,11 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
     end
 
     # Number of BCs on each boundary
-    δ = num_constraints(B2) - num_constraints(B1)
-    @assert M + 2δ == N
+    δl, δr = num_constraints(B2) .- num_constraints(B1)
+    @assert M + δl + δr == N
 
     for j = 1:M
-        i0 = j + δ
+        i0 = j + δl
         tj = support(B2, j)
         fj = x -> evaluate(B2, j, x, deriv[2])
         istart = fill_upper ? 1 : i0

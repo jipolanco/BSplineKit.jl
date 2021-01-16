@@ -19,13 +19,17 @@ function test_nzrows(A::RecombineMatrix)
 end
 
 function test_recombine_matrix(A::RecombineMatrix)
-    @testset "Recombination matrix: $(constraints(A))" begin
+    bcleft, bcright = constraints(A)
+    @assert bcleft === bcright  # only supported case for now
+    @testset "Recombination matrix: $(bcleft)" begin
         test_nzrows(A)
         N, M = size(A)
-        @test M == N - 2 * num_constraints(A)
-
-        n = num_recombined(A)
-        c = num_constraints(A)
+        nl, nr = num_recombined(A)
+        cl, cr = num_constraints(A)
+        @assert nl == nr && cl == cr  # only supported case for now
+        n = nl
+        c = cl
+        @test M == N - sum(num_constraints(A))
 
         # The sum of all rows is 2 in the recombined regions (because 2
         # recombined B-splines), and 1 in the centre.
@@ -72,12 +76,13 @@ function test_recombine_matrix(A::RecombineMatrix)
 end
 
 test_boundary_conditions(R::RecombinedBSplineBasis) =
-    test_boundary_conditions(constraints(R), R)
+    test_boundary_conditions(constraints(R)[1], R)
 
 function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
                                   R::RecombinedBSplineBasis)
-    @assert ops === constraints(R)
-    @test length(ops) == num_constraints(R)
+    # TODO this won't work if R has different BCs on the left and right boundaries
+    @assert (ops, ops) === constraints(R)
+    @test length(ops) == num_constraints(R)[1] == num_constraints(R)[2]
     @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)
@@ -109,7 +114,7 @@ function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
         # derivative at the border of the first B-spline of the original
         # basis.
         B = parent(R)
-        ε = 2 * num_recombined(R) * eps(B[1](a, Derivative(n)))
+        ε = 2 * num_recombined(R)[1] * eps(B[1](a, Derivative(n)))
         if Derivative(n) ∈ ops
             @test bsum ≤ ε
         else
@@ -122,8 +127,8 @@ end
 
 # More general BCs (Robin-like BCs and more combinations).
 function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
-    @assert ops === constraints(R)
-    @test length(ops) == num_constraints(R)
+    @assert (ops, ops) === constraints(R)
+    @test length(ops) == num_constraints(R)[1] == num_constraints(R)[2]
     @test length(R) == length(parent(R)) - 2 * length(ops)
 
     a, b = boundaries(R)
@@ -138,7 +143,7 @@ function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
             abs(fa) + abs(fb)
         end
         B = parent(R)
-        ε = 2 * num_recombined(R) * eps(B[1](a, op_a))
+        ε = 2 * num_recombined(R)[1] * eps(B[1](a, op_a))
         @test bsum ≤ ε
     end
 
@@ -150,7 +155,7 @@ function test_basis_recombination()
     knots_base = gauss_lobatto_points(40)
     k = 4
     B = BSplineBasis(k, knots_base)
-    @test constraints(B) === ()
+    @test constraints(B) === ((), ())
     @testset "Mixed derivatives" begin
         @inferred RecombineMatrix(Derivative.((0, 1)), B)
         @inferred RecombineMatrix(Derivative.((0, 2)), B)
@@ -169,15 +174,17 @@ function test_basis_recombination()
 
     @testset "Order $D" for D = 0:(k - 1)
         R = RecombinedBSplineBasis(Derivative(D), B)
-        @test constraints(R) === (Derivative(D), )
+        ops = (Derivative(D), )
+        @test constraints(R) === (ops, ops)
         test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)
 
         let
             N = length(R)
             a, b = boundaries(R)
+            cl, cr = constraints(R)
             @test string(R) ==
-                "$N-element RecombinedBSplineBasis: order $k, domain [$a, $b], BCs (D{$D},)"
+            "$N-element RecombinedBSplineBasis: order $k, domain [$a, $b], BCs {left => $cl, right => $cr}"
         end
 
         @testset "Robin-like BCs" begin
@@ -188,7 +195,7 @@ function test_basis_recombination()
                 @test_throws ArgumentError RecombinedBSplineBasis(op, B)
             else
                 let Rs = RecombinedBSplineBasis(op, B)
-                    @test constraints(Rs) === (op, )
+                    @test constraints(Rs) === ((op, ), (op, ))
                     test_recombine_matrix(recombination_matrix(Rs))
                     test_boundary_conditions(Rs)
                 end
@@ -196,7 +203,7 @@ function test_basis_recombination()
                     # Combine with Dirichlet BCs
                     ops = (Derivative(0), op)
                     Rs = RecombinedBSplineBasis(ops, B)
-                    @test constraints(Rs) === ops
+                    @test constraints(Rs) === (ops, ops)
                     test_recombine_matrix(recombination_matrix(Rs))
                     test_boundary_conditions(Rs)
                 end
@@ -207,7 +214,7 @@ function test_basis_recombination()
         @testset "Mixed BCs" begin
             ops = ntuple(d -> Derivative(d - 1), D + 1)
             Rs = RecombinedBSplineBasis(ops, B)
-            @test constraints(Rs) === ntuple(n -> Derivative(n - 1), D + 1)
+            @test constraints(Rs) === (ops, ops)
             test_recombine_matrix(recombination_matrix(Rs))
             test_boundary_conditions(Rs)
         end

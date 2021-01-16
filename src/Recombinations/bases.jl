@@ -175,7 +175,8 @@ end
 
 function Base.summary(io::IO, R::RecombinedBSplineBasis)
     summary_basis(io, R)
-    print(io, ", BCs ", constraints(R))
+    cl, cr = constraints(R)
+    print(io, ", BCs {left => ", cl, ", right => ", cr, "}")
     nothing
 end
 
@@ -215,7 +216,7 @@ recombination_matrix(B::AbstractBSplineBasis) = LinearAlgebra.I
 Returns the number of functions in the recombined basis.
 """
 @inline Base.length(R::RecombinedBSplineBasis) =
-    length(parent(R)) - 2 * num_constraints(R)
+    length(parent(R)) - sum(num_constraints(R))
 
 boundaries(R::RecombinedBSplineBasis) = boundaries(parent(R))
 
@@ -224,49 +225,52 @@ order(R::RecombinedBSplineBasis{k}) where {k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{k,T}}) where {k,T} = T
 
 """
-    constraints(R::AbstractBSplineBasis)
-    constraints(A::RecombineMatrix)
+    constraints(R::AbstractBSplineBasis) -> (left, right)
+    constraints(A::RecombineMatrix) -> (left, right)
 
 Return the constraints (homogeneous boundary conditions) that the basis
 satisfies on each boundary.
 
-Constraints are returned as a tuple of differential operators.
+Constraints are returned as a tuple `(left, right)` indicating the BCs that are
+satisfied on each boundary. Each element is a tuple of differential operators
+specifying the BCs.
 
-For non-recombined bases such as [`BSplineBasis`](@ref), this returns an empty
-tuple.
+For example, if both Dirichlet and Neumann BCs are satisfied on the left
+boundary, then `left = (Derivative(0), Derivative(1))`.
+
+For non-recombined bases such as [`BSplineBasis`](@ref), this returns a tuple of
+empty tuples: `((), ())`, since no BCs are satisfied on either boundary.
 """
-constraints(R::RecombinedBSplineBasis) = R.ops
-constraints(B::BSplineBasis) = ()
+constraints(R::AbstractBSplineBasis) = constraints(recombination_matrix(R))
 
 """
-    num_constraints(R::AbstractBSplineBasis) -> Int
-    num_constraints(A::RecombineMatrix) -> Int
+    num_constraints(R::AbstractBSplineBasis) -> (Int, Int)
+    num_constraints(A::RecombineMatrix) -> (Int, Int)
 
 Returns the number of constraints (number of BCs to satisfy) on each boundary.
 
 For instance, if `R` simultaneously satisfies Dirichlet and Neumann boundary
-conditions on each boundary, this returns 2.
+conditions on each boundary, this returns `(2, 2)`.
 
 Note that for non-recombined bases such as [`BSplineBasis`](@ref), the number of
-constraints is zero.
+constraints is zero, and this returns `(0, 0)`.
 """
-num_constraints(B) = length(constraints(B))
+num_constraints(B::AbstractBSplineBasis) = num_constraints(recombination_matrix(B))
 
 """
-    num_recombined(R::AbstractBSplineBasis) -> Int
-    num_recombined(A::RecombineMatrix) -> Int
+    num_recombined(R::AbstractBSplineBasis) -> (Int, Int)
+    num_recombined(A::RecombineMatrix) -> (Int, Int)
 
 Returns the number of recombined functions in the recombined basis for each
 boundary.
 
-For instance, if `R` satisfies Neumann boundary conditions, then only the first
-and last basis functions are different from the original B-spline basis, e.g.
-``ϕ_1 = b_1 + b_2``, and this returns 1.
+For instance, if `R` satisfies Neumann boundary conditions on both boundaries,
+then only the first and last basis functions are different from the original
+B-spline basis, e.g. ``ϕ_1 = b_1 + b_2``, and this returns `(1, 1)`.
 
 For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
 """
-num_recombined(R::RecombinedBSplineBasis) = num_recombined(recombination_matrix(R))
-num_recombined(B::AbstractBSplineBasis) = 0
+num_recombined(R::AbstractBSplineBasis) = num_recombined(recombination_matrix(R))
 
 @propagate_inbounds function support(R::RecombinedBSplineBasis,
                                      j::Integer) :: UnitRange
