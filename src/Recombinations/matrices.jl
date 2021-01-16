@@ -249,26 +249,32 @@ RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, args...) =
         "boundary condition combination is currently unsupported: $ops"))
 
 Base.size(A::RecombineMatrix) = (A.N, A.M)
-constraints(A::RecombineMatrix) = A.ops
-num_constraints(A::RecombineMatrix) = length(constraints(A))
-num_constraints(::UniformScaling) = 0  # case of non-recombined bases
 
-DifferentialOps.max_order(A::RecombineMatrix) = max_order(constraints(A)...)
+constraints(A::RecombineMatrix) = (A.ops, A.ops)
+constraints(::UniformScaling) = ((), ())
+
+num_constraints(A::RecombineMatrix) = map(length, constraints(A))
+num_constraints(::UniformScaling) = (0, 0)  # case of non-recombined bases
+
+# Returns (left, right) tuple with maximum BC order on each boundary.
+_max_order(A::RecombineMatrix) = map(ops -> max_order(ops...), constraints(A))
 
 # Returns number of basis functions that are recombined from the original basis
 # near each boundary.
 # For instance, Neumann BCs have a single recombined function, ϕ_1 = b_1 + b_2;
 # while mixed Dirichlet + Neumann have none, ϕ_1 = b_3.
-num_recombined(A::RecombineMatrix) = max_order(A) + 1 - num_constraints(A)
+num_recombined(A::RecombineMatrix) =
+    map((m, c) -> m + 1 - c, _max_order(A), num_constraints(A))
+num_recombined(::UniformScaling) = (0, 0)
 
 # j: index in recombined basis
 # M: length of recombined basis
 @inline function which_recombine_block(A::RecombineMatrix, j)
     @boundscheck checkbounds(A, :, j)
     M = A.M
-    n = num_recombined(A)
-    j <= n && return 1
-    j > M - n && return 3
+    nl, nr = num_recombined(A)  # left/right number of recombined bases
+    j <= nl && return 1
+    j > M - nr && return 3
     2
 end
 
@@ -280,7 +286,7 @@ Returns the range of row indices `i` such that `A[i, col]` is non-zero.
 @propagate_inbounds function nzrows(A::RecombineMatrix,
                                     j::Integer) :: UnitRange{Int}
     block = which_recombine_block(A, j)
-    j += num_constraints(A)
+    j += num_constraints(A)[1]
     if block == 1
         (j - 1):j
     elseif block == 2
@@ -301,9 +307,10 @@ end
     T = eltype(A)
     @inbounds block = which_recombine_block(A, j)
 
+    cl, cr = num_constraints(A)  # left/right constraints
+
     if block == 2
-        c = num_constraints(A)
-        return T(i == j + c)  # δ_{i, j+c}
+        return T(i == j + cl)  # δ_{i, j+c}
     end
 
     if block == 1
@@ -316,12 +323,12 @@ end
 
     # The lower-right corner starts at column h + 1.
     M = size(A, 2)
-    n = num_recombined(A)
-    h = M - n
+    nl, nr = num_recombined(A)
+    h = M - nr
 
     @assert j > h
     C = A.lr
-    ii = i - h - num_constraints(A)
+    ii = i - h - cr
     if ii ∈ axes(C, 1)
         return @inbounds C[ii, j - h] :: T
     end
@@ -336,18 +343,18 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = num_recombined(A)
-    c = num_constraints(A)
-    n1 = n + c
-    h = M - n
+    nl, nr = num_recombined(A)
+    cl, cr = num_constraints(A)
+    n1 = nl + cl
+    h = M - nr
 
-    @inbounds y[1:n1] = A.ul * @view x[1:n]
+    @inbounds y[1:n1] = A.ul * @view x[1:nl]
 
-    for i = (n + 1):h
-        @inbounds y[i + c] = x[i]
+    for i = (nl + 1):h
+        @inbounds y[i + cl] = x[i]
     end
 
-    @inbounds y[(N - n - c + 1):N] = A.lr * @view x[(h + 1):M]
+    @inbounds y[(N - nr - cr + 1):N] = A.lr * @view x[(h + 1):M]
 
     y
 end
@@ -361,18 +368,18 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = num_recombined(A)
-    c = num_constraints(A)
-    n1 = n + c
-    h = M - n
+    nl, nr = num_recombined(A)
+    cl, cr = num_constraints(A)
+    n1 = nl + cl
+    h = M - nr
 
-    @inbounds y[1:n1] = α * A.ul * view(x, 1:n) + β * SVector{n1}(view(y, 1:n1))
+    @inbounds y[1:n1] = α * A.ul * view(x, 1:nl) + β * SVector{n1}(view(y, 1:n1))
 
-    for i = (n + 1):h
-        @inbounds y[i + c] = α * x[i] + β * y[i + c]
+    for i = (nl + 1):h
+        @inbounds y[i + cl] = α * x[i] + β * y[i + cl]
     end
 
-    js = (N - n - c + 1):N
+    js = (N - nr - cr + 1):N
     @inbounds y[js] =
         α * A.lr * view(x, (h + 1):M) + β * SVector{n1}(view(y, js))
 
@@ -384,18 +391,18 @@ function LinearAlgebra.ldiv!(x::AbstractVector, A::RecombineMatrix,
     checkdims_mul(y, A, x)
     N, M = size(A)
 
-    n = num_recombined(A)
-    c = num_constraints(A)
-    n1 = n + c
-    h = M - n
+    nl, nr = num_recombined(A)
+    cl, cr = num_constraints(A)
+    n1 = nl + cl
+    h = M - nr
 
-    @inbounds x[1:n] = _ldiv_unique_solution(A.ul, view(y, 1:n1))
+    @inbounds x[1:nl] = _ldiv_unique_solution(A.ul, view(y, 1:n1))
 
-    for i = (n + 1):h
-        @inbounds x[i] = y[i + c]
+    for i = (nl + 1):h
+        @inbounds x[i] = y[i + cl]
     end
 
-    js = (N - n - c + 1):N
+    js = (N - nr - cr + 1):N
     @inbounds x[(h + 1):M] = _ldiv_unique_solution(A.lr, view(y, js))
 
     x

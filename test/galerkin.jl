@@ -139,16 +139,17 @@ function test_galerkin_recombined()
             M = galerkin_matrix((R, B))
             test_galerkin_tensor(R)
             @test M == galerkin_matrix((B, R))'
-            let δ = num_constraints(R)
+            let (δl, δr) = num_constraints(R)
                 n, m = size(M)
-                @test n + 2δ == m
-                r = num_recombined(R)
+                @test n + δl + δr == m
+                rl, rr = num_recombined(R)
+                @assert rl == rr  # only supported case for now
+                r = rl
                 # Verify that except from the borders, the matrix is the same as
                 # the "original" matrix constructed from the original B-spline
                 # basis.
                 M_base = galerkin_matrix(B)
-                p = δ + r
-                I = (p + 1):(m - p)
+                I = (δl + r + 1):(m - (δr + r))
                 @test view(M, (r + 1):(n - r), I) == view(M_base, I, I)
             end
         end
@@ -178,15 +179,16 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
     @inferred galerkin_tensor((B, B, R), derivs)
 
     N1, N2, N3 = size(A)
-    δ = num_constraints(R)
-    @test size(A_base) == (N1, N2, N3 + 2δ)
+    δl, δr = num_constraints(R)
+    @test size(A_base) == (N1, N2, N3 + δl + δr)
 
     # Verify that except from the borders, the tensor is the same as the
     # "original" tensor constructed from the original B-spline basis.
-    r = num_recombined(R)
-    p = δ + r
+    rl, rr = num_recombined(R)
+    @assert rl == rr  # only supported case for now
+    r = rl
     m, n = N2, N3
-    I = (p + 1):(m - p)
+    I = (δl + r + 1):(m - (δr + r))
     @test view(A, I, I, (r + 1):(n - r)) == view(A_base, I, I, I)
 
     # "BandedTensor3D must have bandshift = (0, 0, 0)"

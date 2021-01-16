@@ -27,8 +27,8 @@ function galerkin_tensor(
     if length(Bs[1]) != length(Bs[2])
         throw(ArgumentError("the first two bases must have the same lengths"))
     end
-    δ = num_constraints(Bs[3]) - num_constraints(Bs[1])
-    A = BandedTensor3D{T}(undef, dims, Val(b), bandshift=(0, 0, δ))
+    δl, δr = num_constraints(Bs[3]) .- num_constraints(Bs[1])
+    A = BandedTensor3D{T}(undef, dims, Val(b), bandshift=(0, 0, δl))
     galerkin_tensor!(A, Bs, deriv)
 end
 
@@ -72,18 +72,18 @@ function galerkin_tensor!(A::BandedTensor3D,
     quad = _quadrature_prod(3k - 3)
 
     Al = Matrix{T}(undef, 2k - 1, 2k - 1)
-    δ = num_constraints(Bl) - num_constraints(Bi)
-    @assert Ni == Nj == Nl + 2δ
+    δl, δr = num_constraints(Bl) .- num_constraints(Bi)
+    @assert Ni == Nj == Nl + δl + δr
 
     if bandwidth(A) != k - 1
         throw(ArgumentError("BandedTensor3D must have bandwidth = $(k - 1)"))
     end
-    if bandshift(A) != (0, 0, δ)
-        throw(ArgumentError("BandedTensor3D must have bandshift = (0, 0, $δ)"))
+    if bandshift(A) != (0, 0, δl)
+        throw(ArgumentError("BandedTensor3D must have bandshift = (0, 0, $δl)"))
     end
 
     for l = 1:Nl
-        ll = l + δ
+        ll = l + δl
         istart = clamp(ll - h, 1, Ni)
         iend = clamp(ll + h, 1, Nj)
         is = istart:iend
