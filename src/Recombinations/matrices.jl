@@ -263,7 +263,6 @@ _max_order(A::RecombineMatrix) = map(ops -> max_order(ops...), constraints(A))
 # near each boundary.
 # For instance, Neumann BCs have a single recombined function, ϕ_1 = b_1 + b_2;
 # while mixed Dirichlet + Neumann have none, ϕ_1 = b_3.
-# TODO store result of this in RecombineMatrix...
 num_recombined(A::RecombineMatrix) =
     map((m, c) -> m + 1 - c, _max_order(A), num_constraints(A))
 num_recombined(::UniformScaling) = (0, 0)
