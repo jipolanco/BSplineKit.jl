@@ -29,18 +29,6 @@ Base.IndexStyle(::Type{<:AugmentedKnots}) = IndexLinear()
     @inbounds x[j]
 end
 
-# NOTE: Modifying knots is dangerous, and may fail if the underlying breakpoints
-# are immutable (for instance if they're AbstractRange).
-# Also, we don't verify that knots stay sorted as they should.
-# If `i` is within one of the padded regions, we update all the elements in that
-# region to the new value.
-@inline function Base.setindex!(t::AugmentedKnots, v, i::Int)
-    @boundscheck checkbounds(t, i)
-    x = breakpoints(t)
-    j = clamp(i - padding(t), 1, length(x))
-    @inbounds x[j] = i
-end
-
 """
     augment_knots!(breaks::AbstractVector, k::Union{Integer,BSplineOrder})
 
