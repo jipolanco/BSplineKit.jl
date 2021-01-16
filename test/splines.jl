@@ -139,17 +139,19 @@ function test_splines(B::BSplineBasis, knots_in)
 end
 
 function test_splines(::BSplineOrder{k}) where {k}
-    knots_in = gauss_lobatto_points(10 + k)
-
-    @inferred BSplineBasis(BSplineOrder(k), knots_in)
-    @inferred BSplineBasis(BSplineOrder(k), knots_in, augment=Val(false))
-    @inferred BSplineBasis(BSplineOrder(k), knots_in, augment=Val(true))
-    @inferred (() -> BSplineBasis(k, knots_in))()
-
-    g = BSplineBasis(k, knots_in)
-    @test order(g) == k
-    test_splines(g, knots_in)
-
+    breaks = (
+        -1:0.05:1,
+        gauss_lobatto_points(10 + k),
+    )
+    for x in breaks
+        @inferred BSplineBasis(BSplineOrder(k), copy(x))
+        @inferred BSplineBasis(BSplineOrder(k), copy(x), augment=Val(false))
+        @inferred BSplineBasis(BSplineOrder(k), copy(x), augment=Val(true))
+        @inferred (() -> BSplineBasis(k, copy(x)))()
+        g = BSplineBasis(k, copy(x))
+        @test order(g) == k
+        test_splines(g, x)
+    end
     nothing
 end
 

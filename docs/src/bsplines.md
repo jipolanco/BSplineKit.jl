@@ -35,6 +35,6 @@ evaluate!
 ```@docs
 BSplineOrder
 AugmentedKnots
-augment_knots
+augment_knots!
 multiplicity
 ```

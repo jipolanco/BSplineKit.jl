@@ -11,8 +11,9 @@ The basis is defined by a set of knots and by the B-spline order.
 
 Create B-spline basis of order `k` with the given breakpoints.
 
-If `augment = Val(true)` (default), breakpoints will be "augmented" so that
-boundary knots have multiplicity `k`. See also [`augment_knots`](@ref).
+If `augment = Val(true)`, breakpoints will be "augmented" so that boundary knots
+have multiplicity `k`. Note that, if they are passed as a regular `Vector`, the
+input may be modified. See [`augment_knots!`](@ref) for details.
 
 # Examples
 
@@ -63,7 +64,7 @@ struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        t = Augment ? augment_knots(knots, k) : knots
+        t = Augment ? augment_knots!(knots, k) : knots
         N = length(t) - k
         Knots = typeof(t)
         new{k, T, Knots}(N, t)

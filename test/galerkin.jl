@@ -2,8 +2,8 @@ function test_galerkin()
     # Compare Galerkin mass matrix against analytical integrals for k = 2
     # (easy!).
     # Test with non-uniform grid (Chebyshev points).
-    knots_base = gauss_lobatto_points(42)
-    B = BSplineBasis(2, knots_base)
+    x = gauss_lobatto_points(42)
+    B = BSplineBasis(2, copy(x))
     t = knots(B)
     G = galerkin_matrix(B)
 
@@ -12,7 +12,7 @@ function test_galerkin()
         @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
     end
 
-    let B3 = BSplineBasis(3, knots_base)
+    let B3 = BSplineBasis(3, copy(x))
         # "all bases must share the same parent B-spline basis"
         @test_throws ArgumentError galerkin_matrix((B, B3))
     end
@@ -201,7 +201,7 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
     end
 
     let k = order(B)
-        Bp = BSplineBasis(k - 1, knots(B))
+        Bp = BSplineBasis(k - 1, knots(B); augment=Val(false))
         # "wrong dimensions of Galerkin tensor"
         @test_throws ArgumentError galerkin_tensor!(A_base, (Bp, Bp, Bp), derivs)
     end

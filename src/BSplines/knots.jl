@@ -42,18 +42,40 @@ end
 end
 
 """
-    augment_knots(knots::AbstractVector, k::Union{Integer,BSplineOrder})
+    augment_knots!(breaks::AbstractVector, k::Union{Integer,BSplineOrder})
 
-Modifies the input knots to make sure that the first and last knot have
+Modifies the input breakpoints to make sure that the first and last knot have
 multiplicity `k` for splines of order `k`.
 
-It is assumed that border knots have multiplicity 1 at the borders.
+To prevent allocations, this function will modify the input when this is a
+standard `Vector`. Otherwise, the input will be wrapped inside an
+[`AugmentedKnots`](@ref) object.
+
+It is assumed that the input breakpoints have multiplicity 1 at the borders.
 That is, border coordinates should *not* be repeated in the input.
 """
-augment_knots(knots::AbstractVector, ::BSplineOrder{k}) where {k} =
-    AugmentedKnots{k}(knots)
+augment_knots!(breaks::AbstractVector, ::BSplineOrder{k}) where {k} =
+    AugmentedKnots{k}(breaks)
 
-@inline augment_knots(knots, k::Integer) = augment_knots(knots, BSplineOrder(k))
+@inline augment_knots!(breaks, k::Integer) = augment_knots!(breaks, BSplineOrder(k))
+
+function augment_knots!(t::Vector, ::BSplineOrder{k}) where {k}
+    Base.require_one_based_indexing(t)
+    Nt = length(t) + 2 * (k - 1)  # number of knots
+    ta, tb = first(t), last(t)
+    resize!(t, Nt)
+    δ = k - 1
+    for i = Nt:-1:(Nt - δ)
+        @inbounds t[i] = tb
+    end
+    for i = (Nt - k):-1:(k + 1)
+        @inbounds t[i] = t[i - δ]  # shift values of original vector
+    end
+    for i = k:-1:1
+        @inbounds t[i] = ta
+    end
+    t
+end
 
 """
     multiplicity(knots, i)
