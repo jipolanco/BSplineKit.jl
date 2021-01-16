@@ -75,12 +75,15 @@ function test_recombine_matrix(A::RecombineMatrix)
     nothing
 end
 
-test_boundary_conditions(R::RecombinedBSplineBasis) =
-    test_boundary_conditions(constraints(R)[1], R)
+function test_boundary_conditions(R::RecombinedBSplineBasis)
+    bl, br = constraints(R)
+    @assert bl === br "different BCs on each boundary not yet supported"
+    test_boundary_conditions(bl, R)
+end
 
 function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
                                   R::RecombinedBSplineBasis)
-    # TODO this won't work if R has different BCs on the left and right boundaries
+    # TODO adapt this for different BCs on the left and right boundaries
     @assert (ops, ops) === constraints(R)
     @test length(ops) == num_constraints(R)[1] == num_constraints(R)[2]
     @test length(R) == length(parent(R)) - 2 * length(ops)
