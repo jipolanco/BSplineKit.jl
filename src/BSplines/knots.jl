@@ -1,21 +1,81 @@
 """
-    augment_knots(knots::AbstractVector, k::Union{Integer,BSplineOrder})
+    AugmentedKnots{T,k} <: AbstractVector{T}
 
-Modifies the input knots to make sure that the first and last knot have
-multiplicity `k` for splines of order `k`.
-
-It is assumed that border knots have multiplicity 1 at the borders.
-That is, border coordinates should *not* be repeated in the input.
+Pads from both sides a vector of B-spline breakpoints, making sure that the
+first and last values are repeated `k` times.
 """
-function augment_knots(knots::AbstractVector{T}, ::BSplineOrder{k}) where {T,k}
-    # The idea is to "sandwich" the input knots with static vectors, returning
-    # a lazy array.
-    t_left = @SVector fill(first(knots), k - 1)
-    t_right = @SVector fill(last(knots), k - 1)
-    Vcat(t_left, knots, t_right)
+struct AugmentedKnots{T, k, Breakpoints <: AbstractVector{T}} <: AbstractVector{T}
+    Nt :: Int  # total number of knots
+    x  :: Breakpoints
+    function AugmentedKnots{k}(x::AbstractVector) where {k}
+        Base.require_one_based_indexing(x)
+        T = eltype(x)
+        Nt = 2 * (k - 1) + length(x)
+        new{T, k, typeof(x)}(Nt, x)
+    end
 end
 
-@inline augment_knots(knots, k::Integer) = augment_knots(knots, BSplineOrder(k))
+# This is the number of knots added on each side.
+padding(t::AugmentedKnots{T,k}) where {T,k} = k - 1
+breakpoints(t::AugmentedKnots) = t.x
+
+Base.size(t::AugmentedKnots) = (t.Nt, )
+Base.IndexStyle(::Type{<:AugmentedKnots}) = IndexLinear()
+
+@inline function Base.getindex(t::AugmentedKnots, i::Int)
+    @boundscheck checkbounds(t, i)
+    x = breakpoints(t)
+    j = clamp(i - padding(t), 1, length(x))
+    @inbounds x[j]
+end
+
+# NOTE: Modifying knots is dangerous, and may fail if the underlying breakpoints
+# are immutable (for instance if they're AbstractRange).
+# Also, we don't verify that knots stay sorted as they should.
+# If `i` is within one of the padded regions, we update all the elements in that
+# region to the new value.
+@inline function Base.setindex!(t::AugmentedKnots, v, i::Int)
+    @boundscheck checkbounds(t, i)
+    x = breakpoints(t)
+    j = clamp(i - padding(t), 1, length(x))
+    @inbounds x[j] = i
+end
+
+"""
+    augment_knots!(breaks::AbstractVector, k::Union{Integer,BSplineOrder})
+
+Modifies the input breakpoints to make sure that the first and last knot have
+multiplicity `k` for splines of order `k`.
+
+To prevent allocations, this function will modify the input when this is a
+standard `Vector`. Otherwise, the input will be wrapped inside an
+[`AugmentedKnots`](@ref) object.
+
+It is assumed that the input breakpoints have multiplicity 1 at the borders.
+That is, border coordinates should *not* be repeated in the input.
+"""
+augment_knots!(breaks::AbstractVector, ::BSplineOrder{k}) where {k} =
+    AugmentedKnots{k}(breaks)
+
+@inline augment_knots!(breaks, k::Integer) = augment_knots!(breaks, BSplineOrder(k))
+
+function augment_knots!(t::Vector, ::BSplineOrder{k}) where {k}
+    Base.require_one_based_indexing(t)
+    Nt = length(t) + 2 * (k - 1)  # number of knots
+    ta, tb = first(t), last(t)
+    resize!(t, Nt)
+    δ = k - 1
+    for i = Nt:-1:(Nt - δ)
+        @inbounds t[i] = tb
+    end
+    for i = (Nt - k):-1:(k + 1)
+        @inbounds t[i] = t[i - δ]  # shift values of original vector
+    end
+    for i = k:-1:1
+        @inbounds t[i] = ta
+    end
+    t
+end
 
 """
     multiplicity(knots, i)
