@@ -34,7 +34,7 @@ The data is stored as a `Vector` of small matrices, each with size
 Each submatrix holds the non-zero values of a slice of the form `A[:, :, k]`.
 
 For ``b = 2``, one of these matrices looks like the following, where dots indicate
-out-of-bands values (equal to zero):
+out-of-bands elements (equal to zero):
 
     | x  x  x  ⋅  ⋅ |
     | x  x  x  x  ⋅ |
@@ -83,6 +83,9 @@ initialised as in the following example:
 
     A[:, :, k] = rand(2b + 1, 2b + 1)
 
+Note that, while the input is a full square matrix, out-of-bands elements are
+ignored and are equal to zero in `A[:, :, k]`.
+
 The optional `bandshift` argument should be a tuple of the form `(δi, δj, δk)`
 describing a band shift.
 Right now, band shifts are limited to `δi = δj = 0`, so this argument should
@@ -124,6 +127,21 @@ end
 
 BandedTensor3D{T}(init, dims, ::Val{b}; kwargs...) where {T,b} =
     BandedTensor3D{T,b}(init, dims; kwargs...)
+
+function drop_out_of_bands(Ak::SMatrix)
+    r, r′ = size(Ak)
+    @assert r == r′
+    b = (r - 1) >> 1
+    @assert 2b + 1 == r
+    N = length(Ak)
+    T = eltype(Ak)
+    Is = CartesianIndices(Ak)
+    data = ntuple(Val(N)) do n
+        i, j = Tuple(Is[n])
+        abs(i - j) ≤ b ? Ak[n] : zero(T)
+    end
+    SMatrix{r,r′}(data)
+end
 
 for func in (:rand, :randn, :randexp)
     func! = Symbol(func, :!)
@@ -250,12 +268,15 @@ Set submatrix `A[:, :, k]` to the matrix `Ak`.
 
 The `Ak` matrix must have dimensions `(r, r)`, where `r = 2b + 1` is the total
 number of bands of `A`.
+
+Out-of-bands elements of the input matrix are set to zero.
 """
 function Base.setindex!(A::BandedTensor3D, Ak::AbstractMatrix,
                         ::Colon, ::Colon, k)
     @boundscheck checkbounds(A, :, :, k)
     @boundscheck size(Ak) === (size(A, 1), size(A, 2))
-    @inbounds A.data[k] = Ak
+    M = submatrix_type(A)
+    @inbounds A.data[k] = drop_out_of_bands(M(Ak))
 end
 
 # Get submatrix A[:, :, k].
@@ -282,7 +303,7 @@ end
     Asub[i, j]
 end
 
-function Base.fill!(A::BandedTensor3D, x)
+function Base.fill!(A::BandedTensor3D, x::Number)
     M = submatrix_type(A)
     T = eltype(M)
     L = length(M)
@@ -301,7 +322,6 @@ Efficient implementation of the generalised dot product `dot(x, Asub * y)`.
 To be used with a submatrix `Asub = A[:, :, k]` of a [`BandedTensor3D`](@ref) `A`.
 """
 function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
-    # TODO inbounds / checkbounds
     @boundscheck @assert axes(u) === axes(v)
     Base.require_one_based_indexing(u, v)
 
@@ -331,7 +351,7 @@ function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
     end
     @inbounds Asub = @view A[mat_inds, mat_inds]
 
-    dot(usub, Asub, vsub)  # requires Julia 1.4!!
+    dot(usub, Asub, vsub)
 end
 
 end
