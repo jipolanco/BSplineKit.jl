@@ -129,18 +129,37 @@ BandedTensor3D{T}(init, dims, ::Val{b}; kwargs...) where {T,b} =
     BandedTensor3D{T,b}(init, dims; kwargs...)
 
 function drop_out_of_bands(Ak::SMatrix)
-    r, r′ = size(Ak)
-    @assert r == r′
-    b = (r - 1) >> 1
-    @assert 2b + 1 == r
-    N = length(Ak)
-    T = eltype(Ak)
-    Is = CartesianIndices(Ak)
-    data = ntuple(Val(N)) do n
-        i, j = Tuple(Is[n])
-        abs(i - j) ≤ b ? Ak[n] : zero(T)
+    pat = band_pattern(Ak)
+    broadcast(pat, Ak) do p, a
+        p ? a : zero(a)
     end
-    SMatrix{r,r′}(data)
+end
+
+function band_pattern(A::SMatrix)
+    if @generated
+        r, r′ = size(A)
+        b = (r - 1) >> 1
+        N = length(A)
+        @assert r == r′ && 2b + 1 == r
+        Is = CartesianIndices(axes(A))
+        data = ntuple(Val(N)) do n
+            i, j = Tuple(Is[n])
+            abs(i - j) ≤ b
+        end
+        pat = SMatrix{r,r′}(data)
+        :( $pat )
+    else
+        r, r′ = size(A)
+        b = (r - 1) >> 1
+        N = length(A)
+        @assert r == r′ && 2b + 1 == r
+        Is = CartesianIndices(axes(A))
+        data = ntuple(Val(N)) do n
+            i, j = Tuple(Is[n])
+            abs(i - j) ≤ b
+        end
+        SMatrix{r,r′}(data)
+    end
 end
 
 for func in (:rand, :randn, :randexp)
