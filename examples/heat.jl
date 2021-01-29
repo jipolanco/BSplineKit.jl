@@ -1,44 +1,46 @@
 # # Heat equation
 #
-# In this first example, we numerically solve the [heat
+# In this first example, we numerically solve the 1D [heat
 # equation](https://en.wikipedia.org/wiki/Heat_equation)
 #
 # ```math
-# \frac{∂u}{∂t} = ν \frac{∂^2 u}{∂x^2},
+# \frac{∂θ}{∂t} = ν \frac{∂^2 θ}{∂x^2},
 # ```
 #
 # in a bounded domain ``x ∈ [-1, 1]`` with homogeneous Neumann boundary
-# conditions, ``∂_x u(±1, t) = 0``.
+# conditions, ``∂_x θ(±1, t) = 0``.
 
 # ## Initial condition
 
 # We impose the initial condition
 #
 # ```math
-# u(x, 0) = u_0(x) = 1 + \cos(π x).
+# θ(x, 0) = θ_0(x) = 1 + \cos(π x).
 # ```
 
-using Plots
-using LaTeXStrings
-plot(x -> 1 + cos(π * x), -1, 1, label=L"u_0(x)", xlabel=L"x", ylabel=L"u")
+using Plots, LaTeXStrings
+gr()  # hide
+
+θ₀(x) = 1 + cos(π * x)
+plot(θ₀, -1, 1; label=L"θ_0(x)", xlabel=L"x", ylabel="\\theta")
 
 # ## Defining a B-spline basis
 
 # The general idea is to approximate the unknown solution by a spline of order
-# $k$.
+# ``k``.
 # For this, we first need to define a B-spline basis.
-# A B-spline basis is uniquely defined by its order $k$ and by a choice of
+# A B-spline basis is uniquely defined by its order ``k`` and by a choice of
 # *knot* locations within the spatial domain, which form the spatial grid.
 
 # For this example, we take a uniform repartition of knots in ``[-1, 1]``.
 knots_in = range(-1, 1, length=11)
 
-# We then create a B-spline basis of order $k = 4$ using these knots.
+# We then create a B-spline basis of order ``k = 4`` using these knots.
 using BSplineKit
-B = BSplineBasis(4, knots_in)
+B = BSplineBasis(BSplineOrder(4), knots_in)
 
 # Note that the generated basis includes an *augmented* set of knots, in which
-# each boundary is repeated $k$ times.
+# each boundary is repeated ``k`` times.
 # In other words, the boundary knots have multiplicity $k$, while interior
 # knots have multiplicity 1.
 # This is common practice in bounded domains, and translates the fact that the
@@ -55,14 +57,13 @@ function plot_basis(B; eval_args=(), kw...)
     let t = knots(B)
         plot!(t, zeros(length(t)), marker=:x, color=:red)
     end
-    for i = 1:length(B)
-        bi = BSpline(B, i)
+    for bi in B
         plot!(plt, x -> bi(x, eval_args...), -1, 1, linewidth=1.5)
     end
     plt
 end
 
-plot_basis(B, ylabel=L"b_i(x)")
+plot_basis(B; ylabel=L"b_i(x)")
 
 # ## Defining a recombined B-spline basis
 
@@ -80,20 +81,20 @@ plot_basis(B, ylabel=L"b_i(x)")
 # In this example we generate a basis satisfying homogeneous Neumann BCs:
 
 R = RecombinedBSplineBasis(Derivative(1), B)
-plot_basis(R, ylabel=L"\phi_i(x)")
+plot_basis(R; ylabel=L"\phi_i(x)")
 
 # We notice that, on each of the two boundaries, the two initial (or final)
 # B-splines of the original basis have been combined to produce a single basis
 # function that has zero derivative at each respective boundary.
 # To verify this, we can plot the basis function derivatives:
 
-plot_basis(R, ylabel=L"\phi_i^{\prime}(x)", eval_args=(Derivative(1), ))
+plot_basis(R; ylabel=L"\phi_i^{\prime}(x)", eval_args=(Derivative(1), ))
 
 # Note that the new basis has two less functions than the original one,
 # reflecting a loss of two degrees of freedom corresponding to the new
 # constraints on each boundary:
 
-@assert length(R) == length(B) - 2
+length(B), length(R)
 
 # ## Recombination matrix
 
@@ -142,14 +143,14 @@ T = recombination_matrix(R)
 # That is, we write the solution as
 #
 # ```math
-# u(x, t) = \sum_{j = 1}^M u_j(t) \, ϕ_j(x).
+# θ(x, t) = \sum_{j = 1}^M θ_j(t) \, ϕ_j(x).
 # ```
 #
 # Plugging this representation into the heat equation, we find
 #
 # ```math
 # \newcommand{\dd}{\mathrm{d}}
-# ∑_j \frac{\dd u_j}{\dd t} \, ϕ_j(x) = ∑_j u_j \, ϕ_j''(x),
+# ∑_j \frac{\dd θ_j}{\dd t} \, ϕ_j(x) = ∑_j θ_j \, ϕ_j''(x),
 # ```
 #
 # where primes denote spatial derivatives.
