@@ -12,6 +12,8 @@ using ..Recombinations:
     num_constraints,
     RecombinedBSplineBasis  # for Documenter
 
+import LinearAlgebra: Factorization, ldiv!
+
 using BandedMatrices
 using SparseArrays
 
@@ -115,22 +117,30 @@ function collocation_points!(::S, x, B) where {S <: SelectionMethod}
     x
 end
 
-# TODO should this be a square matrix?
+# TODO
+# - continue...
+# - should this be restricted to square matrices?
 """
     CollocationMatrix{T}
 
 B-spline collocation matrix, defined by
 
 ```math
-C_{ij} = b_j(x_i)
+C_{ij} = b_j(x_i),
 ```
 
 where ``\\bm{x}`` are a set of collocation points.
 
-Wraps a [`BandedMatrix`](@ref)
+Wraps a `BandedMatrix`
 """
 struct CollocationMatrix{T} <: AbstractMatrix{T}
 end
+
+struct CollocationMatrixLU{T, M <: BandedMatrix{T}} <: Factorization{T}
+    data :: M
+end
+
+Base.size(F::CollocationMatrixLU) = size(F.data)
 
 """
     collocation_matrix(
@@ -299,20 +309,24 @@ max_bandwidths(A::AbstractMatrix) = size(A) .- 1
 # appearing in spline calculations (de Boor 1978).
 # The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
 # FORTRAN90 version by John Burkardt.
+# Note that this only works for square matrices!!
 function lu_no_pivot!(A::BandedMatrix)
     w = BandedMatrices.bandeddata(A)
     nbandl, nbandu = bandwidths(A)
     nrow = size(A, 1)
     nroww = size(w, 1)
-    # @assert nrow == size(A, 2) == size(w, 2)
+    if size(A, 1) != size(A, 2)
+        throw(ArgumentError("matrix A must be square"))
+    end
+    @assert nrow == size(w, 2)
     @assert nroww == nbandl + nbandu + 1
     isempty(A) && error("matrix is empty")
     middle = nbandu + 1  # w[middle, :] contains the main diagonal of A
+    Afact = CollocationMatrixLU(A)
 
     # TODO
     # - add @inbounds
     # - test all 3 possible cases
-    # - non-square matrices?
 
     if nrow == 1 && iszero(w[middle, nrow])
         error("singular matrix")
@@ -323,7 +337,7 @@ function lu_no_pivot!(A::BandedMatrix)
         for i = 1:nrow
             iszero(w[middle, i]) && error("upper triangular matrix has zero diagonal")
         end
-        return A
+        return Afact
     end
 
     if nbandu == 0
@@ -337,7 +351,7 @@ function lu_no_pivot!(A::BandedMatrix)
                 w[middle + j, i] *= ipiv
             end
         end
-        return A
+        return Afact
     end
 
     # A is not just a triangular matrix.
@@ -364,30 +378,35 @@ function lu_no_pivot!(A::BandedMatrix)
     # Check the last diagonal entry.
     iszero(w[middle, nrow]) && error("matrix is singular")
 
-    A
+    Afact
 end
 
 # Solution of banded linear system A * x = y factorised by lu_no_pivot!.
-# Takes advantage of the totally positive property of collocation matrices
-# appearing in spline calculations (de Boor 1978).
-# The code is ported from Carl de Boor's BANSLV routine in FORTRAN77, via its
+# The code is adapted from Carl de Boor's BANSLV routine in FORTRAN77, via its
 # FORTRAN90 version by John Burkardt.
-function ldiv_no_pivot!(A::BandedMatrix, b::AbstractVector)
+# Note that `x` and `y` may be the same vector.
+function ldiv!(x::AbstractVector, F::CollocationMatrixLU, y::AbstractVector = x)
+    A = F.data
     w = BandedMatrices.bandeddata(A)
-    nroww = size(w, 1)
     nrow = size(A, 1)
     nbandl, nbandu = bandwidths(A)
-
     middle = nbandu + 1
+    @assert size(A, 1) == size(A, 2)
+
+    if !(length(x) == length(y) == nrow)
+        throw(DimensionMismatch("vectors `x` and `y` must have length $nrow"))
+    end
+
+    if x !== y
+        copy!(x, y)
+    end
 
     # TODO
-    # - @inbounds
     # - test two possible cases
-    # - non-square matrices?
 
-    if nrow == 1
-        b /= w[middle, 1]
-        return b
+    @inbounds if nrow == 1
+        x[1] /= w[middle, 1]
+        return x
     end
 
     # Forward pass:
@@ -398,7 +417,7 @@ function ldiv_no_pivot!(A::BandedMatrix, b::AbstractVector)
         for i = 1:(nrow - 1)
             jmax = min(nbandl, nrow - i)
             for j = 1:jmax
-                b[i + j] -= b[i] * w[middle + j, i]
+                x[i + j] -= x[i] * w[middle + j, i]
             end
         end
     end
@@ -409,15 +428,15 @@ function ldiv_no_pivot!(A::BandedMatrix, b::AbstractVector)
     # U, then subtract RHS[i]*(i-th column of U) from right hand side, above the
     # i-th row.
     for i = nrow:-1:2
-        b[i] /= w[middle, i]
+        x[i] /= w[middle, i]
         for j = 1:min(nbandu, i - 1)
-            b[i - j] -= b[i] * w[middle - j, i]
+            x[i - j] -= x[i] * w[middle - j, i]
         end
     end
 
-    b[1] /= w[middle, 1]
+    x[1] /= w[middle, 1]
 
-    b
+    x
 end
 
 end
