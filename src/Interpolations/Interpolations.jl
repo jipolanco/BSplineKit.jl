@@ -134,7 +134,7 @@ function make_knots(x::AbstractVector{Tx}, k) where {Tx <: Real}
     # Use initial guess for optimal set of knot locations (de Boor 2001, p. 193).
     # One could get the actual optimal using Newton iterations...
     kinv = one(T) / (k - 1)
-    for i = 1:(N - k)
+    @inbounds for i = 1:(N - k)
         ti = zero(T)
         for j = 1:(k - 1)
             ti += x[i + j]
