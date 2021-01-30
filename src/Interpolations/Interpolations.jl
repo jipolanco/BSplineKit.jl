@@ -42,26 +42,16 @@ struct Interpolation{
 
     # Construct Interpolation from basis and collocation points.
     function Interpolation(B, x::AbstractVector, ::Type{T}) where {T}
-        # We want to construct the collocation matrix and its factorisation.
-        # TODO
-        # Ideally, we'd like to perform the LU factorisation without pivoting:
-        #
-        # - From de Boor 2001, p. 175 ("The subroutine SPLINT"): pivoting is not
-        #   needed for the collocation matrix because of its local positivity.
-        #
-        # Unfortunately, LU factorisation without pivoting is not currently
-        # supported by BandedMatrices (or by LAPACK), so we perform pivoting.
-        # Because of this, we need to allocate `l` additional bands for storing
-        # the output of the factorisation.
+        # Here we construct the collocation matrix and its LU factorisation.
         l, u = Collocation.collocation_bandwidths(order(B))
         N = length(B)
         if length(x) != N
             throw(DimensionMismatch(
                 "incompatible lengths of B-spline basis and collocation points"))
         end
-        C = BandedMatrix{T}(undef, (N, N), (l, l + u))
+        C = BandedMatrix{T}(undef, (N, N), (l, u))
         collocation_matrix!(C, B, x)
-        Interpolation(B, lu!(C))
+        Interpolation(B, Collocation.lu_no_pivot!(C))
     end
 end
 

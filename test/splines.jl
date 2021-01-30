@@ -14,10 +14,10 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     Pint = (0, ntuple(d -> P[d] / d, Val(k))...)  # antiderivative
 
     # Interpolate polynomial at `x` locations.
-    itp = let y = eval_poly(x, P)
-        @inferred interpolate(x, y, BSplineOrder(k))
-        interpolate(x, y, k)
-    end
+    y = eval_poly(x, P)
+    @inferred interpolate(x, y, BSplineOrder(k))
+    itp = interpolate(x, y, k)
+    @test itp.(x) ≈ y
 
     S = spline(itp)
     @test length(S) == length(x)
