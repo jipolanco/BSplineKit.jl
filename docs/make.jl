@@ -2,7 +2,6 @@ using BSplineKit
 
 using Documenter
 using Literate
-using Plots
 
 const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
 
@@ -23,7 +22,6 @@ for example in ("heat.jl", )
     filename = joinpath(example_dir, example)
     Literate.markdown(filename, output_dir, documenter=true)
 end
-
 @time makedocs(
     sitename="BSplineKit.jl",
     format=Documenter.HTML(

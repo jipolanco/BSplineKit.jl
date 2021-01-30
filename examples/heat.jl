@@ -19,10 +19,10 @@
 # ```
 
 using Plots, LaTeXStrings
-gr()  # hide
+pyplot(html_output_format = :svg)  # hide
 
 θ₀(x) = 1 + cos(π * x)
-plot(θ₀, -1, 1; label=L"θ_0(x)", xlabel=L"x", ylabel="\\theta")
+plot(θ₀, -1, 1; label=L"θ_0(x)", xlabel=L"x", ylabel=L"θ")
 
 # ## Defining a B-spline basis
 
@@ -41,7 +41,7 @@ B = BSplineBasis(BSplineOrder(4), knots_in)
 
 # Note that the generated basis includes an *augmented* set of knots, in which
 # each boundary is repeated ``k`` times.
-# In other words, the boundary knots have multiplicity $k$, while interior
+# In other words, the boundary knots have multiplicity ``k``, while interior
 # knots have multiplicity 1.
 # This is common practice in bounded domains, and translates the fact that the
 # solution does not need to be continuous at the boundaries.
@@ -52,20 +52,19 @@ B = BSplineBasis(BSplineOrder(4), knots_in)
 
 # We can now plot the knot locations and the generated B-spline basis:
 
-function plot_basis(B; eval_args=(), kw...)
-    plt = plot(; legend=false, xlabel=L"x", kw...)
-    let t = knots(B)
-        plot!(t, zeros(length(t)), marker=:x, color=:red)
-    end
+function plot_basis(B; eval_args = (), kw...)
+    plt = plot(; legend = false, xlabel = L"x", kw...)
+    ts = knots(B)
+    plot!(ts, zero(ts); marker = :x, color = :red)
     for bi in B
-        plot!(plt, x -> bi(x, eval_args...), -1, 1, linewidth=1.5)
+        plot!(plt, x -> bi(x, eval_args...), -1, 1; linewidth = 1.5)
     end
     plt
 end
 
-plot_basis(B; ylabel=L"b_i(x)")
+plot_basis(B; ylabel = L"b_i(x)")
 
-# ## Defining a recombined B-spline basis
+# ## Imposing boundary conditions
 
 # In BSplineKit, the recommended approach for solving boundary value problems is
 # to use the basis recombination method.
@@ -81,14 +80,14 @@ plot_basis(B; ylabel=L"b_i(x)")
 # In this example we generate a basis satisfying homogeneous Neumann BCs:
 
 R = RecombinedBSplineBasis(Derivative(1), B)
-plot_basis(R; ylabel=L"\phi_i(x)")
+plot_basis(R; ylabel = L"\phi_i(x)")
 
 # We notice that, on each of the two boundaries, the two initial (or final)
 # B-splines of the original basis have been combined to produce a single basis
 # function that has zero derivative at each respective boundary.
 # To verify this, we can plot the basis function derivatives:
 
-plot_basis(R; ylabel=L"\phi_i^{\prime}(x)", eval_args=(Derivative(1), ))
+plot_basis(R; ylabel = L"\phi_i^{\prime}(x)", eval_args = (Derivative(1), ))
 
 # Note that the new basis has two less functions than the original one,
 # reflecting a loss of two degrees of freedom corresponding to the new
@@ -134,13 +133,13 @@ T = recombination_matrix(R)
 # converting between coefficients from the two bases.
 # Given a function that has a known representation in the recombined basis,
 # ``f(x) = ∑_j u_j \, ϕ_j(x)``, its coefficients ``v_i`` in the original basis
-# can be obtained by matrix-vector multiplication as `v = T * u`.
+# can be obtained via the matrix-vector multiplication ``\bm{v} = \mathbf{T} \bm{u}``.
 
 # ## Expanding the solution
 #
 # To solve the governing equation, the strategy is to project the unknown
 # solution onto the chosen recombined basis.
-# That is, we write the solution as
+# That is, we approximate the solution as
 #
 # ```math
 # θ(x, t) = \sum_{j = 1}^M θ_j(t) \, ϕ_j(x).
