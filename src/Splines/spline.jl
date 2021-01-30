@@ -40,6 +40,10 @@ struct Spline{
     end
 end
 
+Broadcast.broadcastable(S::Spline) = Ref(S)
+
+Base.copy(S::Spline) = Spline(basis(S), copy(coefficients(S)))
+
 function Base.show(io::IO, S::Spline)
     println(io, length(S), "-element ", typeof(S), ':')
     println(io, " order: ", order(S))

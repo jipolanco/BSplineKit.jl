@@ -122,6 +122,10 @@ function test_splines(B::BSplineBasis, knots_in)
         @test diff(S, Derivative(0)) === S
         @test_nowarn show(devnull, S)
 
+        # Broadcasting
+        f(S, x) = S(x)
+        @test f.(S, xcol) == S.(xcol)
+
         # Create new spline, then compare it to S.
         let P = Spline(undef, B)
             cp = coefficients(P)
@@ -132,6 +136,8 @@ function test_splines(B::BSplineBasis, knots_in)
             copy!(cp, coefs)  # copy coefficients of S
             @test P == S
             @test P ≈ S
+
+            @test copy(S) == P
         end
     end
 
