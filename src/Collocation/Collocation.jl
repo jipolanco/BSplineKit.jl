@@ -115,6 +115,23 @@ function collocation_points!(::S, x, B) where {S <: SelectionMethod}
     x
 end
 
+# TODO should this be a square matrix?
+"""
+    CollocationMatrix{T}
+
+B-spline collocation matrix, defined by
+
+```math
+C_{ij} = b_j(x_i)
+```
+
+where ``\\bm{x}`` are a set of collocation points.
+
+Wraps a [`BandedMatrix`](@ref)
+"""
+struct CollocationMatrix{T} <: AbstractMatrix{T}
+end
+
 """
     collocation_matrix(
         B::AbstractBSplineBasis,
@@ -277,4 +294,130 @@ end
 max_bandwidths(A::BandedMatrix) = bandwidths(A)
 max_bandwidths(A::AbstractMatrix) = size(A) .- 1
 
-end  # module
+# LU factorisation without pivoting of banded matrix.
+# Takes advantage of the totally positive property of collocation matrices
+# appearing in spline calculations (de Boor 1978).
+# The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
+# FORTRAN90 version by John Burkardt.
+function lu_no_pivot!(A::BandedMatrix)
+    w = BandedMatrices.bandeddata(A)
+    nbandl, nbandu = bandwidths(A)
+    nrow = size(A, 1)
+    nroww = size(w, 1)
+    # @assert nrow == size(A, 2) == size(w, 2)
+    @assert nroww == nbandl + nbandu + 1
+    isempty(A) && error("matrix is empty")
+    middle = nbandu + 1  # w[middle, :] contains the main diagonal of A
+
+    # TODO
+    # - add @inbounds
+    # - test all 3 possible cases
+    # - non-square matrices?
+
+    if nrow == 1 && iszero(w[middle, nrow])
+        error("singular matrix")
+    end
+
+    if nbandl == 0
+        # A is upper triangular. Check that the diagonal is nonzero.
+        for i = 1:nrow
+            iszero(w[middle, i]) && error("upper triangular matrix has zero diagonal")
+        end
+        return A
+    end
+
+    if nbandu == 0
+        # A is lower triangular. Check that the diagonal is nonzero and
+        # divide each column by its diagonal.
+        for i = 1:(nrow - 1)
+            pivot = w[middle, i]
+            iszero(pivot) && error("lower triangular matrix has zero diagonal")
+            ipiv = inv(pivot)
+            for j = 1:min(nbandl, nrow - i)
+                w[middle + j, i] *= ipiv
+            end
+        end
+        return A
+    end
+
+    # A is not just a triangular matrix.
+    # Construct the LU factorization.
+    for i = 1:(nrow - 1)
+        pivot = w[middle, i]  # pivot for the i-th step
+        iszero(pivot) && error("zero pivot encountered")
+        ipiv = inv(pivot)
+
+        # Divide each entry in column `i` below the diagonal by `pivot`.
+        for j = 1:min(nbandl, nrow - i)
+            w[middle + j, i] *= ipiv
+        end
+
+        # Subtract A[i, i+k] * (i-th column) from (i+k)-th column (below row `i`).
+        for k = 1:min(nbandu, nrow - i)
+            factor = w[middle - k, i + k]
+            for j = 1:min(nbandl, nrow - i)
+                w[middle - k + j, i + k] -= factor * w[middle + j, i]
+            end
+        end
+    end
+
+    # Check the last diagonal entry.
+    iszero(w[middle, nrow]) && error("matrix is singular")
+
+    A
+end
+
+# Solution of banded linear system A * x = y factorised by lu_no_pivot!.
+# Takes advantage of the totally positive property of collocation matrices
+# appearing in spline calculations (de Boor 1978).
+# The code is ported from Carl de Boor's BANSLV routine in FORTRAN77, via its
+# FORTRAN90 version by John Burkardt.
+function ldiv_no_pivot!(A::BandedMatrix, b::AbstractVector)
+    w = BandedMatrices.bandeddata(A)
+    nroww = size(w, 1)
+    nrow = size(A, 1)
+    nbandl, nbandu = bandwidths(A)
+
+    middle = nbandu + 1
+
+    # TODO
+    # - @inbounds
+    # - test two possible cases
+    # - non-square matrices?
+
+    if nrow == 1
+        b /= w[middle, 1]
+        return b
+    end
+
+    # Forward pass:
+    #
+    # For i = 1:(nrow-1), subtract RHS[i] * (i-th column of L) from the
+    # right hand side, below the i-th row.
+    if nbandl != 0
+        for i = 1:(nrow - 1)
+            jmax = min(nbandl, nrow - i)
+            for j = 1:jmax
+                b[i + j] -= b[i] * w[middle + j, i]
+            end
+        end
+    end
+
+    # Backward pass:
+    #
+    # For i = nrow:-1:1, divide RHS[i] by the i-th diagonal entry of
+    # U, then subtract RHS[i]*(i-th column of U) from right hand side, above the
+    # i-th row.
+    for i = nrow:-1:2
+        b[i] /= w[middle, i]
+        for j = 1:min(nbandu, i - 1)
+            b[i - j] -= b[i] * w[middle - j, i]
+        end
+    end
+
+    b[1] /= w[middle, 1]
+
+    b
+end
+
+end
