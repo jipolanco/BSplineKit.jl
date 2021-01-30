@@ -304,7 +304,7 @@ end
 max_bandwidths(A::BandedMatrix) = bandwidths(A)
 max_bandwidths(A::AbstractMatrix) = size(A) .- 1
 
-# LU factorisation without pivoting of banded matrix.
+# In-place LU factorisation without pivoting of banded matrix.
 # Takes advantage of the totally positive property of collocation matrices
 # appearing in spline calculations (de Boor 1978).
 # The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
@@ -325,7 +325,6 @@ function lu_no_pivot!(A::BandedMatrix)
     Afact = CollocationMatrixLU(A)
 
     # TODO
-    # - add @inbounds
     # - test all 3 possible cases
 
     if nrow == 1 && iszero(w[middle, nrow])
@@ -334,7 +333,7 @@ function lu_no_pivot!(A::BandedMatrix)
 
     if nbandl == 0
         # A is upper triangular. Check that the diagonal is nonzero.
-        for i = 1:nrow
+        @inbounds for i = 1:nrow
             iszero(w[middle, i]) && error("upper triangular matrix has zero diagonal")
         end
         return Afact
@@ -343,7 +342,7 @@ function lu_no_pivot!(A::BandedMatrix)
     if nbandu == 0
         # A is lower triangular. Check that the diagonal is nonzero and
         # divide each column by its diagonal.
-        for i = 1:(nrow - 1)
+        @inbounds for i = 1:(nrow - 1)
             pivot = w[middle, i]
             iszero(pivot) && error("lower triangular matrix has zero diagonal")
             ipiv = inv(pivot)
@@ -356,7 +355,7 @@ function lu_no_pivot!(A::BandedMatrix)
 
     # A is not just a triangular matrix.
     # Construct the LU factorization.
-    for i = 1:(nrow - 1)
+    @inbounds for i = 1:(nrow - 1)
         pivot = w[middle, i]  # pivot for the i-th step
         iszero(pivot) && error("zero pivot encountered")
         ipiv = inv(pivot)
@@ -376,7 +375,7 @@ function lu_no_pivot!(A::BandedMatrix)
     end
 
     # Check the last diagonal entry.
-    iszero(w[middle, nrow]) && error("matrix is singular")
+    @inbounds iszero(w[middle, nrow]) && error("matrix is singular")
 
     Afact
 end
@@ -404,8 +403,8 @@ function ldiv!(x::AbstractVector, F::CollocationMatrixLU, y::AbstractVector = x)
     # TODO
     # - test two possible cases
 
-    @inbounds if nrow == 1
-        x[1] /= w[middle, 1]
+    if nrow == 1
+        @inbounds x[1] /= w[middle, 1]
         return x
     end
 
@@ -417,7 +416,7 @@ function ldiv!(x::AbstractVector, F::CollocationMatrixLU, y::AbstractVector = x)
         for i = 1:(nrow - 1)
             jmax = min(nbandl, nrow - i)
             for j = 1:jmax
-                x[i + j] -= x[i] * w[middle + j, i]
+                @inbounds x[i + j] -= x[i] * w[middle + j, i]
             end
         end
     end
@@ -427,14 +426,14 @@ function ldiv!(x::AbstractVector, F::CollocationMatrixLU, y::AbstractVector = x)
     # For i = nrow:-1:1, divide RHS[i] by the i-th diagonal entry of
     # U, then subtract RHS[i]*(i-th column of U) from right hand side, above the
     # i-th row.
-    for i = nrow:-1:2
+    @inbounds for i = nrow:-1:2
         x[i] /= w[middle, i]
         for j = 1:min(nbandu, i - 1)
             x[i - j] -= x[i] * w[middle - j, i]
         end
     end
 
-    x[1] /= w[middle, 1]
+    @inbounds x[1] /= w[middle, 1]
 
     x
 end
