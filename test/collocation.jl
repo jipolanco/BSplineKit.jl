@@ -12,6 +12,9 @@ function test_collocation_matrix()
         F = lu(C)
         @test F.L == [1]'
         @test F.U == [3]'
+        y = [6]
+        x = F \ y
+        @test x == [2]
     end
 
     @testset "Non-square" begin
@@ -40,6 +43,8 @@ function test_collocation_matrix()
         L[4, 4] = 0
         @test_throws ZeroPivotException(4) lu!(L)
     end
+
+    nothing
 end
 
 function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}

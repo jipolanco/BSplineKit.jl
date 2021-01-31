@@ -106,6 +106,15 @@ function test_splines(B::BSplineBasis, knots_in)
 
     C = @inferred collocation_matrix(B, xcol)
 
+    let N = size(C, 1)
+        T = eltype(C)
+        l, u = bandwidths(C)
+        @test startswith(
+            sprint(show, MIME("text/plain"), C),
+            "$N×$N CollocationMatrix{$T} with bandwidths ($l, $u):\n",
+        )
+    end
+
     @testset "LU factorisation" begin
         T = eltype(C)
         @test T === Float64
@@ -119,6 +128,10 @@ function test_splines(B::BSplineBasis, knots_in)
         y = sin.(xcol)
         u = F \ y
         @test C * u ≈ y
+
+        let v = similar(u, length(u) - 2)
+            @test_throws DimensionMismatch ldiv!(v, F, y)
+        end
     end
 
     @testset "Spline (k = $k)" begin
