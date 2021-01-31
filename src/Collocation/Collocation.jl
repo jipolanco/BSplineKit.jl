@@ -158,8 +158,7 @@ artificially increase the number of elements (and sometimes the bandwidth) of
 the matrix.
 They may appear when a collocation point is located on a knot.
 By default, `clip_threshold` is set to the machine epsilon associated to the
-matrix element type (see
-[`eps`](https://docs.julialang.org/en/v1/base/base/#Base.eps-Tuple{Type{var%22#s23%22}%20where%20var%22#s23%22%3C:AbstractFloat})).
+matrix element type (see `eps` in the Julia documentation).
 Set it to zero to disable this behaviour.
 
 ## Matrix types

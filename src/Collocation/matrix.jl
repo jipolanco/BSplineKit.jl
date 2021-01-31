@@ -32,7 +32,8 @@ positivity of spline collocation matrices (de Boor 2001, p. 175).
 well as out-of-place factorisation using [`lu`](@ref). LU decomposition may also
 be performed via `factorize`.
 
-!!! warning This type only supports **square** collocation matrices.
+!!! warning "Matrix shape"
+    This type only supports **square** collocation matrices.
 
 """
 struct CollocationMatrix{
@@ -76,12 +77,17 @@ end
 
 const CollocationLU{T} = LU{T, <:CollocationMatrix{T}} where {T}
 
-# In-place LU factorisation without pivoting of banded matrix.
-# Takes advantage of the totally positive property of collocation matrices
-# appearing in spline calculations (de Boor 1978).
-# The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
-# FORTRAN90 version by John Burkardt.
-# Note that this only works for square matrices!!
+"""
+    LinearAlgebra.lu!(C::CollocationMatrix, pivot = Val(false); check = true)
+
+Perform in-place LU factorisation of collocation matrix without pivoting.
+
+Takes advantage of the totally positive property of collocation matrices
+appearing in spline calculations (de Boor 1978).
+
+The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
+[FORTRAN90 version by John Burkardt](https://people.sc.fsu.edu/~jburkardt/f_src/pppack/pppack.f90).
+"""
 function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
     check || throw(ArgumentError("`check = false` not yet supported"))
     w = bandeddata(C)
@@ -150,6 +156,13 @@ function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
     Cfact
 end
 
+"""
+    LinearAlgebra.lu(C::CollocationMatrix, pivot = Val(false); check = true)
+
+Returns LU factorisation of collocation matrix.
+
+See also [`lu!`](@ref).
+"""
 lu(C::CollocationMatrix, args...; kws...) = lu!(copy(C), args...; kws...)
 
 ldiv!(F::CollocationLU, y::AbstractVector) = ldiv!(y, F, y)

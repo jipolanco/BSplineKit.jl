@@ -21,6 +21,9 @@ AvgKnots
 ## Matrices
 
 ```@docs
+CollocationMatrix
 collocation_matrix
 collocation_matrix!
+lu
+lu!
 ```
