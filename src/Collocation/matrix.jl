@@ -101,14 +101,15 @@ function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
     middle = nbandu + 1  # w[middle, :] contains the main diagonal of A
     Cfact = LU(C, Int[], 0) :: CollocationLU  # factors, ipiv, info
 
-    @inbounds if nrow == 1 && iszero(w[middle, nrow])
-        throw(ZeroPivotException(1))
+    if nrow == 1
+        @inbounds iszero(w[middle, nrow]) && throw(ZeroPivotException(1))
+        return Cfact
     end
 
     if nbandl == 0
         # A is upper triangular. Check that the diagonal is nonzero.
-        @inbounds for i = 1:nrow
-            iszero(w[middle, i]) && throw(ZeroPivotException(i))
+        for i = 1:nrow
+            @inbounds iszero(w[middle, i]) && throw(ZeroPivotException(i))
         end
         return Cfact
     end
@@ -149,9 +150,7 @@ function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
     end
 
     # Check the last diagonal entry.
-    @inbounds if iszero(w[middle, nrow])
-        throw(ZeroPivotException(nrow))
-    end
+    @inbounds iszero(w[middle, nrow]) && throw(ZeroPivotException(nrow))
 
     Cfact
 end
