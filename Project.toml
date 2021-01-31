@@ -1,9 +1,10 @@
 name = "BSplineKit"
 uuid = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 authors = ["Juan Ignacio Polanco <jipolanc@gmail.com>"]
-version = "0.4.0"
+version = "0.5.0"
 
 [deps]
+ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -13,8 +14,9 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-BandedMatrices = "0.15, 0.16"
+ArrayLayouts = "0.5"
+BandedMatrices = "0.16"
 FastGaussQuadrature = "0.4"
-Reexport = "0.2, 1.0"
-StaticArrays = "0.12, 1.0"
-julia = "1.4"
+Reexport = "1.0"
+StaticArrays = "1.0"
+julia = "1.5"

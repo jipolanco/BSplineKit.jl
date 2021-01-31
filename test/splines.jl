@@ -1,5 +1,6 @@
 using BSplineKit: BSplineOrder
 using BSplineKit.BSplines: multiplicity
+using LinearAlgebra
 
 eval_poly(x::AbstractVector, P) = [@evalpoly(t, P...) for t in x]
 
@@ -14,10 +15,10 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     Pint = (0, ntuple(d -> P[d] / d, Val(k))...)  # antiderivative
 
     # Interpolate polynomial at `x` locations.
-    itp = let y = eval_poly(x, P)
-        @inferred interpolate(x, y, BSplineOrder(k))
-        interpolate(x, y, k)
-    end
+    y = eval_poly(x, P)
+    @inferred interpolate(x, y, BSplineOrder(k))
+    itp = interpolate(x, y, k)
+    @test itp.(x) ≈ y
 
     S = spline(itp)
     @test length(S) == length(x)
@@ -103,7 +104,35 @@ function test_splines(B::BSplineBasis, knots_in)
     @test xcol[1] == knots_in[1]
     @test xcol[end] == knots_in[end]
 
-    C = collocation_matrix(B, xcol)
+    C = @inferred collocation_matrix(B, xcol)
+
+    let N = size(C, 1)
+        T = eltype(C)
+        l, u = bandwidths(C)
+        @test startswith(
+            sprint(show, MIME("text/plain"), C),
+            "$N×$N CollocationMatrix{$T} with bandwidths ($l, $u):\n",
+        )
+    end
+
+    @testset "LU factorisation" begin
+        T = eltype(C)
+        @test T === Float64
+        @test C isa CollocationMatrix{T}
+        F = @inferred factorize(C)
+        @test F isa LU{T, <:CollocationMatrix{T}}
+        @test F.L * F.U ≈ C
+        @test F.P == I  # permutation matrix = identity matrix (no pivoting)
+        @test F.p == 1:size(C, 1)  # no row permutations
+
+        y = sin.(xcol)
+        u = F \ y
+        @test C * u ≈ y
+
+        let v = similar(u, length(u) - 2)
+            @test_throws DimensionMismatch ldiv!(v, F, y)
+        end
+    end
 
     @testset "Spline (k = $k)" begin
         @testset "Polynomial" begin
@@ -113,6 +142,7 @@ function test_splines(B::BSplineBasis, knots_in)
         # Generate data at collocation points and get B-spline coefficients.
         ucol = cos.(xcol)
         coefs = C \ ucol
+        @test C * coefs ≈ ucol
 
         @inferred Spline(B, coefs)
         S = Spline(B, coefs)

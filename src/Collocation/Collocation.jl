@@ -1,6 +1,7 @@
 module Collocation
 
 export
+    CollocationMatrix,
     collocation_points,
     collocation_points!,
     collocation_matrix,
@@ -14,6 +15,8 @@ using ..Recombinations:
 
 using BandedMatrices
 using SparseArrays
+
+include("matrix.jl")
 
 """
     SelectionMethod
@@ -120,7 +123,7 @@ end
         B::AbstractBSplineBasis,
         x::AbstractVector,
         [deriv::Derivative = Derivative(0)],
-        [MatrixType = SparseMatrixCSC{Float64}];
+        [MatrixType = CollocationMatrix{Float64}];
         clip_threshold = eps(eltype(MatrixType)),
     )
 
@@ -155,8 +158,7 @@ artificially increase the number of elements (and sometimes the bandwidth) of
 the matrix.
 They may appear when a collocation point is located on a knot.
 By default, `clip_threshold` is set to the machine epsilon associated to the
-matrix element type (see
-[`eps`](https://docs.julialang.org/en/v1/base/base/#Base.eps-Tuple{Type{var%22#s23%22}%20where%20var%22#s23%22%3C:AbstractFloat})).
+matrix element type (see `eps` in the Julia documentation).
 Set it to zero to disable this behaviour.
 
 ## Matrix types
@@ -173,16 +175,19 @@ the matrix needs to be inverted.
 
 ### Supported matrix types
 
-- `SparseMatrixCSC{T}`: this is the default, as it correctly handles any matrix
-  shape.
-
-- `BandedMatrix{T}`: generally performs better than sparse matrices for inversion
-  of linear systems. On the other hand, for matrix-vector or matrix-matrix
-  multiplications, `SparseMatrixCSC` may perform better (see
+- `CollocationMatrix{T}`: thin wrapper over `BandedMatrix{T}`, with efficient LU
+  factorisations without pivoting (see [`CollocationMatrix`](@ref) for details).
+  This option performs much better than sparse matrices for inversion of linear
+  systems.
+  On the other hand, for matrix-vector or matrix-matrix
+  multiplications, `SparseMatrixCSC` may perform better, especially when using OpenBLAS (see
   [BandedMatrices issue](https://github.com/JuliaMatrices/BandedMatrices.jl/issues/110)).
   May fail with an error for non-square matrix shapes, or if the distribution of
   collocation points is not adapted. In these cases, the effective
   bandwidth of the matrix may be larger than the expected bandwidth.
+
+- `SparseMatrixCSC{T}`: regular sparse matrix; correctly handles any matrix
+  shape.
 
 - `Matrix{T}`: a regular dense matrix. Generally performs worse than the
   alternatives, especially for large problems.
@@ -192,8 +197,9 @@ See also [`collocation_matrix!`](@ref).
 function collocation_matrix(
         B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
-        ::Type{MatrixType} = SparseMatrixCSC{Float64};
-        kwargs...) where {MatrixType}
+        ::Type{MatrixType} = CollocationMatrix{Float64};
+        kwargs...,
+    ) where {MatrixType}
     Nx = length(x)
     Nb = length(B)
     C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B); kwargs...)
@@ -209,7 +215,9 @@ allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
 allocate_collocation_matrix(::Type{SparseMatrixCSC{T}}, dims, k) where {T} =
     spzeros(T, dims...)
 
-function allocate_collocation_matrix(::Type{M}, dims, k) where {M <: BandedMatrix}
+function allocate_collocation_matrix(
+        ::Type{M}, dims, k,
+    ) where {M <: CollocationMatrix}
     # Number of upper and lower diagonal bands.
     #
     # The matrices **almost** have the following number of upper/lower bands (as
@@ -225,7 +233,9 @@ function allocate_collocation_matrix(::Type{M}, dims, k) where {M <: BandedMatri
     #
     # TODO is there a way to reduce the number of bands??
     bands = collocation_bandwidths(k)
-    M(undef, dims, bands)
+    T = eltype(M)
+    data = BandedMatrix{T}(undef, dims, bands)
+    CollocationMatrix(data) :: M
 end
 
 collocation_bandwidths(k) = (k - 2, k - 2)
@@ -252,7 +262,7 @@ function collocation_matrix!(
     fill!(C, 0)
     b_lo, b_hi = max_bandwidths(C)
 
-    for j = 1:Nb, i = 1:Nx
+    @inbounds for j = 1:Nb, i = 1:Nx
         b = evaluate(B, j, x[i], deriv, T)
 
         # Skip very small values (and zeros).
@@ -275,6 +285,7 @@ end
 
 # Maximum number of bandwidths allowed in a matrix container.
 max_bandwidths(A::BandedMatrix) = bandwidths(A)
+max_bandwidths(A::CollocationMatrix) = max_bandwidths(parent(A))
 max_bandwidths(A::AbstractMatrix) = size(A) .- 1
 
-end  # module
+end

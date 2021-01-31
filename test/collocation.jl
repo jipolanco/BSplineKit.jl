@@ -1,11 +1,60 @@
+using LinearAlgebra
+using Random
+
+function test_collocation_matrix()
+    # Test special case of 1×1 matrix
+    @testset "1×1 matrix" begin
+        B = BandedMatrix{Float64}(undef, (1, 1), (0, 0))
+        B[1, 1] = 0
+        C = CollocationMatrix(B)
+        @test_throws ZeroPivotException(1) lu!(C)
+        C[1, 1] = 3
+        F = lu(C)
+        @test F.L == [1]'
+        @test F.U == [3]'
+        y = [6]
+        x = F \ y
+        @test x == [2]
+    end
+
+    @testset "Non-square" begin
+        B = BandedMatrix{Float32}(undef, (7, 8), (2, 2))
+        @test_throws DimensionMismatch CollocationMatrix(B)
+    end
+
+    # Special cases of triangular input matrices
+    @testset "Upper triangular" begin
+        U = CollocationMatrix(brand(Float32, 8, 8, 0, 2))
+        F = lu(U)
+        @test F.L == I
+        @test F.U == U
+
+        U[3, 3] = 0
+        @test_throws ZeroPivotException(3) lu!(U)
+    end
+
+    @testset "Lower triangular" begin
+        L = CollocationMatrix(brand(Float32, 8, 8, 2, 0))
+        D = Diagonal(L)
+        F = lu(L)
+        @test F.U == D
+        @test F.L * D ≈ L
+
+        L[4, 4] = 0
+        @test_throws ZeroPivotException(4) lu!(L)
+    end
+
+    nothing
+end
+
 function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
     xcol = collocation_points(B)
     @inferred collocation_matrix(B, xcol, Matrix{T})
-    @inferred collocation_matrix(B, xcol, BandedMatrix{T})
+    @inferred collocation_matrix(B, xcol, CollocationMatrix{T})
     @inferred collocation_matrix(B, xcol, SparseMatrixCSC{T})
 
     C_dense = collocation_matrix(B, xcol, Matrix{T})
-    C_banded = collocation_matrix(B, xcol, BandedMatrix{T})
+    C_banded = collocation_matrix(B, xcol, CollocationMatrix{T})
     C_sparse = collocation_matrix(B, xcol, SparseMatrixCSC{T})
 
     @test C_dense == C_banded
@@ -50,6 +99,10 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
     end
 
     nothing
+end
+
+@testset "Collocation matrix" begin
+    test_collocation_matrix()
 end
 
 @testset "Collocation (k = $k)" for k ∈ (4, 5)
