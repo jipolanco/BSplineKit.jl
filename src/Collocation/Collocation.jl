@@ -1,6 +1,7 @@
 module Collocation
 
 export
+    CollocationMatrix,
     collocation_points,
     collocation_points!,
     collocation_matrix,
@@ -12,10 +13,10 @@ using ..Recombinations:
     num_constraints,
     RecombinedBSplineBasis  # for Documenter
 
-import LinearAlgebra: Factorization, ldiv!
-
 using BandedMatrices
 using SparseArrays
+
+include("matrix.jl")
 
 """
     SelectionMethod
@@ -117,37 +118,12 @@ function collocation_points!(::S, x, B) where {S <: SelectionMethod}
     x
 end
 
-# TODO
-# - continue...
-# - should this be restricted to square matrices?
-"""
-    CollocationMatrix{T}
-
-B-spline collocation matrix, defined by
-
-```math
-C_{ij} = b_j(x_i),
-```
-
-where ``\\bm{x}`` are a set of collocation points.
-
-Wraps a `BandedMatrix`
-"""
-struct CollocationMatrix{T} <: AbstractMatrix{T}
-end
-
-struct CollocationMatrixLU{T, M <: BandedMatrix{T}} <: Factorization{T}
-    data :: M
-end
-
-Base.size(F::CollocationMatrixLU) = size(F.data)
-
 """
     collocation_matrix(
         B::AbstractBSplineBasis,
         x::AbstractVector,
         [deriv::Derivative = Derivative(0)],
-        [MatrixType = SparseMatrixCSC{Float64}];
+        [MatrixType = CollocationMatrix{Float64}];
         clip_threshold = eps(eltype(MatrixType)),
     )
 
@@ -200,16 +176,19 @@ the matrix needs to be inverted.
 
 ### Supported matrix types
 
-- `SparseMatrixCSC{T}`: this is the default, as it correctly handles any matrix
-  shape.
-
-- `BandedMatrix{T}`: generally performs better than sparse matrices for inversion
-  of linear systems. On the other hand, for matrix-vector or matrix-matrix
-  multiplications, `SparseMatrixCSC` may perform better (see
+- `CollocationMatrix{T}`: thin wrapper over `BandedMatrix{T}`, with efficient LU
+  factorisations without pivoting (see [`CollocationMatrix`](@ref) for details).
+  This option performs much better than sparse matrices for inversion of linear
+  systems.
+  On the other hand, for matrix-vector or matrix-matrix
+  multiplications, `SparseMatrixCSC` may perform better, especially when using OpenBLAS (see
   [BandedMatrices issue](https://github.com/JuliaMatrices/BandedMatrices.jl/issues/110)).
   May fail with an error for non-square matrix shapes, or if the distribution of
   collocation points is not adapted. In these cases, the effective
   bandwidth of the matrix may be larger than the expected bandwidth.
+
+- `SparseMatrixCSC{T}`: regular sparse matrix; correctly handles any matrix
+  shape.
 
 - `Matrix{T}`: a regular dense matrix. Generally performs worse than the
   alternatives, especially for large problems.
@@ -219,8 +198,9 @@ See also [`collocation_matrix!`](@ref).
 function collocation_matrix(
         B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
-        ::Type{MatrixType} = SparseMatrixCSC{Float64};
-        kwargs...) where {MatrixType}
+        ::Type{MatrixType} = CollocationMatrix{Float64};
+        kwargs...,
+    ) where {MatrixType}
     Nx = length(x)
     Nb = length(B)
     C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B); kwargs...)
@@ -236,7 +216,9 @@ allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
 allocate_collocation_matrix(::Type{SparseMatrixCSC{T}}, dims, k) where {T} =
     spzeros(T, dims...)
 
-function allocate_collocation_matrix(::Type{M}, dims, k) where {M <: BandedMatrix}
+function allocate_collocation_matrix(
+        ::Type{M}, dims, k,
+    ) where {M <: CollocationMatrix}
     # Number of upper and lower diagonal bands.
     #
     # The matrices **almost** have the following number of upper/lower bands (as
@@ -252,7 +234,9 @@ function allocate_collocation_matrix(::Type{M}, dims, k) where {M <: BandedMatri
     #
     # TODO is there a way to reduce the number of bands??
     bands = collocation_bandwidths(k)
-    M(undef, dims, bands)
+    T = eltype(M)
+    data = BandedMatrix{T}(undef, dims, bands)
+    CollocationMatrix(data) :: M
 end
 
 collocation_bandwidths(k) = (k - 2, k - 2)
@@ -279,7 +263,7 @@ function collocation_matrix!(
     fill!(C, 0)
     b_lo, b_hi = max_bandwidths(C)
 
-    for j = 1:Nb, i = 1:Nx
+    @inbounds for j = 1:Nb, i = 1:Nx
         b = evaluate(B, j, x[i], deriv, T)
 
         # Skip very small values (and zeros).
@@ -302,140 +286,7 @@ end
 
 # Maximum number of bandwidths allowed in a matrix container.
 max_bandwidths(A::BandedMatrix) = bandwidths(A)
+max_bandwidths(A::CollocationMatrix) = max_bandwidths(parent(A))
 max_bandwidths(A::AbstractMatrix) = size(A) .- 1
-
-# In-place LU factorisation without pivoting of banded matrix.
-# Takes advantage of the totally positive property of collocation matrices
-# appearing in spline calculations (de Boor 1978).
-# The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
-# FORTRAN90 version by John Burkardt.
-# Note that this only works for square matrices!!
-function lu_no_pivot!(A::BandedMatrix)
-    w = BandedMatrices.bandeddata(A)
-    nbandl, nbandu = bandwidths(A)
-    nrow = size(A, 1)
-    nroww = size(w, 1)
-    if size(A, 1) != size(A, 2)
-        throw(ArgumentError("matrix A must be square"))
-    end
-    @assert nrow == size(w, 2)
-    @assert nroww == nbandl + nbandu + 1
-    isempty(A) && error("matrix is empty")
-    middle = nbandu + 1  # w[middle, :] contains the main diagonal of A
-    Afact = CollocationMatrixLU(A)
-
-    # TODO
-    # - test all 3 possible cases
-
-    if nrow == 1 && iszero(w[middle, nrow])
-        error("singular matrix")
-    end
-
-    if nbandl == 0
-        # A is upper triangular. Check that the diagonal is nonzero.
-        @inbounds for i = 1:nrow
-            iszero(w[middle, i]) && error("upper triangular matrix has zero diagonal")
-        end
-        return Afact
-    end
-
-    if nbandu == 0
-        # A is lower triangular. Check that the diagonal is nonzero and
-        # divide each column by its diagonal.
-        @inbounds for i = 1:(nrow - 1)
-            pivot = w[middle, i]
-            iszero(pivot) && error("lower triangular matrix has zero diagonal")
-            ipiv = inv(pivot)
-            for j = 1:min(nbandl, nrow - i)
-                w[middle + j, i] *= ipiv
-            end
-        end
-        return Afact
-    end
-
-    # A is not just a triangular matrix.
-    # Construct the LU factorization.
-    @inbounds for i = 1:(nrow - 1)
-        pivot = w[middle, i]  # pivot for the i-th step
-        iszero(pivot) && error("zero pivot encountered")
-        ipiv = inv(pivot)
-
-        # Divide each entry in column `i` below the diagonal by `pivot`.
-        for j = 1:min(nbandl, nrow - i)
-            w[middle + j, i] *= ipiv
-        end
-
-        # Subtract A[i, i+k] * (i-th column) from (i+k)-th column (below row `i`).
-        for k = 1:min(nbandu, nrow - i)
-            factor = w[middle - k, i + k]
-            for j = 1:min(nbandl, nrow - i)
-                w[middle - k + j, i + k] -= factor * w[middle + j, i]
-            end
-        end
-    end
-
-    # Check the last diagonal entry.
-    @inbounds iszero(w[middle, nrow]) && error("matrix is singular")
-
-    Afact
-end
-
-# Solution of banded linear system A * x = y factorised by lu_no_pivot!.
-# The code is adapted from Carl de Boor's BANSLV routine in FORTRAN77, via its
-# FORTRAN90 version by John Burkardt.
-# Note that `x` and `y` may be the same vector.
-function ldiv!(x::AbstractVector, F::CollocationMatrixLU, y::AbstractVector = x)
-    A = F.data
-    w = BandedMatrices.bandeddata(A)
-    nrow = size(A, 1)
-    nbandl, nbandu = bandwidths(A)
-    middle = nbandu + 1
-    @assert size(A, 1) == size(A, 2)
-
-    if !(length(x) == length(y) == nrow)
-        throw(DimensionMismatch("vectors `x` and `y` must have length $nrow"))
-    end
-
-    if x !== y
-        copy!(x, y)
-    end
-
-    # TODO
-    # - test two possible cases
-
-    if nrow == 1
-        @inbounds x[1] /= w[middle, 1]
-        return x
-    end
-
-    # Forward pass:
-    #
-    # For i = 1:(nrow-1), subtract RHS[i] * (i-th column of L) from the
-    # right hand side, below the i-th row.
-    if nbandl != 0
-        for i = 1:(nrow - 1)
-            jmax = min(nbandl, nrow - i)
-            for j = 1:jmax
-                @inbounds x[i + j] -= x[i] * w[middle + j, i]
-            end
-        end
-    end
-
-    # Backward pass:
-    #
-    # For i = nrow:-1:1, divide RHS[i] by the i-th diagonal entry of
-    # U, then subtract RHS[i]*(i-th column of U) from right hand side, above the
-    # i-th row.
-    @inbounds for i = nrow:-1:2
-        x[i] /= w[middle, i]
-        for j = 1:min(nbandu, i - 1)
-            x[i - j] -= x[i] * w[middle - j, i]
-        end
-    end
-
-    @inbounds x[1] /= w[middle, 1]
-
-    x
-end
 
 end

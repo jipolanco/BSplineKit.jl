@@ -43,15 +43,13 @@ struct Interpolation{
     # Construct Interpolation from basis and collocation points.
     function Interpolation(B, x::AbstractVector, ::Type{T}) where {T}
         # Here we construct the collocation matrix and its LU factorisation.
-        l, u = Collocation.collocation_bandwidths(order(B))
         N = length(B)
         if length(x) != N
             throw(DimensionMismatch(
                 "incompatible lengths of B-spline basis and collocation points"))
         end
-        C = BandedMatrix{T}(undef, (N, N), (l, u))
-        collocation_matrix!(C, B, x)
-        Interpolation(B, Collocation.lu_no_pivot!(C))
+        C = collocation_matrix(B, x, CollocationMatrix{T})
+        Interpolation(B, lu!(C))
     end
 end
 

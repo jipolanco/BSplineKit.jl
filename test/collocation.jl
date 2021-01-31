@@ -1,11 +1,11 @@
 function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
     xcol = collocation_points(B)
     @inferred collocation_matrix(B, xcol, Matrix{T})
-    @inferred collocation_matrix(B, xcol, BandedMatrix{T})
+    @inferred collocation_matrix(B, xcol, CollocationMatrix{T})
     @inferred collocation_matrix(B, xcol, SparseMatrixCSC{T})
 
     C_dense = collocation_matrix(B, xcol, Matrix{T})
-    C_banded = collocation_matrix(B, xcol, BandedMatrix{T})
+    C_banded = collocation_matrix(B, xcol, CollocationMatrix{T})
     C_sparse = collocation_matrix(B, xcol, SparseMatrixCSC{T})
 
     @test C_dense == C_banded
