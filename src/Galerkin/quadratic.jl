@@ -71,7 +71,7 @@ function galerkin_tensor!(A::BandedTensor3D,
     # Quadrature information (weights, nodes).
     quad = _quadrature_prod(3k - 3)
 
-    Al = Matrix{T}(undef, 2k - 1, 2k - 1)
+    Al = @MMatrix zeros(T, 2k - 1, 2k - 1)
     δl, δr = num_constraints(Bl) .- num_constraints(Bi)
     @assert Ni == Nj == Nl + δl + δr
 
@@ -82,7 +82,7 @@ function galerkin_tensor!(A::BandedTensor3D,
         throw(ArgumentError("BandedTensor3D must have bandshift = (0, 0, $δl)"))
     end
 
-    for l = 1:Nl
+    @inbounds for l = 1:Nl
         ll = l + δl
         istart = clamp(ll - h, 1, Ni)
         iend = clamp(ll + h, 1, Nj)
@@ -99,18 +99,17 @@ function galerkin_tensor!(A::BandedTensor3D,
         fill!(Al, 0)
 
         tl = support(Bl, l)
-        fl = x -> evaluate(Bl, l, x, deriv[3])
 
         for j in js
             tj = support(Bj, j)
-            fj = x -> evaluate(Bj, j, x, deriv[2])
             for i in is
                 ti = support(Bi, i)
-                fi = x -> evaluate(Bi, i, x, deriv[1])
                 t_inds = intersect(ti, tj, tl)
                 isempty(t_inds) && continue
                 f = x -> fi(x) * fj(x) * fl(x)
-                Al[i - i0, j - j0] = _integrate(f, t, t_inds, quad)
+                Al[i - i0, j - j0] = _integrate(t, t_inds, quad) do x
+                    Bi[i](x, deriv[1]) * Bj[j](x, deriv[2]) * Bl[l](x, deriv[3])
+                end
             end
         end
 

@@ -16,6 +16,7 @@ using BandedMatrices
 using FastGaussQuadrature: gausslegendre
 using LinearAlgebra: Hermitian
 using SparseArrays
+using StaticArrays
 
 const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
 

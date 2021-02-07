@@ -20,10 +20,10 @@
 _quadrature_prod(p) = gausslegendre(cld(p + 1, 2))
 
 # Integrate function over the subintervals t[inds].
-function _integrate(f::Function, t, inds, (x, w))
+@inline function _integrate(f::Function, t, inds, (x, w))
     int = 0.0  # compute stuff in Float64, regardless of type wanted by the caller
     N = length(w)  # number of weights / nodes
-    for i in inds[2:end]
+    @inbounds for i in inds[2:end]
         # Integrate in [t[i - 1], t[i]].
         # See https://en.wikipedia.org/wiki/Gaussian_quadrature#Change_of_interval
         a, b = t[i - 1], t[i]
