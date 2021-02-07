@@ -3,14 +3,15 @@ using BSplineKit.BandedTensors
 
 import BSplineKit.BandedTensors: SubMatrix
 
+using BandedMatrices
 using LinearAlgebra: dot
 using Random
 using Test
 
 function test_banded_tensors()
-    @inferred BandedTensor3D{Int}(undef, (20, 20, 16), Val(2))
-    A = BandedTensor3D{Int}(undef, (20, 20, 16), Val(2))
+    A = @inferred BandedTensor3D{Float32}(undef, (20, 20, 16), Val(2))
     rand!(A, -99:99)
+    BandedTensors.drop_out_of_bands!(A)
 
     @testset "Slices" begin
         @inferred A[:, :, 4]
@@ -21,6 +22,13 @@ function test_banded_tensors()
         @test Acut isa BandedTensor3D
         @test Acut[:, :, 2] == S  # SubMatrix comparison
         @test S[S.inds, S.inds] == S.data  # slice over non-zero indices
+    end
+
+    @testset "Contraction" begin
+        b = rand(size(A, 3))
+        Y = @inferred A * b
+        @test Y isa BandedMatrix
+        @test Y[:, 3] ≈ A[:, 3, :] * b
     end
 
     @testset "Generalised dot product" begin
