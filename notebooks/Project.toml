@@ -1,0 +1,7 @@
+[deps]
+BSplineKit = "093aae92-e908-43d7-9660-e50ee39d5a0a"
+BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"

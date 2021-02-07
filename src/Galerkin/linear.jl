@@ -207,19 +207,18 @@ function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
     δl, δr = num_constraints(B2) .- num_constraints(B1)
     @assert M + δl + δr == N
 
-    for j = 1:M
+    @inbounds for j = 1:M
         i0 = j + δl
         tj = support(B2, j)
-        fj = x -> evaluate(B2, j, x, deriv[2])
         istart = fill_upper ? 1 : i0
         iend = fill_lower ? N : i0
         for i = istart:iend
             ti = support(B1, i)
             t_inds = intersect(ti, tj)  # common support of b_i and b_j
             isempty(t_inds) && continue
-            fi = x -> evaluate(B1, i, x, deriv[1])
-            f = x -> fi(x) * fj(x)
-            A[i, j] = _integrate(f, t, t_inds, quad)
+            A[i, j] = _integrate(t, t_inds, quad) do x
+                B1[i](x, deriv[1]) * B2[j](x, deriv[2])
+            end
         end
     end
 
