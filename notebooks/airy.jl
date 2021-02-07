@@ -105,7 +105,7 @@ end
 Lfact = lu(BandedMatrix(L))
 
 # ╔═╡ 0a7d0790-693a-11eb-1ae0-d3ac008e6245
-cond(Array(L))
+cond(BandedMatrix(L))
 
 # ╔═╡ 8a214fa4-6937-11eb-382e-bf64ff050dbb
 # RHS coefficients
