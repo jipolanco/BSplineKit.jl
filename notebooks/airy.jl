@@ -12,7 +12,6 @@ begin
 	using CairoMakie
 	using LinearAlgebra
 	using BandedMatrices
-	# using SparseArrays
 	using QuadGK
 end
 
@@ -24,15 +23,15 @@ Example taken from Olver & Townsend, SIAM Rev. 2013.
 """
 
 # ╔═╡ ab3e2c3c-6952-11eb-2c48-d5dea019ea78
-N = 500
+N = 100
 
 # ╔═╡ d1540532-6951-11eb-2df0-858510e4d960
 breaks =
-	vcat(
-		range(-1, 0; length = N + 1),
-		range(0, 1; length = (N ÷ 8) + 1)[2:end],
-	)
-	# collect(range(-1, 1; length = N + 1))
+	# vcat(
+	# 	range(-1, 0; length = N + 1),
+	# 	range(0, 1; length = (N ÷ 8) + 1)[2:end],
+	# )
+	collect(range(-1, 1; length = N + 1))
 	# [-cos(π * i / N) for i = 0:N]
 
 # ╔═╡ ce14d81c-6936-11eb-2876-fd539b26f77c
@@ -89,7 +88,7 @@ u_exact(x; ε) = airyai(x / cbrt(ε))
 u_0(x; ε) = ((1 - x) * u_exact(-1; ε) + (1 + x) * u_exact(1; ε)) / 2
 
 # ╔═╡ a9e506de-6935-11eb-39f0-fb44ea95ffd3
-ε = 10^(-6)
+ε = 10^(-4)
 
 # ╔═╡ f05d7e94-6939-11eb-3c0e-af2d31d8eee0
 L = let
@@ -130,7 +129,7 @@ usol(x; ε) = u_0(x; ε) + Sv(x)
 uerr(x; ε) = (usol(x; ε) - u_exact(x; ε))^2
 
 # ╔═╡ 079e6a38-6952-11eb-2d5f-a9d39f6ca4e0
-quadgk(x -> uerr(x; ε), -1, 1)
+quadgk(x -> uerr(x; ε), -1, 1; rtol = 1e-8)
 
 # ╔═╡ 4b056762-6935-11eb-116e-47a5a46dbfff
 let
