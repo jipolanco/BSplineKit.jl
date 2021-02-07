@@ -2,6 +2,7 @@ module BandedTensors
 
 using StaticArrays
 
+using BandedMatrices
 import BandedMatrices: bandwidth
 
 import LinearAlgebra
@@ -215,6 +216,8 @@ struct SubMatrix{T, N, M <: SMatrix{N,N,T},
     inds :: Indices
 end
 
+indices(s::SubMatrix) = (s.inds, s.inds)
+
 @inline function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
     dims = size(A, 1), size(A, 2)
@@ -224,15 +227,14 @@ end
 Base.size(S::SubMatrix) = S.dims
 
 @inline function Base.getindex(S::SubMatrix{T}, i::Integer, j::Integer) where {T}
-    ri = S.inds
-    rj = S.inds
+    ri, rj = indices(S)
     (i ∈ ri) && (j ∈ rj) || return zero(T)
     ii = i - first(ri) + 1
     jj = j - first(rj) + 1
     @inbounds S.data[ii, jj]
 end
 
-Base.:(==)(u::SubMatrix, v::SubMatrix) = u.inds == v.inds && u.data == v.data
+Base.:(==)(u::SubMatrix, v::SubMatrix) = indices(u) == indices(v) && u.data == v.data
 
 function Base.show(io::IO, mime::MIME"text/plain", S::SubMatrix)
     summary(io, S)
@@ -242,8 +244,9 @@ function Base.show(io::IO, mime::MIME"text/plain", S::SubMatrix)
 end
 
 function Base.summary(io::IO, S::SubMatrix)
+    is, js = indices(S)
     print(io, "Submatrix of BandedTensor3D holding data in (",
-          S.inds, ", ", S.inds, ", ", S.k, ")")
+          is, ", ", js, ", ", S.k, ")")
     nothing
 end
 
@@ -335,6 +338,69 @@ function Base.fill!(A::BandedTensor3D, x)
     A
 end
 
+# TODO
+# - add checks
+# - add tests
+"""
+    muladd!(Y::AbstractMatrix, A::BandedTensor3D, b::AbstractVector)
+
+Perform contraction `Y[i, j] += ∑ₖ A[i, j, k] * b[k]`.
+
+Note that the result is *added* to previously existent values of `Y`.
+
+As an (allocating) alternative, one can use `Y = A * b`, which returns `Y` as a
+`BandedMatrix`.
+"""
+function muladd!(
+        Y::AbstractMatrix, A::BandedTensor3D, b::AbstractVector,
+    )
+    for k in axes(A, 3)
+        sub = SubMatrix(A, k)
+        is, js = indices(sub)
+        C = parent(sub) * b[k]
+        _muladd!(Y, C, is, js)
+    end
+    Y
+end
+
+function _muladd!(Y, C::SMatrix, is, js)
+    @assert is === js
+    n = size(Y, 1)
+    # TODO optimise and simplify; test
+    if first(is) ≤ 0
+        I = 1:last(is)
+        J = I
+        δi = searchsortedlast(is, 0)
+        δj = δi
+    elseif last(is) > n
+        I = first(is):n
+        J = I
+        δi = searchsortedlast(is, n) - n
+        δj = δi
+    else
+        I = is
+        J = js
+        δi = 1 - first(is)
+        δj = 1 - first(js)
+    end
+    @inbounds for j ∈ J, i ∈ I
+        Y[i, j] += C[i + δi, j + δj]
+    end
+    Y
+end
+
+function Base.:*(A::BandedTensor3D, x::AbstractVector)
+    T = eltype(A)
+    dims = size(A, 1), size(A, 2)
+    shifts = bandshift(A)
+    @assert shifts[1] == shifts[2] == 0  # no shifts along these dimensions
+    b = bandwidth(A)
+    bands = (b, b)
+    Y = BandedMatrix{T}(undef, dims, bands)
+    fill!(Y, zero(T))
+    muladd!(Y, A, x)
+end
+
 """
     dot(x, Asub::SubMatrix, y)
 
@@ -348,17 +414,18 @@ function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
     Base.require_one_based_indexing(u, v)
 
     A = parent(S) :: SMatrix
+    inds = indices(S)[1]  # TODO adapt for inds[1] ≠ inds[2]
 
     uind = axes(u, 1)
 
-    if issubset(S.inds, uind)
-        @inbounds usub = @view u[S.inds]
-        @inbounds vsub = @view v[S.inds]
+    if issubset(inds, uind)
+        @inbounds usub = @view u[inds]
+        @inbounds vsub = @view v[inds]
         return dot(usub, A * vsub)
     end
 
     # Boundaries
-    vec_inds = intersect(S.inds, uind)
+    vec_inds = intersect(inds, uind)
     @inbounds usub = @view u[vec_inds]
     @inbounds vsub = @view v[vec_inds]
 
@@ -366,7 +433,7 @@ function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
     n = size(A, 1)
     @assert n > l
 
-    mat_inds = if first(S.inds) <= 0
+    mat_inds = if first(inds) <= 0
         (n - l + 1):n  # lower right corner
     else
         1:l  # upper left corner
