@@ -187,8 +187,15 @@ function test_basis_recombination()
         @test @inferred(nonzero_in_segment(R, k + 1)) == 1:k
 
         # Near the boundaries, there are fewer recombined functions.
-        @test @inferred(nonzero_in_segment(R, k)) == 1:(k - 1)
-        @test @inferred(nonzero_in_segment(R, k - 1)) == 1:(k - 2)
+        @test nonzero_in_segment(R, k) == 1:(k - 1)
+        @test nonzero_in_segment(R, k - 1) == 1:(k - 2)
+        @test nonzero_in_segment(R, 2) == 1:1
+        @test isempty(nonzero_in_segment(R, 1))
+
+        N = length(parent(R))
+        Nr = length(R)
+        @test isempty(nonzero_in_segment(R, N + k - δr))
+        @test nonzero_in_segment(R, N + k - 1 - δr) == Nr:Nr
 
         test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)

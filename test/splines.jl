@@ -80,13 +80,15 @@ function test_splines(B::BSplineBasis, knots_in)
 
         # Fewer B-splines near the boundaries. This is usually not a problem
         # because knots are repeated there...
-        Nt = length(knots(B))
         @test nonzero_in_segment(B, 1) == 1:1
-        @test nonzero_in_segment(B, Nt - 1) == N:N
+        @test nonzero_in_segment(B, N) == (N - k + 1):N
+        @test nonzero_in_segment(B, N + 1) == (N - k + 2):N
+        @test nonzero_in_segment(B, N + k - 1) == N:N
+        @test isempty(nonzero_in_segment(B, N + k))
 
         # These intervals are not defined
         @test isempty(nonzero_in_segment(B, 0))
-        @test isempty(nonzero_in_segment(B, Nt))
+        @test isempty(nonzero_in_segment(B, length(knots(B))))
 
         # Verify values at the boundaries.
         a, b = boundaries(B)

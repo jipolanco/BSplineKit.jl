@@ -275,7 +275,7 @@ num_recombined(R::AbstractBSplineBasis) = num_recombined(recombination_matrix(R)
 function nonzero_in_segment(R::RecombinedBSplineBasis, n)
     # Same as the original B-spline basis on the interval n - δl.
     δl = num_constraints(R)[1]
-    nonzero_in_segment(parent(R), n - δl)
+    nonzero_in_segment(parent(R), n - δl; N = length(R))
 end
 
 # TODO assume compact structure of recombination matrix

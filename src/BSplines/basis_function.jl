@@ -89,8 +89,7 @@ This function thus returns `(n - k + 1):N` when `B` is a `BSplineBasis`.
 
 See also [`support`](@ref) for the inverse operation.
 """
-function nonzero_in_segment(B::BSplineBasis, n::Int)
-    N = length(B)
+function nonzero_in_segment(B::BSplineBasis, n::Int; N = length(B))
     a = clamp(n - order(B) + 1, 1, typemax(Int))
     b = clamp(n, typemin(Int), N)
     a:b
