@@ -48,72 +48,81 @@ See [`galerkin_tensor`](@ref) for details.
 """
 function galerkin_tensor! end
 
-function galerkin_tensor!(A::BandedTensor3D,
-                          Bs::NTuple{3,AbstractBSplineBasis},
-                          deriv::DerivativeCombination{3})
+function galerkin_tensor!(
+        A::BandedTensor3D, Bs::NTuple{3,AbstractBSplineBasis},
+        deriv::DerivativeCombination{3},
+    )
     _check_bases(Bs)
 
     Ns = size(A)
-    if any(Ns .!= length.(Bs))
+    if Ns != length.(Bs)
         throw(ArgumentError("wrong dimensions of Galerkin tensor"))
     end
 
-    Ni, Nj, Nl = Ns
-    @assert Ni == Nj  # verified earlier...
-
     Bi, Bj, Bl = Bs
+    Ni, Nj, Nl = Ns
+    @assert Ni == Nj  # verified at construction of BandedTensor3D
 
-    k = order(Bi)  # same for all bases (see _check_bases)
-    t = knots(Bi)
-    h = k - 1
-    T = eltype(A)
-
-    # Quadrature information (weights, nodes).
-    quad = _quadrature_prod(Val(3k - 3))
-
-    Al = @MMatrix zeros(T, 2k - 1, 2k - 1)
-    δl, δr = num_constraints(Bl) .- num_constraints(Bi)
-    @assert Ni == Nj == Nl + δl + δr
+    # Orders and knots are assumed to be the same (see _check_bases).
+    k = order(Bi)
+    ts = knots(Bi)
 
     if bandwidth(A) != k - 1
         throw(ArgumentError("BandedTensor3D must have bandwidth = $(k - 1)"))
     end
+
+    δl, _ = num_constraints(Bl) .- num_constraints(Bi)
+
     if bandshift(A) != (0, 0, δl)
         throw(ArgumentError("BandedTensor3D must have bandshift = (0, 0, $δl)"))
     end
 
-    @inbounds for l = 1:Nl
-        ll = l + δl
-        istart = clamp(ll - h, 1, Ni)
-        iend = clamp(ll + h, 1, Nj)
-        is = istart:iend
-        js = is
+    same_12 = Bi == Bj && deriv[1] == deriv[2]
+    same_13 = Bi == Bl && deriv[1] == deriv[3]
+    same_23 = Bj == Bl && deriv[2] == deriv[3]
 
-        band_ind = BandedTensors.band_indices(A, l)
-        @assert issubset(is, band_ind) && issubset(js, band_ind)
+    # Quadrature information (weights, nodes).
+    quadx, quadw = _quadrature_prod(Val(3k - 3))
 
-        i0 = first(band_ind) - 1
-        j0 = i0
-        @assert i0 == ll - k
+    fill!(A, 0)
+    T = eltype(A)
+    Al = @MMatrix zeros(T, 2k - 1, 2k - 1)
+    nlast = last(eachindex(ts))
 
-        fill!(Al, 0)
+    for n in eachindex(ts)
+        n == nlast && break
+        tn, tn1 = ts[n], ts[n + 1]
+        tn1 == tn && continue  # interval of length = 0
 
-        tl = support(Bl, l)
+        metric = QuadratureMetric(tn, tn1)
+        xs = metric .* quadx
 
-        for j in js
-            tj = support(Bj, j)
-            for i in is
-                ti = support(Bi, i)
-                t_inds = intersect(ti, tj, tl)
-                isempty(t_inds) && continue
-                f = x -> fi(x) * fj(x) * fl(x)
-                Al[i - i0, j - j0] = _integrate(t, t_inds, quad) do x
-                    Bi[i](x, deriv[1]) * Bj[j](x, deriv[2]) * Bl[l](x, deriv[3])
-                end
+        is = nonzero_in_segment(Bi, n)
+        js = nonzero_in_segment(Bj, n)
+        ls = nonzero_in_segment(Bl, n)
+
+        bis = eval_basis_functions(Bi, is, xs, deriv[1])
+        bjs = same_12 ? bis : eval_basis_functions(Bj, js, xs, deriv[2])
+        bls = same_13 ? bis : same_23 ? bjs :
+            eval_basis_functions(Bl, ls, xs, deriv[3])
+
+        # We compute the submatrix A[:, :, l] for each `l`.
+        for (nl, l) in enumerate(ls)
+            fill!(Al, 0)
+            inds = BandedTensors.band_indices(A, l)
+            @assert is ⊆ inds && js ⊆ inds
+            @assert size(Al, 1) == size(Al, 2) == length(inds)
+            δi = searchsortedlast(inds, is[1]) - 1
+            δj = searchsortedlast(inds, js[1]) - 1
+            for nj in eachindex(js), ni in eachindex(is)
+                Al[ni + δi, nj + δj] =
+                    metric.α * ((bis[ni] .* bjs[nj] .* bls[nl]) ⋅ quadw)
             end
+            # TODO
+            # - nicer way to do this?
+            # - don't forget +=
+            A[:, :, l] = A[:, :, l].data + Al
         end
-
-        A[:, :, l] = Al
     end
 
     A

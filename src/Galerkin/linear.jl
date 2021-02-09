@@ -172,7 +172,7 @@ function galerkin_matrix!(
     )
     _check_bases(Bs)
     B1, B2 = Bs
-    symmetry = B1 == B2 && deriv[1] == deriv[2]
+    same_ij = B1 == B2 && deriv[1] == deriv[2]
 
     if size(S) != length.(Bs)
         throw(ArgumentError("wrong dimensions of Galerkin matrix"))
@@ -213,6 +213,11 @@ function galerkin_matrix!(
         tn1 == tn && continue  # interval of length = 0
 
         metric = QuadratureMetric(tn, tn1)
+
+        # Unnormalise quadrature nodes, such that xs ∈ [tn, tn1]
+        xs = metric .* quadx
+        # @assert all(x -> tn ≤ x ≤ tn1, xs)
+
         is = nonzero_in_segment(B1, n)
         js = nonzero_in_segment(B2, n)
 
@@ -220,17 +225,9 @@ function galerkin_matrix!(
         # derived (recombined) bases.
         @assert 0 < length(is) ≤ k && 0 < length(js) ≤ k
 
-        # Unnormalise quadrature nodes, such that xs ∈ [tn, tn1]
-        xs = metric .* quadx
-        # @assert all(x -> tn ≤ x ≤ tn1, xs)
-
         # Evaluate all required basis functions on quadrature nodes.
         bis = eval_basis_functions(B1, is, xs, deriv[1])
-        bjs = if symmetry
-            bis
-        else
-            eval_basis_functions(B2, js, xs, deriv[2])
-        end
+        bjs = same_ij ? bis : eval_basis_functions(B2, js, xs, deriv[2])
 
         for (nj, j) in enumerate(js), (ni, i) in enumerate(is)
             if !fill_upper && i < j

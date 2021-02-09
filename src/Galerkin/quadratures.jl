@@ -23,23 +23,6 @@ function _quadrature_prod(::Val{p}) where {p}
     SVector{n}(x), SVector{n}(w)
 end
 
-# Integrate function over the subintervals t[inds].
-@inline function _integrate(f::Function, t, inds, (x, w))
-    int = 0.0  # compute stuff in Float64, regardless of type wanted by the caller
-    N = length(w)  # number of weights / nodes
-    @inbounds for i in inds[2:end]
-        # Integrate in [t[i - 1], t[i]].
-        a, b = t[i - 1], t[i]
-        α = (b - a) / 2
-        β = (a + b) / 2
-        for n = 1:N
-            y = α * x[n] + β
-            int += α * w[n] * f(y)
-        end
-    end
-    int
-end
-
 # Metric for integration on interval [a, b].
 # This is to transform from integration on the interval [-1, 1], in which
 # quadratures are defined.
