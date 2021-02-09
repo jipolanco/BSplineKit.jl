@@ -278,25 +278,9 @@ function nonzero_in_segment(R::RecombinedBSplineBasis, n)
     nonzero_in_segment(parent(R), n - δl; N = length(R))
 end
 
-# TODO assume compact structure of recombination matrix
-# => support is the same as the B-spline B[j + δl], where δl = num_constraints(R)[1]
-@propagate_inbounds function support(R::RecombinedBSplineBasis,
-                                     j::Integer) :: UnitRange
-    A = recombination_matrix(R)
-    B = parent(R)
-    a = typemax(Int)
-    b = zero(Int)
-    for i in nzrows(A, j)
-        # We compute the union of the individual supports of each B-spline,
-        # assuming that the local supports intersect (this is always true!).
-        # We don't use the `union` function in Base because it returns an array
-        # (since that assumption is not true in general), and we don't want
-        # this.
-        s = support(B, i)
-        a = min(a, first(s)) :: Int
-        b = max(b, last(s))  :: Int
-    end
-    a:b
+function support(R::RecombinedBSplineBasis, j)
+    δl = num_constraints(R)[1]
+    support(parent(R), j + δl)
 end
 
 @propagate_inbounds function evaluate(R::RecombinedBSplineBasis, j, args...)
