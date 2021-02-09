@@ -223,6 +223,8 @@ end
     @inbounds SubMatrix(dims, A.data[k], k, inds)
 end
 
+SubMatrix(A::SubMatrix, data) = SubMatrix(A.dims, data, A.k, A.inds)
+
 indices(s::SubMatrix) = (s.inds, s.inds)
 Base.parent(Asub::SubMatrix) = Asub.data
 Base.size(S::SubMatrix) = S.dims
@@ -234,6 +236,10 @@ Base.size(S::SubMatrix) = S.dims
     jj = j - first(rj) + 1
     @inbounds S.data[ii, jj]
 end
+
+# I need to specialise on SMatrix / MMatrix, because otherwise there's ambiguity
+# with definitions in StaticArrays.
+Base.:+(A::SubMatrix, x::Union{SMatrix,MMatrix}) = SubMatrix(A, parent(A) + x)
 
 Base.:(==)(u::SubMatrix, v::SubMatrix) = indices(u) == indices(v) && u.data == v.data
 
@@ -300,6 +306,12 @@ function Base.setindex!(A::BandedTensor3D, Ak::AbstractMatrix,
     @boundscheck checkbounds(A, :, :, k)
     @boundscheck size(Ak) === (size(A, 1), size(A, 2))
     @inbounds A.data[k] = Ak
+end
+
+function Base.setindex!(A::BandedTensor3D, Asub::SubMatrix, ::Colon, ::Colon, k)
+    @boundscheck checkbounds(A, :, :, k)
+    @boundscheck k == Asub.k
+    @inbounds A.data[k] = parent(Asub)
 end
 
 # Get submatrix A[:, :, k].

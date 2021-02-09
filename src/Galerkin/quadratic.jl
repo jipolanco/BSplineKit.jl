@@ -89,7 +89,7 @@ function galerkin_tensor!(
     Al = @MMatrix zeros(T, 2k - 1, 2k - 1)
     nlast = last(eachindex(ts))
 
-    for n in eachindex(ts)
+    @inbounds for n in eachindex(ts)
         n == nlast && break
         tn, tn1 = ts[n], ts[n + 1]
         tn1 == tn && continue  # interval of length = 0
@@ -102,26 +102,25 @@ function galerkin_tensor!(
         ls = nonzero_in_segment(Bl, n)
 
         bis = eval_basis_functions(Bi, is, xs, deriv[1])
-        bjs = same_12 ? bis : eval_basis_functions(Bj, js, xs, deriv[2])
-        bls = same_13 ? bis : same_23 ? bjs :
-            eval_basis_functions(Bl, ls, xs, deriv[3])
+        bjs = same_12 ?
+            bis : eval_basis_functions(Bj, js, xs, deriv[2])
+        bls = same_13 ?
+            bis : same_23 ?
+            bjs : eval_basis_functions(Bl, ls, xs, deriv[3])
 
         # We compute the submatrix A[:, :, l] for each `l`.
         for (nl, l) in enumerate(ls)
             fill!(Al, 0)
             inds = BandedTensors.band_indices(A, l)
-            @assert is ⊆ inds && js ⊆ inds
-            @assert size(Al, 1) == size(Al, 2) == length(inds)
+            # @assert is ⊆ inds && js ⊆ inds
+            # @assert size(Al, 1) == size(Al, 2) == length(inds)
             δi = searchsortedlast(inds, is[1]) - 1
             δj = searchsortedlast(inds, js[1]) - 1
             for nj in eachindex(js), ni in eachindex(is)
                 Al[ni + δi, nj + δj] =
                     metric.α * ((bis[ni] .* bjs[nj] .* bls[nl]) ⋅ quadw)
             end
-            # TODO
-            # - nicer way to do this?
-            # - don't forget +=
-            A[:, :, l] = A[:, :, l].data + Al
+            A[:, :, l] += Al
         end
     end
 
