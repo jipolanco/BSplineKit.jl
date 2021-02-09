@@ -172,6 +172,7 @@ function galerkin_matrix!(
     )
     _check_bases(Bs)
     B1, B2 = Bs
+    symmetry = B1 == B2 && deriv[1] == deriv[2]
 
     if size(S) != length.(Bs)
         throw(ArgumentError("wrong dimensions of Galerkin matrix"))
@@ -225,7 +226,11 @@ function galerkin_matrix!(
 
         # Evaluate all required basis functions on quadrature nodes.
         bis = eval_basis_functions(B1, is, xs, deriv[1])
-        bjs = eval_basis_functions(B2, js, xs, deriv[2])
+        bjs = if symmetry
+            bis
+        else
+            eval_basis_functions(B2, js, xs, deriv[2])
+        end
 
         for (nj, j) in enumerate(js), (ni, i) in enumerate(is)
             if !fill_upper && i < j
