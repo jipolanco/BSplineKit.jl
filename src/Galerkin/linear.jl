@@ -171,10 +171,9 @@ function galerkin_matrix!(
         deriv = Derivative.((0, 0)),
     )
     _check_bases(Bs)
-    N, M = size(S)
     B1, B2 = Bs
 
-    if (N, M) != length.(Bs)
+    if size(S) != length.(Bs)
         throw(ArgumentError("wrong dimensions of Galerkin matrix"))
     end
 
@@ -201,13 +200,7 @@ function galerkin_matrix!(
         S
     end
 
-    # Number of BCs on each boundary
-    # TODO do I need this?
-    δl, δr = num_constraints(B2) .- num_constraints(B1)
-    @assert M + δl + δr == N
-
     fill!(S, 0)
-
     nlast = last(eachindex(ts))
 
     # We loop over all knot segments Ω[n] = (ts[n], ts[n + 1]).
@@ -235,10 +228,12 @@ function galerkin_matrix!(
         bjs = eval_basis_functions(B2, js, xs, deriv[2])
 
         for (nj, j) in enumerate(js), (ni, i) in enumerate(is)
-            fill_upper && j < i && continue
-            fill_lower && j > i && continue
-            # TODO optimise sum?
-            A[i, j] += metric.α * sum(bis[ni] .* bjs[nj] .* quadw)
+            if !fill_upper && i < j
+                continue
+            elseif !fill_lower && i > j
+                continue
+            end
+            A[i, j] += metric.α * ((bis[ni] .* bjs[nj]) ⋅ quadw)
         end
     end
 
