@@ -17,22 +17,49 @@
 #   `k` nodes.)
 #
 # Here, p is the polynomial order (p = 2k - 2 for the product of two B-splines).
-_quadrature_prod(p) = gausslegendre(cld(p + 1, 2))
+function _quadrature_prod(::Val{p}) where {p}
+    n = cld(p + 1, 2)
+    x, w = gausslegendre(n)
+    SVector{n}(x), SVector{n}(w)
+end
 
-# Integrate function over the subintervals t[inds].
-@inline function _integrate(f::Function, t, inds, (x, w))
-    int = 0.0  # compute stuff in Float64, regardless of type wanted by the caller
-    N = length(w)  # number of weights / nodes
-    @inbounds for i in inds[2:end]
-        # Integrate in [t[i - 1], t[i]].
-        # See https://en.wikipedia.org/wiki/Gaussian_quadrature#Change_of_interval
-        a, b = t[i - 1], t[i]
+# Metric for integration on interval [a, b].
+# This is to transform from integration on the interval [-1, 1], in which
+# quadratures are defined.
+# See https://en.wikipedia.org/wiki/Gaussian_quadrature#Change_of_interval
+struct QuadratureMetric{T}
+    α :: T
+    β :: T
+
+    function QuadratureMetric(a::T, b::T) where {T}
         α = (b - a) / 2
         β = (a + b) / 2
-        for n = 1:N
-            y = α * x[n] + β
-            int += α * w[n] * f(y)
+        new{T}(α, β)
+    end
+end
+
+# Apply metric to normalised coordinate (x ∈ [-1, 1]).
+Base.:*(M::QuadratureMetric, x::Real) = M.α * x + M.β
+Broadcast.broadcastable(M::QuadratureMetric) = Ref(M)
+
+# Evaluate elements of basis `B` (given by indices `is`) at points `xs`.
+# The length of `xs` is assumed static.
+# The length of `is` is generally equal to the B-spline order, but may me
+# smaller near the boundaries (this is not significant if knots are "augmented",
+# as is the default).
+# TODO implement evaluation of all B-splines at once (should be much faster...)
+function eval_basis_functions(B, is, xs, args...)
+    N = length(xs)
+    k = order(B)
+    @assert length(is) ≤ k
+    bis = ntuple(Val(k)) do n
+        # In general, `is` will have length equal `k`.
+        # If its length is less than `k` (may happen near boundaries, if knots
+        # are not "augmented"), we repeat values for the first B-spline, just
+        # for type stability concerns. These values are never used.
+        i = n > length(is) ? is[1] : is[n]
+        map(xs) do x
+            B[i](x, args...)
         end
     end
-    int
 end

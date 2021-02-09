@@ -216,14 +216,17 @@ struct SubMatrix{T, N, M <: SMatrix{N,N,T},
     inds :: Indices
 end
 
-indices(s::SubMatrix) = (s.inds, s.inds)
-
 @inline function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
     dims = size(A, 1), size(A, 2)
-    @inbounds SubMatrix(dims, A.data[k], k, band_indices(A, k))
+    inds = band_indices(A, k)
+    @inbounds SubMatrix(dims, A.data[k], k, inds)
 end
 
+SubMatrix(A::SubMatrix, data) = SubMatrix(A.dims, data, A.k, A.inds)
+
+indices(s::SubMatrix) = (s.inds, s.inds)
+Base.parent(Asub::SubMatrix) = Asub.data
 Base.size(S::SubMatrix) = S.dims
 
 @inline function Base.getindex(S::SubMatrix{T}, i::Integer, j::Integer) where {T}
@@ -233,6 +236,10 @@ Base.size(S::SubMatrix) = S.dims
     jj = j - first(rj) + 1
     @inbounds S.data[ii, jj]
 end
+
+# I need to specialise on SMatrix / MMatrix, because otherwise there's ambiguity
+# with definitions in StaticArrays.
+Base.:+(A::SubMatrix, x::Union{SMatrix,MMatrix}) = SubMatrix(A, parent(A) + x)
 
 Base.:(==)(u::SubMatrix, v::SubMatrix) = indices(u) == indices(v) && u.data == v.data
 
@@ -249,8 +256,6 @@ function Base.summary(io::IO, S::SubMatrix)
           is, ", ", js, ", ", S.k, ")")
     nothing
 end
-
-Base.parent(Asub::SubMatrix) = Asub.data
 
 submatrix_type(::Type{BandedTensor3D{T,b,r,M}}) where {T,b,r,M} = M
 submatrix_type(A::BandedTensor3D) = submatrix_type(typeof(A))
@@ -301,6 +306,12 @@ function Base.setindex!(A::BandedTensor3D, Ak::AbstractMatrix,
     @boundscheck checkbounds(A, :, :, k)
     @boundscheck size(Ak) === (size(A, 1), size(A, 2))
     @inbounds A.data[k] = Ak
+end
+
+function Base.setindex!(A::BandedTensor3D, Asub::SubMatrix, ::Colon, ::Colon, k)
+    @boundscheck checkbounds(A, :, :, k)
+    @boundscheck k == Asub.k
+    @inbounds A.data[k] = parent(Asub)
 end
 
 # Get submatrix A[:, :, k].
@@ -440,7 +451,7 @@ function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
     end
     @inbounds Asub = @view A[mat_inds, mat_inds]
 
-    dot(usub, Asub, vsub)  # requires Julia 1.4!!
+    dot(usub, Asub, vsub)
 end
 
 end

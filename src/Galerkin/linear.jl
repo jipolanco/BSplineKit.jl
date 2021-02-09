@@ -166,59 +166,76 @@ function galerkin_matrix! end
 galerkin_matrix!(M, B::AbstractBSplineBasis, args...) =
     galerkin_matrix!(M, (B, B), args...)
 
-function galerkin_matrix!(S::AbstractMatrix, Bs::NTuple{2,AbstractBSplineBasis},
-                          deriv = Derivative.((0, 0)))
+function galerkin_matrix!(
+        S::AbstractMatrix, Bs::Tuple{Vararg{<:AbstractBSplineBasis,2}},
+        deriv = Derivative.((0, 0)),
+    )
     _check_bases(Bs)
-    N, M = size(S)
     B1, B2 = Bs
+    same_ij = B1 == B2 && deriv[1] == deriv[2]
 
-    if (N, M) != length.(Bs)
+    if size(S) != length.(Bs)
         throw(ArgumentError("wrong dimensions of Galerkin matrix"))
     end
 
-    fill!(S, 0)
-
     # Orders and knots are assumed to be the same (see _check_bases).
     k = order(B1)
-    t = knots(B1)
-    @assert k == order(B2) && t === knots(B2)
-    h = k - 1
-    T = eltype(S)
+    ts = knots(B1)
+    @assert k == order(B2) && ts === knots(B2)
 
-    # Quadrature information (weights, nodes).
-    quad = _quadrature_prod(2k - 2)
-    @assert length(quad[1]) == k  # this should correspond to k quadrature points
+    # Quadrature information (nodes, weights).
+    quadx, quadw = _quadrature_prod(Val(2k - 2))
+    @assert length(quadx) == k  # we need k quadrature points per knot segment
 
-    if S isa Hermitian
+    A = if S isa Hermitian
         deriv[1] === deriv[2] ||
             throw(ArgumentError("matrix will not be symmetric with deriv = $deriv"))
         B1 === B2 ||
             throw(ArgumentError("matrix will not be symmetric if bases are different"))
         fill_upper = S.uplo === 'U'
         fill_lower = S.uplo === 'L'
-        A = parent(S)
+        parent(S)
     else
         fill_upper = true
         fill_lower = true
-        A = S
+        S
     end
 
-    # Number of BCs on each boundary
-    δl, δr = num_constraints(B2) .- num_constraints(B1)
-    @assert M + δl + δr == N
+    fill!(S, 0)
+    nlast = last(eachindex(ts))
 
-    @inbounds for j = 1:M
-        i0 = j + δl
-        tj = support(B2, j)
-        istart = fill_upper ? 1 : i0
-        iend = fill_lower ? N : i0
-        for i = istart:iend
-            ti = support(B1, i)
-            t_inds = intersect(ti, tj)  # common support of b_i and b_j
-            isempty(t_inds) && continue
-            A[i, j] = _integrate(t, t_inds, quad) do x
-                B1[i](x, deriv[1]) * B2[j](x, deriv[2])
+    # We loop over all knot segments Ω[n] = (ts[n], ts[n + 1]).
+    # We integrate all supported B-spline products B1[i] * B2[j] over this
+    # segment, adding the result to A[i, j].
+    @inbounds for n in eachindex(ts)
+        n == nlast && break
+        tn, tn1 = ts[n], ts[n + 1]
+        tn1 == tn && continue  # interval of length = 0
+
+        metric = QuadratureMetric(tn, tn1)
+
+        # Unnormalise quadrature nodes, such that xs ∈ [tn, tn1]
+        xs = metric .* quadx
+        # @assert all(x -> tn ≤ x ≤ tn1, xs)
+
+        is = nonzero_in_segment(B1, n)
+        js = nonzero_in_segment(B2, n)
+
+        # This is a property of B-spline bases, which should be preserved by
+        # derived (recombined) bases.
+        @assert 0 < length(is) ≤ k && 0 < length(js) ≤ k
+
+        # Evaluate all required basis functions on quadrature nodes.
+        bis = eval_basis_functions(B1, is, xs, deriv[1])
+        bjs = same_ij ? bis : eval_basis_functions(B2, js, xs, deriv[2])
+
+        for (nj, j) in enumerate(js), (ni, i) in enumerate(is)
+            if !fill_upper && i < j
+                continue
+            elseif !fill_lower && i > j
+                continue
             end
+            A[i, j] += metric.α * ((bis[ni] .* bjs[nj]) ⋅ quadw)
         end
     end
 

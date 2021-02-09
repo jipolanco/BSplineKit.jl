@@ -153,6 +153,18 @@ function test_boundary_conditions(ops, R::RecombinedBSplineBasis)
     nothing
 end
 
+# Test relation between `support` and `nonzero_in_segment` (they're inverse of
+# each other, in some sense...).
+function test_support(R)
+    for i in eachindex(R)
+        sup = support(R, i)
+        for n in sup[1:end-1]
+            i ∈ nonzero_in_segment(R, n) || return false
+        end
+    end
+    true
+end
+
 # Verify that basis recombination gives the right boundary conditions.
 function test_basis_recombination()
     knots_base = gauss_lobatto_points(40)
@@ -196,6 +208,7 @@ function test_basis_recombination()
         Nr = length(R)
         @test isempty(nonzero_in_segment(R, N + k - δr))
         @test nonzero_in_segment(R, N + k - 1 - δr) == Nr:Nr
+        @test test_support(R)
 
         test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)

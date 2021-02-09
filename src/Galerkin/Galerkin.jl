@@ -14,7 +14,7 @@ using ..Collocation: collocation_matrix  # for Documenter
 
 using BandedMatrices
 using FastGaussQuadrature: gausslegendre
-using LinearAlgebra: Hermitian
+using LinearAlgebra: Hermitian, ⋅
 using SparseArrays
 using StaticArrays
 
