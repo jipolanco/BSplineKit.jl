@@ -69,7 +69,7 @@ function galerkin_tensor!(A::BandedTensor3D,
     T = eltype(A)
 
     # Quadrature information (weights, nodes).
-    quad = _quadrature_prod(3k - 3)
+    quad = _quadrature_prod(Val(3k - 3))
 
     Al = @MMatrix zeros(T, 2k - 1, 2k - 1)
     δl, δr = num_constraints(Bl) .- num_constraints(Bi)

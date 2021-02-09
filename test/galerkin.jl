@@ -29,17 +29,21 @@ function test_galerkin_recombined()
         R1 = RecombinedBSplineBasis(Derivative(1), B)
         R2 = RecombinedBSplineBasis(Derivative(2), B)
 
-        test_galerkin_tensor(R0)
-        test_galerkin_tensor(R1)
+        @testset "3D tensor" begin
+            test_galerkin_tensor(R0)
+            test_galerkin_tensor(R1)
 
-        # "the first two bases must have the same lengths"
-        @test_throws ArgumentError galerkin_tensor((B, R0, R0),
-                                                   Derivative.((0, 0, 0)))
+            # "the first two bases must have the same lengths"
+            @test_throws ArgumentError galerkin_tensor(
+                (B, R0, R0), Derivative.((0, 0, 0)),
+            )
+        end
 
         N = length(B)
         Ñ = length(R0)
         @test Ñ == N - 2
 
+        @inferred Galerkin._quadrature_prod(Val(order(B)))
         @inferred galerkin_matrix(B)
         @inferred galerkin_matrix(R2)
         G = galerkin_matrix(B)
@@ -125,11 +129,13 @@ function test_galerkin_recombined()
                 @test norm(H + Q, Inf) < norm(Q, Inf) * ε
 
                 # Similar thing for the tensor F_{ijk} = ⟨ ϕᵢ, ϕⱼ, ϕₖ″ ⟩.
-                T″ = galerkin_tensor(R, Derivative.((0, 0, 2)))
-                T1 = galerkin_tensor(R, Derivative.((1, 0, 1)))
-                T2 = galerkin_tensor(R, Derivative.((0, 1, 1)))
-                @test T2 == permutedims(T1, (2, 1, 3))
-                @test norm(T″ + T1 + T2, Inf) < norm(T1, Inf) * ε
+                @testset "3D tensor" begin
+                    T″ = galerkin_tensor(R, Derivative.((0, 0, 2)))
+                    T1 = galerkin_tensor(R, Derivative.((1, 0, 1)))
+                    T2 = galerkin_tensor(R, Derivative.((0, 1, 1)))
+                    @test T2 == permutedims(T1, (2, 1, 3))
+                    @test norm(T″ + T1 + T2, Inf) < norm(T1, Inf) * ε
+                end
             end
         end
 
@@ -137,7 +143,9 @@ function test_galerkin_recombined()
         @testset "Combining bases ($bc)" for bc in bcs
             R = RecombinedBSplineBasis(bc, B)
             M = galerkin_matrix((R, B))
-            test_galerkin_tensor(R)
+            @testset "3D tensor" begin
+                test_galerkin_tensor(R)
+            end
             @test M == galerkin_matrix((B, R))'
             let (δl, δr) = num_constraints(R)
                 n, m = size(M)
