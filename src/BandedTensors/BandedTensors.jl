@@ -216,14 +216,15 @@ struct SubMatrix{T, N, M <: SMatrix{N,N,T},
     inds :: Indices
 end
 
-indices(s::SubMatrix) = (s.inds, s.inds)
-
 @inline function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
     dims = size(A, 1), size(A, 2)
-    @inbounds SubMatrix(dims, A.data[k], k, band_indices(A, k))
+    inds = band_indices(A, k)
+    @inbounds SubMatrix(dims, A.data[k], k, inds)
 end
 
+indices(s::SubMatrix) = (s.inds, s.inds)
+Base.parent(Asub::SubMatrix) = Asub.data
 Base.size(S::SubMatrix) = S.dims
 
 @inline function Base.getindex(S::SubMatrix{T}, i::Integer, j::Integer) where {T}
@@ -249,8 +250,6 @@ function Base.summary(io::IO, S::SubMatrix)
           is, ", ", js, ", ", S.k, ")")
     nothing
 end
-
-Base.parent(Asub::SubMatrix) = Asub.data
 
 submatrix_type(::Type{BandedTensor3D{T,b,r,M}}) where {T,b,r,M} = M
 submatrix_type(A::BandedTensor3D) = submatrix_type(typeof(A))
@@ -440,7 +439,7 @@ function LinearAlgebra.dot(u::AbstractVector, S::SubMatrix, v::AbstractVector)
     end
     @inbounds Asub = @view A[mat_inds, mat_inds]
 
-    dot(usub, Asub, vsub)  # requires Julia 1.4!!
+    dot(usub, Asub, vsub)
 end
 
 end
