@@ -272,6 +272,14 @@ For non-recombined bases such as [`BSplineBasis`](@ref), this returns zero.
 """
 num_recombined(R::AbstractBSplineBasis) = num_recombined(recombination_matrix(R))
 
+function nonzero_in_segment(R::RecombinedBSplineBasis, n)
+    # Same as the original B-spline basis on the interval n - δl.
+    δl = num_constraints(R)[1]
+    nonzero_in_segment(parent(R), n - δl)
+end
+
+# TODO assume compact structure of recombination matrix
+# => support is the same as the B-spline B[j + δl], where δl = num_constraints(R)[1]
 @propagate_inbounds function support(R::RecombinedBSplineBasis,
                                      j::Integer) :: UnitRange
     A = recombination_matrix(R)

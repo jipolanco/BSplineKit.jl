@@ -28,6 +28,7 @@ support
 common_support
 evaluate
 evaluate!
+nonzero_in_segment
 ```
 
 ## Internals

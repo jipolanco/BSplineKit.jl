@@ -24,4 +24,5 @@ setindex!
 
 ```@docs
 dot(::AbstractVector, ::SubMatrix, ::AbstractVector)
+BandedTensors.muladd!
 ```

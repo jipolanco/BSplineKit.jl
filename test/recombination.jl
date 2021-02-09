@@ -176,9 +176,20 @@ function test_basis_recombination()
     @test_throws ArgumentError RecombinedBSplineBasis(Derivative(k), B)
 
     @testset "Order $D" for D = 0:(k - 1)
-        R = RecombinedBSplineBasis(Derivative(D), B)
+        R = @inferred RecombinedBSplineBasis(Derivative(D), B)
         ops = (Derivative(D), )
         @test constraints(R) === (ops, ops)
+
+        δl, δr = @inferred num_constraints(R)
+        @test δl == δr == 1  # only one BC per boundary
+
+        # In segment [t[k + 1], t[k + 2]], non-zero recombined functions are 1:k.
+        @test @inferred(nonzero_in_segment(R, k + 1)) == 1:k
+
+        # Near the boundaries, there are fewer recombined functions.
+        @test @inferred(nonzero_in_segment(R, k)) == 1:(k - 1)
+        @test @inferred(nonzero_in_segment(R, k - 1)) == 1:(k - 2)
+
         test_recombine_matrix(recombination_matrix(R))
         test_boundary_conditions(R)
 

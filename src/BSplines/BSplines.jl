@@ -16,6 +16,7 @@ export
     basis,
     evaluate,
     evaluate!,
+    nonzero_in_segment,
     support
 
 using ..DifferentialOps

@@ -75,6 +75,19 @@ function test_splines(B::BSplineBasis, knots_in)
         @test_throws BoundsError B[0]
         @test_throws BoundsError B[N + 1]
 
+        # In segment [t[k + 1], t[k + 2]], non-zero B-splines are 2:(k + 1).
+        @test @inferred(nonzero_in_segment(B, k + 1)) == 2:(k + 1)
+
+        # Fewer B-splines near the boundaries. This is usually not a problem
+        # because knots are repeated there...
+        Nt = length(knots(B))
+        @test nonzero_in_segment(B, 1) == 1:1
+        @test nonzero_in_segment(B, Nt - 1) == N:N
+
+        # These intervals are not defined
+        @test isempty(nonzero_in_segment(B, 0))
+        @test isempty(nonzero_in_segment(B, Nt))
+
         # Verify values at the boundaries.
         a, b = boundaries(B)
         @test evaluate(B, 1, a) == 1.0
