@@ -9,10 +9,10 @@ begin
 	using Revise
 	using BSplineKit
 	using SpecialFunctions: airyai
-	using CairoMakie
 	using LinearAlgebra
 	using BandedMatrices
 	using QuadGK
+	using Plots
 end
 
 # ╔═╡ 48367b6e-6955-11eb-3ea4-5b1f8099f8ab
@@ -23,7 +23,7 @@ Example taken from Olver & Townsend, SIAM Rev. 2013.
 """
 
 # ╔═╡ ab3e2c3c-6952-11eb-2c48-d5dea019ea78
-N = 100
+N = 8000
 
 # ╔═╡ d1540532-6951-11eb-2df0-858510e4d960
 breaks =
@@ -35,7 +35,7 @@ breaks =
 	# [-cos(π * i / N) for i = 0:N]
 
 # ╔═╡ ce14d81c-6936-11eb-2876-fd539b26f77c
-B = BSplineBasis(BSplineOrder(6), breaks)
+B = BSplineBasis(BSplineOrder(10), copy(breaks))
 
 # ╔═╡ e4b55060-6936-11eb-336d-7f6d75edabff
 R = RecombinedBSplineBasis(Derivative(0), B)
@@ -56,7 +56,7 @@ cs = Cfact \ xs
 Tc = galerkin_tensor((R, R, B), Derivative.((0, 0, 0)));
 
 # ╔═╡ 2f232272-6945-11eb-3c84-4bf241954db3
-Mc = Hermitian(Tc * cs)
+Mc = Hermitian(Tc * cs);
 
 # ╔═╡ 390c6438-694a-11eb-05ee-9da9e9f26d18
 issymmetric(parent(Mc))
@@ -72,7 +72,7 @@ md"## RHS"
 
 # ╔═╡ 32ba8d7e-6938-11eb-3056-b543422fa4f5
 # RHS operator
-Mf = galerkin_matrix((R, B))
+Mf = galerkin_matrix((R, B));
 
 # ╔═╡ b343c62e-694a-11eb-37bd-d14a3d58f8d8
 md"## Solution"
@@ -88,7 +88,7 @@ u_exact(x; ε) = airyai(x / cbrt(ε))
 u_0(x; ε) = ((1 - x) * u_exact(-1; ε) + (1 + x) * u_exact(1; ε)) / 2
 
 # ╔═╡ a9e506de-6935-11eb-39f0-fb44ea95ffd3
-ε = 10^(-4)
+ε = 10^(-8)
 
 # ╔═╡ f05d7e94-6939-11eb-3c0e-af2d31d8eee0
 L = let
@@ -97,14 +97,14 @@ L = let
 	A .*= ε
 	@assert L.uplo == 'U'
 	A .+= UpperTriangular(Mc)
-	L
-end
+	BandedMatrix(L)  # convert to non-Hermitian
+end;
 
 # ╔═╡ e345757a-694a-11eb-0c84-71197d96685d
-Lfact = lu(BandedMatrix(L))
+Lfact = lu(L);
 
 # ╔═╡ 0a7d0790-693a-11eb-1ae0-d3ac008e6245
-cond(BandedMatrix(L))
+cond(L)
 
 # ╔═╡ 8a214fa4-6937-11eb-382e-bf64ff050dbb
 # RHS coefficients
@@ -129,22 +129,20 @@ usol(x; ε) = u_0(x; ε) + Sv(x)
 uerr(x; ε) = (usol(x; ε) - u_exact(x; ε))^2
 
 # ╔═╡ 079e6a38-6952-11eb-2d5f-a9d39f6ca4e0
-quadgk(x -> uerr(x; ε), -1, 1; rtol = 1e-8)
+quadgk(x -> uerr(x; ε), -1, 1; rtol = 1e-4)
 
 # ╔═╡ 4b056762-6935-11eb-116e-47a5a46dbfff
 let
-	fig, ax, _ = plot(-1..1, x -> u_exact(x; ε))
+	fig = plot(x -> u_exact(x; ε), -1, 1)
 	# plot!(ax, -1..1, x -> u_0(x; ε); color = :red)
 	# plot!(ax, -1..1, x -> Spline(B, fs)(x); color = :blue)
-	plot!(ax, -1..1, x -> usol(x; ε); color = :orange)
+	plot!(fig, x -> usol(x; ε), -1, 1; color = :orange)
 	fig
 end
 
 # ╔═╡ ff09558c-694b-11eb-379e-0f3b985db80a
 let
-	fig, ax, _ = plot(-1..1, x -> log10.(uerr.(x; ε)))
-	ylims!(ax, -20, 0)
-	fig
+	fig = plot(x -> log10.(uerr.(x; ε)), -1, 1; ylims = (-20, 1))
 end
 
 # ╔═╡ Cell order:
