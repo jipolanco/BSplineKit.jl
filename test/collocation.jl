@@ -6,7 +6,7 @@ function test_collocation_matrix()
     @testset "1×1 matrix" begin
         B = BandedMatrix{Float64}(undef, (1, 1), (0, 0))
         B[1, 1] = 0
-        C = CollocationMatrix(B)
+        C = @inferred CollocationMatrix(B)
         @test_throws ZeroPivotException(1) lu!(C)
         C[1, 1] = 3
         F = lu(C)
@@ -19,7 +19,8 @@ function test_collocation_matrix()
 
     @testset "Non-square" begin
         B = BandedMatrix{Float32}(undef, (7, 8), (2, 2))
-        @test_throws DimensionMismatch CollocationMatrix(B)
+        C = CollocationMatrix(B)
+        @test_throws DimensionMismatch lu(C)  # not supported
     end
 
     # Special cases of triangular input matrices

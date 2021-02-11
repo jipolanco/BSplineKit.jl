@@ -33,21 +33,15 @@ well as out-of-place factorisation using [`lu`](@ref). LU decomposition may also
 be performed via `factorize`.
 
 !!! warning "Matrix shape"
-    This type only supports **square** collocation matrices.
+    For now, LU factorisation is only supported for **square** collocation matrices.
 
 """
 struct CollocationMatrix{
         T,
         M <: BandedMatrix{T},
     } <: AbstractBandedMatrix{T}
-
     data :: M
-
-    function CollocationMatrix(x::BandedMatrix{T}) where {T}
-        size(x, 1) == size(x, 2) ||
-            throw(DimensionMismatch("CollocationMatrix must be square"))
-        new{T, typeof(x)}(x)
-    end
+    CollocationMatrix(x::BandedMatrix{T}) where {T} = new{T, typeof(x)}(x)
 end
 
 # This affects printing e.g. in the REPL.
@@ -90,11 +84,15 @@ The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
 """
 function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
     check || throw(ArgumentError("`check = false` not yet supported"))
+    if size(C, 1) != size(C, 2)
+        throw(DimensionMismatch(
+            "factorisation of non-square collocation matrices not supported"
+        ))
+    end
     w = bandeddata(C)
     nbandl, nbandu = bandwidths(C)
     nrow = size(C, 1)
     nroww = size(w, 1)
-    @assert size(C, 1) == size(C, 2)
     @assert nrow == size(w, 2)
     @assert nroww == nbandl + nbandu + 1
     isempty(C) && error("matrix is empty")
