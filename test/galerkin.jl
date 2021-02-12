@@ -82,11 +82,7 @@ function test_galerkin_recombined()
         @testset "Symmetric: $(constraints(R))" for R in (B, R0, R1, R2)
             let M = @inferred galerkin_matrix(R, Derivative.((1, 1)))
                 @test M isa Sym{BandedMatrix}
-                if R === R1  # not SPD for Neumann BCs!
-                    @test !isposdef(SparseMatrixCSC(M))
-                else
-                    @test isposdef(SparseMatrixCSC(M))
-                end
+                @test isposdef(Array(M))  # for some reason, sometimes this fails with BandedMatrices
             end
             let M = @inferred galerkin_matrix(R, SparseMatrixCSC{Float32})
                 @test M isa Sym{SparseMatrixCSC{Float32}}
