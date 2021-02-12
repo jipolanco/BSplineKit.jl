@@ -24,7 +24,7 @@ function test_galerkin_recombined()
     @testset "Basis recombination" begin
         knots_base = gauss_lobatto_points(41)
 
-        B = BSplineBasis(6, knots_base)
+        B = BSplineBasis(6, copy(knots_base))
         R0 = RecombinedBSplineBasis(Derivative(0), B)
         R1 = RecombinedBSplineBasis(Derivative(1), B)
         R2 = RecombinedBSplineBasis(Derivative(2), B)
@@ -44,12 +44,11 @@ function test_galerkin_recombined()
         @test Ñ == N - 2
 
         @inferred Galerkin._quadrature_prod(Val(order(B)))
-        @inferred galerkin_matrix(B)
-        @inferred galerkin_matrix(R2)
-        G = galerkin_matrix(B)
-        G0 = galerkin_matrix(R0)
-        G1 = galerkin_matrix(R1)
-        G2 = galerkin_matrix(R2)
+        G = @inferred galerkin_matrix(B)
+        G0 = @inferred galerkin_matrix(R0)
+        G1 = @inferred galerkin_matrix(R1)
+        G2 = @inferred galerkin_matrix(R2)
+        @test all(isposdef.((G, G0, G1, G2)))
 
         let M2 = copy(G2), M = copy(G)
             @test M isa Hermitian && M2 isa Hermitian
@@ -80,9 +79,19 @@ function test_galerkin_recombined()
         Sym{M} = Hermitian{T,A} where {T, A<:M}
 
         # Some symmetric matrices
-        @inferred galerkin_matrix(R1, Derivative.((1, 1)))
-        @test galerkin_matrix(R1, Derivative.((1, 1))) isa Sym{BandedMatrix}
-        @test galerkin_matrix(R1, SparseMatrixCSC{Float32}) isa Sym{SparseMatrixCSC{Float32}}
+        @testset "Symmetric: $(constraints(R))" for R in (B, R0, R1, R2)
+            let M = @inferred galerkin_matrix(R, Derivative.((1, 1)))
+                @test M isa Sym{BandedMatrix}
+                if R === R1  # not SPD for Neumann BCs!
+                    @test !isposdef(SparseMatrixCSC(M))
+                else
+                    @test isposdef(SparseMatrixCSC(M))
+                end
+            end
+            let M = @inferred galerkin_matrix(R, SparseMatrixCSC{Float32})
+                @test M isa Sym{SparseMatrixCSC{Float32}}
+            end
+        end
 
         # Some non-symmetric matrices
         @inferred galerkin_matrix(R1, Derivative.((0, 1)))
@@ -128,7 +137,7 @@ function test_galerkin_recombined()
                 ε = N^2 * eps(eltype(Q))  # the noise seems to scale as N^2
                 @test norm(H + Q, Inf) < norm(Q, Inf) * ε
 
-                # Similar thing for the tensor F_{ijk} = ⟨ ϕᵢ, ϕⱼ, ϕₖ″ ⟩.
+                # Similar thing for the tensor F_{ijk} = ⟨ ϕᵢ, ϕⱼ ϕₖ″ ⟩.
                 @testset "3D tensor" begin
                     T″ = galerkin_tensor(R, Derivative.((0, 0, 2)))
                     T1 = galerkin_tensor(R, Derivative.((1, 0, 1)))

@@ -123,8 +123,7 @@ allocate_galerkin_matrix(::Type{M}, Bs, _symmetry) where {M <: AbstractMatrix} =
 allocate_galerkin_matrix(::Type{SparseMatrixCSC{T}}, Bs, _symmetry) where {T} =
     spzeros(T, length.(Bs)...)
 
-function allocate_galerkin_matrix(
-        ::Type{M}, Bs, symmetry) where {M <: BandedMatrix}
+function allocate_galerkin_matrix(::Type{M}, Bs, symmetry) where {M <: BandedMatrix}
     _check_bases(Bs)
     B1, B2 = Bs
     k = order(B1)
