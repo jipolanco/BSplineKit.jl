@@ -82,7 +82,6 @@ function test_galerkin_recombined()
         @testset "Symmetric: $(constraints(R))" for R in (B, R0, R1, R2)
             let M = @inferred galerkin_matrix(R, Derivative.((1, 1)))
                 @test M isa Sym{BandedMatrix}
-                # @test isposdef(Array(M))  # for some reason, this seems to depend on the Julia version...
             end
             let M = @inferred galerkin_matrix(R, SparseMatrixCSC{Float32})
                 @test M isa Sym{SparseMatrixCSC{Float32}}

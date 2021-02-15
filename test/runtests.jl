@@ -20,6 +20,7 @@ import BSplineKit.Recombinations:
 # Chebyshev (Gauss-Lobatto) points.
 gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
 
+include("diffops.jl")
 include("splines.jl")
 include("recombination.jl")
 include("collocation.jl")

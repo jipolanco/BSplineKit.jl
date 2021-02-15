@@ -167,7 +167,7 @@ evaluate_diff(S::ScaledDerivative, etc...) =
     S.α * evaluate_diff(S.D, etc...)
 
 function evaluate_diff(S::DifferentialOpSum, etc...)
-    vals = map(D -> evaluate_diff(D, etc...), S.ops)
+    vals = map(D -> evaluate_diff(D, etc...), (S.a, S.b))
     sum(vals)
 end
 

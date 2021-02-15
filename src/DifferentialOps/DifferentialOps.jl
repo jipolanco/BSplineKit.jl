@@ -111,6 +111,11 @@ end
 
 Base.show(io::IO, S::ScaledDerivative) = print(io, S.α, " * ", S.D)
 max_order(S::ScaledDerivative) = max_order(S.D)
+Base.:-(S::ScaledDerivative) = ScaledDerivative(S.D, -S.α)
+
+Base.:(==)(x::ScaledDerivative, y::ScaledDerivative) = x.D == y.D && x.α == y.α
+Base.:(==)(x::ScaledDerivative, y::Derivative) = x.D == y && x.α == 1
+Base.:(==)(x::Derivative, y::ScaledDerivative) = y == x
 
 function dot(::LeftNormal, S::ScaledDerivative{n}) where {n}
     r = isodd(n) ? -1 : 1
@@ -119,24 +124,30 @@ end
 
 Base.:*(α::Number, D::Derivative) = ScaledDerivative(D, α)
 Base.:*(D::Derivative, α) = α * D
+Base.:-(D::Derivative) = -1 * D
 
 """
     DifferentialOpSum <: AbstractDifferentialOp
 
-Sum of differential operators.
+Sum of two differential operators.
 """
 struct DifferentialOpSum{
-        Ops<:Tuple{Vararg{AbstractDifferentialOp}}} <: AbstractDifferentialOp
-    ops :: Ops
-    DifferentialOpSum(ops::Vararg{AbstractDifferentialOp}) = new{typeof(ops)}(ops)
+        OpA <: AbstractDifferentialOp,
+        OpB <: AbstractDifferentialOp,
+    } <: AbstractDifferentialOp
+    a :: OpA
+    b :: OpB
 end
 
-Base.show(io::IO, D::DifferentialOpSum) = join(io, D.ops, " + ")
+Base.:+(a::AbstractDifferentialOp, b::AbstractDifferentialOp) = DifferentialOpSum(a, b)
+Base.:-(a::AbstractDifferentialOp, b::AbstractDifferentialOp) = DifferentialOpSum(a, -b)
 
-max_order(D::DifferentialOpSum) = max_order(D.ops...)
+Base.:(==)(x::DifferentialOpSum, y::DifferentialOpSum) = x.a == y.a && x.b == y.b
 
-dot(dir::LeftNormal, D::DifferentialOpSum) = DifferentialOpSum(dot.(dir, D.ops)...)
+Base.show(io::IO, D::DifferentialOpSum) = print(io, D.a, " + ", D.b)
 
-Base.:+(ops::Vararg{AbstractDifferentialOp}) = DifferentialOpSum(ops...)
+max_order(D::DifferentialOpSum) = max_order(D.a, D.b)
+
+dot(dir::LeftNormal, D::DifferentialOpSum) = DifferentialOpSum(dot.(dir, (D.a, D.b))...)
 
 end
