@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.12.20
+# v0.12.21
 
 using Markdown
 using InteractiveUtils
@@ -23,7 +23,7 @@ Example taken from Olver & Townsend, SIAM Rev. 2013.
 """
 
 # ╔═╡ ab3e2c3c-6952-11eb-2c48-d5dea019ea78
-N = 8000
+N = 500
 
 # ╔═╡ d1540532-6951-11eb-2df0-858510e4d960
 breaks =
@@ -35,13 +35,13 @@ breaks =
 	# [-cos(π * i / N) for i = 0:N]
 
 # ╔═╡ ce14d81c-6936-11eb-2876-fd539b26f77c
-B = BSplineBasis(BSplineOrder(10), copy(breaks))
+B = BSplineBasis(BSplineOrder(6), copy(breaks))
 
 # ╔═╡ e4b55060-6936-11eb-336d-7f6d75edabff
 R = RecombinedBSplineBasis(Derivative(0), B)
 
 # ╔═╡ 06d6d560-6937-11eb-03e3-5b2be0c46741
-xs = collocation_points(B)
+xs = collocation_points(B);
 
 # ╔═╡ 947045b2-6937-11eb-0501-139f38e7783b
 Cfact = lu!(collocation_matrix(B, xs));
@@ -88,7 +88,7 @@ u_exact(x; ε) = airyai(x / cbrt(ε))
 u_0(x; ε) = ((1 - x) * u_exact(-1; ε) + (1 + x) * u_exact(1; ε)) / 2
 
 # ╔═╡ a9e506de-6935-11eb-39f0-fb44ea95ffd3
-ε = 10^(-8)
+ε = 10^(-5)
 
 # ╔═╡ f05d7e94-6939-11eb-3c0e-af2d31d8eee0
 L = let
@@ -97,14 +97,11 @@ L = let
 	A .*= ε
 	@assert L.uplo == 'U'
 	A .+= UpperTriangular(Mc)
-	BandedMatrix(L)  # convert to non-Hermitian
+	BandedMatrix(L)  # convert to "full" banded matrix, for LU
 end;
 
 # ╔═╡ e345757a-694a-11eb-0c84-71197d96685d
 Lfact = lu(L);
-
-# ╔═╡ 0a7d0790-693a-11eb-1ae0-d3ac008e6245
-cond(L)
 
 # ╔═╡ 8a214fa4-6937-11eb-382e-bf64ff050dbb
 # RHS coefficients
@@ -120,7 +117,7 @@ vR = Lfact \ rhs
 vB = recombination_matrix(R) * vR
 
 # ╔═╡ 1b6b3ba6-694b-11eb-0f4e-a18cc5b6e991
-Sv = Spline(B, vB)
+Sv = Spline(B, vB);
 
 # ╔═╡ 761215d4-694b-11eb-1089-a7ccde18df5b
 usol(x; ε) = u_0(x; ε) + Sv(x)
@@ -162,7 +159,6 @@ end
 # ╟─ea8e4e44-6939-11eb-0a3c-4b669c5645c8
 # ╠═f05d7e94-6939-11eb-3c0e-af2d31d8eee0
 # ╠═e345757a-694a-11eb-0c84-71197d96685d
-# ╠═0a7d0790-693a-11eb-1ae0-d3ac008e6245
 # ╟─69982892-6938-11eb-2972-333ba2799cf4
 # ╠═8a214fa4-6937-11eb-382e-bf64ff050dbb
 # ╠═32ba8d7e-6938-11eb-3056-b543422fa4f5
