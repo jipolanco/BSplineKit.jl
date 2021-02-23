@@ -74,7 +74,8 @@ recombined basis `R` generated from `B` (see [Basis recombination](@ref)).
 function galerkin_matrix(
         Bs::NTuple{2,AbstractBSplineBasis},
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{M} = BandedMatrix{Float64},
+        ::Type{M} = BandedMatrix{Float64};
+        kws...
     ) where {M <: AbstractMatrix}
     B1, B2 = Bs
     symmetry = M <: Hermitian
@@ -83,22 +84,23 @@ function galerkin_matrix(
             "input matrix type incorrectly assumes symmetry"))
     end
     A = allocate_galerkin_matrix(M, Bs)
-    galerkin_matrix!(A, Bs, deriv)
+    galerkin_matrix!(A, Bs, deriv; kws...)
 end
 
 function galerkin_matrix(
         B::AbstractBSplineBasis,
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{Min} = BandedMatrix{Float64},
+        ::Type{Min} = BandedMatrix{Float64};
+        kws...,
     ) where {Min <: AbstractMatrix}
     symmetry = deriv[1] === deriv[2]
     T = eltype(Min)
     M = symmetry ? Hermitian{T,Min} : Min
-    galerkin_matrix((B, B), deriv, M)
+    galerkin_matrix((B, B), deriv, M; kws...)
 end
 
-galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
-    galerkin_matrix(B, Derivative.((0, 0)), M)
+galerkin_matrix(B, ::Type{M}; kws...) where {M <: AbstractMatrix} =
+    galerkin_matrix(B, Derivative.((0, 0)), M; kws...)
 
 function _check_bases(Bs::Tuple{Vararg{AbstractBSplineBasis}})
     ps = parent.(Bs)
@@ -162,12 +164,13 @@ See [`galerkin_matrix`](@ref) for details.
 """
 function galerkin_matrix! end
 
-galerkin_matrix!(M, B::AbstractBSplineBasis, args...) =
-    galerkin_matrix!(M, (B, B), args...)
+galerkin_matrix!(M, B::AbstractBSplineBasis, args...; kws...) =
+    galerkin_matrix!(M, (B, B), args...; kws...)
 
 function galerkin_matrix!(
         S::AbstractMatrix, Bs::Tuple{Vararg{<:AbstractBSplineBasis,2}},
-        deriv = Derivative.((0, 0)),
+        deriv = Derivative.((0, 0));
+        fweight::Function = x -> 1,  # non-negative, defined in x ∈ [-1, 1]
     )
     _check_bases(Bs)
     B1, B2 = Bs
@@ -183,8 +186,17 @@ function galerkin_matrix!(
     @assert k == order(B2) && ts === knots(B2)
 
     # Quadrature information (nodes, weights).
-    quadx, quadw = _quadrature_prod(Val(2k - 2))
-    @assert length(quadx) == k  # we need k quadrature points per knot segment
+    # TODO the form of `fweight` must be taken into account here!!
+    # Maybe it should be restricted to being a polynomial with a maximum order.
+    # Otherwise, if it's a polynomial, one could use a generated function to
+    # detect its order at "compile" time.
+    weight_max_order = 2k  # TEMPORARY
+    quadx, quadw = _quadrature_prod(Val(2k - 2 + weight_max_order))
+    # @assert length(quadx) == k  # we need k quadrature points per knot segment
+        
+    # Inner product weights evaluated in [-1, 1].
+    # These are multiplied by the quadrature weights.
+    ws = fweight.(quadx) .* quadw
 
     A = if S isa Hermitian
         deriv[1] === deriv[2] ||
@@ -234,7 +246,7 @@ function galerkin_matrix!(
             elseif !fill_lower && i > j
                 continue
             end
-            A[i, j] += metric.α * ((bis[ni] .* bjs[nj]) ⋅ quadw)
+            A[i, j] += metric.α * ((bis[ni] .* bjs[nj]) ⋅ ws)
         end
     end
 
