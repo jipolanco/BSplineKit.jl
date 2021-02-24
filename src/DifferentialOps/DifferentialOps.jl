@@ -142,7 +142,8 @@ end
 Base.:+(a::AbstractDifferentialOp, b::AbstractDifferentialOp) = DifferentialOpSum(a, b)
 Base.:-(a::AbstractDifferentialOp, b::AbstractDifferentialOp) = DifferentialOpSum(a, -b)
 
-Base.:(==)(x::DifferentialOpSum, y::DifferentialOpSum) = x.a == y.a && x.b == y.b
+Base.:(==)(x::DifferentialOpSum, y::DifferentialOpSum) =
+    (x.a == y.a && x.b == y.b) || (x.a == y.b && x.b == y.a)
 
 Base.show(io::IO, D::DifferentialOpSum) = print(io, D.a, " + ", D.b)
 

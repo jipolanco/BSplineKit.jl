@@ -8,7 +8,9 @@ using LinearAlgebra: ⋅
     @test max_order(D3) == 3
 
     S = D2 + 5 * D3
-    @test max_order(S) == 3
+    S′ = 5 * D3 + D2
+    @test S == S′
+    @test max_order(S) == max_order(S′) == 3
 
     @testset "Projections" begin
         @test LeftNormal() ⋅ D2 == D2 == 1 * D2
