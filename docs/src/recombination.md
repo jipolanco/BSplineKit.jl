@@ -12,6 +12,7 @@ Recombinations
 
 ```@docs
 RecombinedBSplineBasis
+Spline(::RecombinedBSplineBasis, coefs)
 parent(::RecombinedBSplineBasis)
 length(::RecombinedBSplineBasis)
 constraints
