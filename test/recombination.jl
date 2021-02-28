@@ -187,6 +187,19 @@ function test_basis_recombination()
 
     @test_throws ArgumentError RecombinedBSplineBasis(Derivative(k), B)
 
+    @testset "Spline" begin
+        R = RecombinedBSplineBasis(Derivative(1), B)
+        coefs = rand(length(R))
+
+        # This constructs a Spline in the parent B-spline basis.
+        S = @inferred Spline(R, coefs)
+        @test S isa Spline
+
+        @test coefficients(S) == recombination_matrix(R) * coefs
+        @test length(S) == length(B)
+        @test basis(S) === B
+    end
+
     @testset "Order $D" for D = 0:(k - 1)
         R = @inferred RecombinedBSplineBasis(Derivative(D), B)
         ops = (Derivative(D), )

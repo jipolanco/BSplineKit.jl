@@ -13,11 +13,11 @@ using .DifferentialOps
 include("BSplines/BSplines.jl")
 @reexport using .BSplines
 
-include("Recombinations/Recombinations.jl")
-@reexport using .Recombinations
-
 include("Splines/Splines.jl")
 @reexport using .Splines
+
+include("Recombinations/Recombinations.jl")
+@reexport using .Recombinations
 
 include("Collocation/Collocation.jl")
 @reexport using .Collocation

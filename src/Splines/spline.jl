@@ -5,7 +5,7 @@ Spline function.
 
 ---
 
-    Spline(b::BSplineBasis, coefs::AbstractVector)
+    Spline(B::BSplineBasis, coefs::AbstractVector)
 
 Construct a spline from a B-spline basis and a vector of B-spline coefficients.
 
