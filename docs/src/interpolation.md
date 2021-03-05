@@ -1,7 +1,7 @@
-# Interpolations
+# Interpolation
 
 ```@meta
-CurrentModule = BSplineKit.Interpolations
+CurrentModule = BSplineKit.SplineInterpolations
 ```
 
 High-level interpolation of gridded data using B-splines.

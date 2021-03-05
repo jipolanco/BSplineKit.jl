@@ -1,4 +1,4 @@
-module Interpolations
+module SplineInterpolations
 
 using ..BSplines
 using ..Collocation
@@ -6,6 +6,9 @@ using ..Splines
 
 using BandedMatrices
 using LinearAlgebra
+
+import Interpolations:
+    interpolate, interpolate!
 
 export spline, interpolate, interpolate!
 
@@ -82,7 +85,6 @@ function interpolate!(I::Interpolation, y::AbstractVector)
 end
 
 """
-    interpolate(x, y, k::Integer)
     interpolate(x, y, BSplineOrder(k))
 
 Interpolate values `y` at locations `x` using B-splines of order `k`.
@@ -92,20 +94,34 @@ Grid points `x` must be real-valued and are assumed to be in increasing order.
 Returns an [`Interpolation`](@ref) which can be evaluated at any intermediate
 point.
 
-The second form using [`BSplineOrder`](@ref) ensures that the type of the
-returned [`Interpolation`](@ref) is fully inferred by the compiler.
-
 See also [`interpolate!`](@ref).
+
+# Examples
+
+```jldoctest
+julia> xs = -1:0.1:1;
+
+julia> ys = cospi.(xs);
+
+julia> itp = interpolate(xs, ys, BSplineOrder(4));
+
+julia> itp(-1)
+-1.0
+
+julia> itp(0)
+1.0
+
+julia> itp(0.42)
+0.2486897676885842
+```
 """
 function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
     t = make_knots(x, order(k))
-    B = BSplineBasis(k, t, augment=Val(false))  # it's already augmented!
+    B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
     T = float(eltype(y))
     itp = Interpolation(B, x, T)
     interpolate!(itp, y)
 end
-
-@inline interpolate(x, y, k::Integer) = interpolate(x, y, BSplineOrder(k))
 
 # Define B-spline knots from collocation points and B-spline order.
 # Note that the choice is not unique.
