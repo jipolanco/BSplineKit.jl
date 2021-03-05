@@ -174,6 +174,7 @@ struct RecombinedBSplineBasis{
 end
 
 Base.:(==)(A::RecombinedBSplineBasis, B::RecombinedBSplineBasis) =
+    A === B ||
     constraints(A) == constraints(B) &&
     parent(A) == parent(B)
 
