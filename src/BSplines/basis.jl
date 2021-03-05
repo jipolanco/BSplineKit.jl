@@ -74,6 +74,10 @@ end
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
+Base.:(==)(A::BSplineBasis, B::BSplineBasis) =
+    A === B ||
+    order(A) == order(B) && knots(A) == knots(B)
+
 """
     getindex(B::AbstractBSplineBasis, i, [T = Float64])
 
