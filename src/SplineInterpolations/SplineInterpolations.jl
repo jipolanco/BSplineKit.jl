@@ -7,6 +7,9 @@ using ..Splines
 using BandedMatrices
 using LinearAlgebra
 
+import Interpolations:
+    interpolate, interpolate!
+
 export spline, interpolate, interpolate!
 
 """
