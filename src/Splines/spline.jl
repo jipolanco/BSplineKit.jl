@@ -53,10 +53,10 @@ function Base.show(io::IO, S::Spline)
 end
 
 Base.:(==)(P::Spline, Q::Spline) =
-    basis(P) === basis(Q) && coefficients(P) == coefficients(Q)
+    basis(P) == basis(Q) && coefficients(P) == coefficients(Q)
 
 Base.isapprox(P::Spline, Q::Spline; kwargs...) =
-    basis(P) === basis(Q) &&
+    basis(P) == basis(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
 function Spline(::UndefInitializer, B::BSplineBasis,
