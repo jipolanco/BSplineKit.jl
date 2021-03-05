@@ -17,21 +17,33 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     # Interpolate polynomial at `x` locations.
     y = eval_poly(x, P)
     itp = @inferred interpolate(x, y, BSplineOrder(k))
-    @test itp.(x) ≈ y
 
     S = spline(itp)
     @test length(S) == length(x)
 
-    let x = (x[2] + x[3]) / 3
-        @test itp(x) == S(x)  # these are equivalent
+    @testset "Interpolations" begin
+        @test itp.(x) ≈ y
+
+        let x = (x[2] + x[3]) / 3
+            @test itp(x) == S(x)  # these are equivalent
+        end
+
+        @test order(itp) === order(S)
+        @test basis(itp) === basis(S)
+        @test knots(itp) === knots(S)
+        @test coefficients(itp) === coefficients(S)
+        @test integral(itp) == integral(S)
+        @test diff(itp, Derivative(1)) == diff(S, Derivative(1))
+
+        # "incompatible lengths of B-spline basis and collocation points"
+        @test_throws(
+            DimensionMismatch,
+            SplineInterpolations.Interpolation(basis(S), x[1:4], eltype(S)),
+        )
+
+        # "input data has incorrect length"
+        @test_throws DimensionMismatch interpolate!(itp, rand(length(x) - 1))
     end
-
-    # "incompatible lengths of B-spline basis and collocation points"
-    @test_throws(DimensionMismatch,
-                 SplineInterpolations.Interpolation(basis(S), x[1:4], eltype(S)))
-
-    # "input data has incorrect length"
-    @test_throws DimensionMismatch interpolate!(itp, rand(length(x) - 1))
 
     S′ = diff(S, Derivative(1))
     Sint = integral(S)

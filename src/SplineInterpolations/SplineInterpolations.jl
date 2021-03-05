@@ -7,6 +7,12 @@ using ..Splines
 using BandedMatrices
 using LinearAlgebra
 
+import ..BSplines:
+    order, knots, basis
+
+import ..Splines:
+    coefficients, integral
+
 import Interpolations:
     interpolate, interpolate!
 
@@ -63,7 +69,14 @@ Returns the [`Spline`](@ref) associated to the interpolation.
 """
 spline(I::Interpolation) = I.s
 
+# For convenience, wrap some commonly used functions that apply to the
+# underlying spline.
 (I::Interpolation)(x) = spline(I)(x)
+Base.diff(I::Interpolation, etc...) = diff(spline(I), etc...)
+
+for f in (:basis, :order, :knots, :coefficients, :integral)
+    @eval $f(I::Interpolation) = $f(spline(I))
+end
 
 """
     interpolate!(I::Interpolation, y::AbstractVector)
