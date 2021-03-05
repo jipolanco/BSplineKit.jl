@@ -191,6 +191,12 @@ function test_basis_recombination()
         R = RecombinedBSplineBasis(Derivative(1), B)
         coefs = rand(length(R))
 
+        @testset "Equality" begin
+            @test R != B
+            @test R != RecombinedBSplineBasis(Derivative(0), B)
+            @test R == RecombinedBSplineBasis(Derivative(1), B)
+        end
+
         # This constructs a Spline in the parent B-spline basis.
         S = @inferred Spline(R, coefs)
         @test S isa Spline

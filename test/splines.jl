@@ -199,6 +199,18 @@ function test_splines(::BSplineOrder{k}) where {k}
         @inferred BSplineBasis(BSplineOrder(k), copy(x), augment=Val(true))
         @inferred (() -> BSplineBasis(k, copy(x)))()
         g = BSplineBasis(k, copy(x))
+
+        @testset "BSplineBasis equality" begin
+            h = BSplineBasis(k, copy(x))
+            @test g == h
+
+            h = BSplineBasis(BSplineOrder(k + 1), copy(x))
+            @test g != h
+
+            h = BSplineBasis(k, x .+ 1)
+            @test g != h
+        end
+
         @test order(g) == k
         test_splines(g, x)
     end

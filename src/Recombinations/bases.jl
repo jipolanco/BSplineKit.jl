@@ -173,6 +173,10 @@ struct RecombinedBSplineBasis{
         RecombinedBSplineBasis((op, ), args...)
 end
 
+Base.:(==)(A::RecombinedBSplineBasis, B::RecombinedBSplineBasis) =
+    constraints(A) == constraints(B) &&
+    parent(A) == parent(B)
+
 function Base.summary(io::IO, R::RecombinedBSplineBasis)
     summary_basis(io, R)
     cl, cr = constraints(R)
