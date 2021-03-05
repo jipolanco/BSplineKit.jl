@@ -96,6 +96,25 @@ The second form using [`BSplineOrder`](@ref) ensures that the type of the
 returned [`Interpolation`](@ref) is fully inferred by the compiler.
 
 See also [`interpolate!`](@ref).
+
+# Examples
+
+```jldoctest
+julia> xs = -1:0.1:1;
+
+julia> ys = cospi.(xs);
+
+julia> itp = interpolate(xs, ys, BSplineOrder(4));
+
+julia> itp(-1)
+-1.0
+
+julia> itp(0)
+1.0
+
+julia> itp(0.42)
+0.2486897676885842
+```
 """
 function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
     t = make_knots(x, order(k))
