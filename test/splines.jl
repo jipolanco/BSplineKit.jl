@@ -16,8 +16,7 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
 
     # Interpolate polynomial at `x` locations.
     y = eval_poly(x, P)
-    @inferred interpolate(x, y, BSplineOrder(k))
-    itp = interpolate(x, y, k)
+    itp = @inferred interpolate(x, y, BSplineOrder(k))
     @test itp.(x) ≈ y
 
     S = spline(itp)
