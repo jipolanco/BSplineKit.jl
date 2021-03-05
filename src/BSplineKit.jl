@@ -25,7 +25,7 @@ include("Collocation/Collocation.jl")
 include("Galerkin/Galerkin.jl")
 @reexport using .Galerkin
 
-include("Interpolations/Interpolations.jl")
-@reexport using .Interpolations
+include("SplineInterpolations/SplineInterpolations.jl")
+@reexport using .SplineInterpolations
 
 end

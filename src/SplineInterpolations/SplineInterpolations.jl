@@ -1,4 +1,4 @@
-module Interpolations
+module SplineInterpolations
 
 using ..BSplines
 using ..Collocation

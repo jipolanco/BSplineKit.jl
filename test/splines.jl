@@ -6,7 +6,7 @@ eval_poly(x::AbstractVector, P) = [@evalpoly(t, P...) for t in x]
 
 # Test a polynomial of degree k - 1.
 # The splines should approximate the polynomial (and its derivatives) perfectly.
-# This is also used to test the Interpolations module.
+# This is also used to test the SplineInterpolations module.
 function test_polynomial(x, ::BSplineOrder{k}) where {k}
     # Coefficients of polynomial of degree k - 1 (see ?evalpoly).
     # P(x) = -1 + 2x - 3x^2 + 4x^3 - ...
@@ -29,7 +29,7 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
 
     # "incompatible lengths of B-spline basis and collocation points"
     @test_throws(DimensionMismatch,
-                 Interpolations.Interpolation(basis(S), x[1:4], eltype(S)))
+                 SplineInterpolations.Interpolation(basis(S), x[1:4], eltype(S)))
 
     # "input data has incorrect length"
     @test_throws DimensionMismatch interpolate!(itp, rand(length(x) - 1))
