@@ -38,7 +38,7 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
         # "incompatible lengths of B-spline basis and collocation points"
         @test_throws(
             DimensionMismatch,
-            SplineInterpolations.Interpolation(basis(S), x[1:4], eltype(S)),
+            SplineInterpolation(basis(S), x[1:4], eltype(S)),
         )
 
         # "input data has incorrect length"

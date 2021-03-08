@@ -16,22 +16,24 @@ import ..Splines:
 import Interpolations:
     interpolate, interpolate!
 
-export spline, interpolate, interpolate!
+export
+    SplineInterpolation, spline, interpolate, interpolate!
 
 """
-    Interpolation
+    SplineInterpolation
 
 Spline interpolation.
 
 This is the type returned by [`interpolate`](@ref).
 Generally, it should not be directly constructed.
 
-An `Interpolation` `I` can be evaluated at any point `x` using the `I(x)` syntax.
+A `SplineInterpolation` `I` can be evaluated at any point `x` using the `I(x)`
+syntax.
 
 It can also be updated with new data on the same data points using
 [`interpolate!`](@ref).
 """
-struct Interpolation{
+struct SplineInterpolation{
         T <: Number,
         S <: Spline{T},
         F <: Factorization,
@@ -39,7 +41,7 @@ struct Interpolation{
     s :: S
     C :: F  # factorisation of collocation matrix
 
-    function Interpolation(B::BSplineBasis, C::Factorization)
+    function SplineInterpolation(B::BSplineBasis, C::Factorization)
         N = length(B)
         if size(C) != (N, N)
             throw(DimensionMismatch("collocation matrix has wrong dimensions"))
@@ -48,47 +50,48 @@ struct Interpolation{
         s = Spline(undef, B, T)  # uninitialised spline
         new{T, typeof(s), typeof(C)}(s, C)
     end
+end
 
-    # Construct Interpolation from basis and collocation points.
-    function Interpolation(B, x::AbstractVector, ::Type{T}) where {T}
-        # Here we construct the collocation matrix and its LU factorisation.
-        N = length(B)
-        if length(x) != N
-            throw(DimensionMismatch(
-                "incompatible lengths of B-spline basis and collocation points"))
-        end
-        C = collocation_matrix(B, x, CollocationMatrix{T})
-        Interpolation(B, lu!(C))
+# Construct SplineInterpolation from basis and collocation points.
+function SplineInterpolation(B, x::AbstractVector, ::Type{T}) where {T}
+    # Here we construct the collocation matrix and its LU factorisation.
+    N = length(B)
+    if length(x) != N
+        throw(DimensionMismatch(
+            "incompatible lengths of B-spline basis and collocation points"))
     end
+    C = collocation_matrix(B, x, CollocationMatrix{T})
+    SplineInterpolation(B, lu!(C))
 end
 
 """
-    spline(I::Interpolation) -> Spline
+    spline(I::SplineInterpolation) -> Spline
 
 Returns the [`Spline`](@ref) associated to the interpolation.
 """
-spline(I::Interpolation) = I.s
+spline(I::SplineInterpolation) = I.s
 
 # For convenience, wrap some commonly used functions that apply to the
 # underlying spline.
-(I::Interpolation)(x) = spline(I)(x)
-Base.diff(I::Interpolation, etc...) = diff(spline(I), etc...)
+(I::SplineInterpolation)(x) = spline(I)(x)
+Base.diff(I::SplineInterpolation, etc...) = diff(spline(I), etc...)
 
 for f in (:basis, :order, :knots, :coefficients, :integral)
-    @eval $f(I::Interpolation) = $f(spline(I))
+    @eval $f(I::SplineInterpolation) = $f(spline(I))
 end
 
 """
-    interpolate!(I::Interpolation, y::AbstractVector)
+    interpolate!(I::SplineInterpolation, y::AbstractVector)
 
 Update spline interpolation with new data.
 
-This function allows to reuse an [`Interpolation`](@ref) returned by a previous
-call to [`interpolate`](@ref), using new data on the same locations `x`.
+This function allows to reuse a [`SplineInterpolation`](@ref) returned by a
+previous call to [`interpolate`](@ref), using new data on the same locations
+`x`.
 
 See [`interpolate`](@ref) for details.
 """
-function interpolate!(I::Interpolation, y::AbstractVector)
+function interpolate!(I::SplineInterpolation, y::AbstractVector)
     s = spline(I)
     if length(y) != length(s)
         throw(DimensionMismatch("input data has incorrect length"))
@@ -104,7 +107,7 @@ Interpolate values `y` at locations `x` using B-splines of order `k`.
 
 Grid points `x` must be real-valued and are assumed to be in increasing order.
 
-Returns an [`Interpolation`](@ref) which can be evaluated at any intermediate
+Returns a [`SplineInterpolation`](@ref) which can be evaluated at any intermediate
 point.
 
 See also [`interpolate!`](@ref).
@@ -132,7 +135,7 @@ function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
     t = make_knots(x, order(k))
     B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
     T = float(eltype(y))
-    itp = Interpolation(B, x, T)
+    itp = SplineInterpolation(B, x, T)
     interpolate!(itp, y)
 end
 

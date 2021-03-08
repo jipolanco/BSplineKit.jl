@@ -6,16 +6,16 @@ CurrentModule = BSplineKit.SplineInterpolations
 
 High-level interpolation of gridded data using B-splines.
 
-## Interpolation functions
+## Functions
 
 ```@docs
 interpolate
 interpolate!
 ```
 
-## Interpolation objects
+## Types
 
 ```@docs
-Interpolation
+SplineInterpolation
 spline
 ```
