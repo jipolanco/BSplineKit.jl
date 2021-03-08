@@ -1,13 +1,27 @@
 """
-    Spline
+    Spline{T}
 
-Spline function.
+Represents a spline function.
 
 ---
 
     Spline(B::BSplineBasis, coefs::AbstractVector)
 
 Construct a spline from a B-spline basis and a vector of B-spline coefficients.
+
+# Examples
+
+```jldoctest; filter = r"coefficients: \\[.*\\]"
+julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
+
+julia> coefs = rand(length(B));
+
+julia> S = Spline(B, coefs)
+13-element Spline{Float64}:
+ order: 4
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ coefficients: [0.18588655648969699, 0.9029166384444702, 0.9260613807703459, 0.8547964724816131, 0.39474318453198, 0.7014911606231877, 0.7532136707230797, 0.9360833341053749, 0.23429394964461725, 0.8755953969471848, 0.8421116493609568, 0.6943510993657007, 0.3825519047441852]
+```
 
 ---
 
@@ -28,6 +42,7 @@ struct Spline{
     }
     basis :: Basis
     coefs :: CoefVector
+
     function Spline(B::BSplineBasis, coefs::AbstractVector)
         length(coefs) == length(B) ||
             throw(ArgumentError("wrong number of coefficients"))
@@ -45,7 +60,7 @@ Broadcast.broadcastable(S::Spline) = Ref(S)
 Base.copy(S::Spline) = Spline(basis(S), copy(coefficients(S)))
 
 function Base.show(io::IO, S::Spline)
-    println(io, length(S), "-element ", typeof(S), ':')
+    println(io, length(S), "-element ", nameof(typeof(S)), '{', eltype(S), '}', ':')
     println(io, " order: ", order(S))
     println(io, " knots: ", knots(S))
     print(io, " coefficients: ", coefficients(S))
@@ -104,14 +119,15 @@ order(S::Spline) = order(typeof(S))
 function (S::Spline)(x)
     T = eltype(S)
     t = knots(S)
-    n = get_knot_interval(t, x)
+    n = knot_interval(t, x)
     n === nothing && return zero(T)  # x is outside of knot domain
     k = order(S)
     spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
 end
 
-function spline_kernel(c::AbstractVector{T},
-                       t, n, x, ::BSplineOrder{k}) where {T,k}
+function spline_kernel(
+        c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
+    ) where {T,k}
     # Algorithm adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
     if @generated
         quote
@@ -133,22 +149,20 @@ function spline_kernel(c::AbstractVector{T},
             @nexprs 1 j -> d_{$k}  # return d_k
         end
     else
-        # Similar, using tuples.
-        # This version is a bit slower, but not much (~15% slower in some tests).
+        # Similar using tuples (slower than @generated version).
         d = @inbounds ntuple(j -> c[j + n - k], Val(k))
-        for r = 2:k
+        @inbounds for r = 2:k
             w = d
             d = ntuple(Val(k)) do j
                 if j ≥ r
-                    α = @inbounds (x - t[j + n - k]) /
-                                  (t[j + n - r + 1] - t[j + n - k])
+                    α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
                     (1 - α) * w[j - 1] + α * w[j]
                 else
                     w[j]
                 end
             end
         end
-        d[k]
+        @inbounds d[k]
     end
 end
 
@@ -192,7 +206,7 @@ function Base.diff(S::Spline,
     N = length(u)
     Nt = length(t)
     t_new = view(t, (1 + Ndiff):(Nt - Ndiff))
-    B = BSplineBasis(BSplineOrder(k - Ndiff), t_new, augment=Val(false))
+    B = BSplineBasis(BSplineOrder(k - Ndiff), t_new; augment = Val(false))
 
     Spline(B, view(du, (1 + Ndiff):N))
 end
@@ -233,11 +247,11 @@ function integral(S::Spline)
         end
     end
 
-    B = BSplineBasis(BSplineOrder(k + 1), t_int, augment=Val(false))
+    B = BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
     Spline(B, β)
 end
 
-function get_knot_interval(t::AbstractVector, x)
+function knot_interval(t::AbstractVector, x)
     n = searchsortedlast(t, x)  # t[n] <= x < t[n + 1]
     n == 0 && return nothing    # x < t[1]
 
@@ -248,7 +262,7 @@ function get_knot_interval(t::AbstractVector, x)
         x > t_last && return nothing
         # If x is exactly on the last knot, decrease the index as necessary.
         while t[n] == t_last
-            n -= 1
+            n -= one(n)
         end
     end
 
