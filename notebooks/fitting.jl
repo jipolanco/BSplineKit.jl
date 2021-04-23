@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.12.21
+# v0.14.3
 
 using Markdown
 using InteractiveUtils
@@ -44,6 +44,12 @@ F = qr(C);
 
 # ╔═╡ 6046792e-79af-11eb-1338-01159eefb4f3
 coefs = F \ ydata
+
+# ╔═╡ 4ed10b90-9f21-4f86-9e02-b0489c879dd1
+coefs_alt = cholesky(C' * C) \ (C' * ydata)
+
+# ╔═╡ 921213fd-fdbc-4f4b-b379-1b0432ce056e
+norm(coefs - coefs_alt, Inf)
 
 # ╔═╡ 6b405606-79af-11eb-3d80-8bdae47a03ea
 fspline = Spline(B, coefs)
@@ -114,6 +120,8 @@ end
 # ╠═2b263ef0-79af-11eb-3243-eb0ac08d1a46
 # ╠═98f5a344-79af-11eb-1049-05b3511b5760
 # ╠═6046792e-79af-11eb-1338-01159eefb4f3
+# ╠═4ed10b90-9f21-4f86-9e02-b0489c879dd1
+# ╠═921213fd-fdbc-4f4b-b379-1b0432ce056e
 # ╠═6b405606-79af-11eb-3d80-8bdae47a03ea
 # ╠═95461eda-79ae-11eb-3d0c-5bdb5411c9c9
 # ╟─6c65dff6-79c3-11eb-15ab-c9757e03c434
