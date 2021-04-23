@@ -13,6 +13,9 @@ begin
 	using Plots
 end
 
+# ╔═╡ cb24bdf0-5ba4-4683-8fcc-a635192bc173
+using BenchmarkTools
+
 # ╔═╡ 5a37f162-79ae-11eb-18fe-b329714a6617
 f(x) = exp(-x / 2π) * cos(4x)
 
@@ -53,6 +56,21 @@ norm(coefs - coefs_alt, Inf)
 
 # ╔═╡ 6b405606-79af-11eb-3d80-8bdae47a03ea
 fspline = Spline(B, coefs)
+
+# ╔═╡ b76dc390-26fc-4f4e-837d-1758ea067d89
+md"# Benchmarks"
+
+# ╔═╡ 9f86c2f9-e5c3-4c9b-9c23-a93b708ce6ad
+begin
+	lsq_v1(C, ydata) = qr(C) \ ydata
+	lsq_v2(C, ydata) = cholesky(C' * C) \ (C' * ydata)
+end
+
+# ╔═╡ 546eab20-b938-40f5-81a1-344e5d2633c9
+@benchmark lsq_v1($C, $ydata)
+
+# ╔═╡ 379d0576-0969-4e8a-b743-3ee4408d2ec7
+@benchmark lsq_v2($C, $ydata)
 
 # ╔═╡ 6c65dff6-79c3-11eb-15ab-c9757e03c434
 md"""## Least-squares as in de Boor
@@ -124,6 +142,11 @@ end
 # ╠═921213fd-fdbc-4f4b-b379-1b0432ce056e
 # ╠═6b405606-79af-11eb-3d80-8bdae47a03ea
 # ╠═95461eda-79ae-11eb-3d0c-5bdb5411c9c9
+# ╟─b76dc390-26fc-4f4e-837d-1758ea067d89
+# ╠═cb24bdf0-5ba4-4683-8fcc-a635192bc173
+# ╠═9f86c2f9-e5c3-4c9b-9c23-a93b708ce6ad
+# ╠═546eab20-b938-40f5-81a1-344e5d2633c9
+# ╠═379d0576-0969-4e8a-b743-3ee4408d2ec7
 # ╟─6c65dff6-79c3-11eb-15ab-c9757e03c434
 # ╠═7be65118-79c3-11eb-09de-2f1fc37ef07d
 # ╠═7f765e48-79c5-11eb-0730-43153731b317
