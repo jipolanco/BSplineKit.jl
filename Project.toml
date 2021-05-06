@@ -15,7 +15,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-ArrayLayouts = "0.5, 0.6"
+ArrayLayouts = "0.5, 0.6, 0.7"
 BandedMatrices = "0.16"
 FastGaussQuadrature = "0.4"
 Interpolations = "0.13"
