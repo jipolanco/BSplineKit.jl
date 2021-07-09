@@ -6,7 +6,8 @@ using LazyArrays: ApplyArray
 Returns the coefficients associated to the parent B-spline basis, from the
 coefficients `coefs` in the recombined basis.
 
-Note that this function doesn't allocate thanks to the use of `LazyArrays.jl`.
+Note that this function doesn't allocate, since it returns a lazy concatenation
+(via LazyArrays.jl) of two StaticArrays and a view of the `coefs` vector.
 """
 function parent_coefficients(R::RecombinedBSplineBasis, coefs::AbstractVector)
     length(coefs) == length(R) ||
