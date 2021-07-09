@@ -18,6 +18,8 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     y = eval_poly.(x, Ref(P))
     itp = @inferred interpolate(x, y, BSplineOrder(k))
 
+    @test startswith(repr(itp), "SplineInterpolation containing")
+
     S = spline(itp)
     @test length(S) == length(x)
 
@@ -190,6 +192,7 @@ function test_splines(B::BSplineBasis, knots_in)
         @test coefficients(S) === coefs
         @test diff(S, Derivative(0)) === S
         @test_nowarn show(devnull, S)
+        @test Splines.parent_spline(S) === S
 
         # Broadcasting
         f(S, x) = S(x)
