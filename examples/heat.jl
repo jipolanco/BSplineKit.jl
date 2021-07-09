@@ -1,6 +1,6 @@
 # # Heat equation
 #
-# In this first example, we numerically solve the 1D [heat
+# In this example, we numerically solve the 1D [heat
 # equation](https://en.wikipedia.org/wiki/Heat_equation)
 #
 # ```math
@@ -18,11 +18,14 @@
 # θ(x, 0) = θ_0(x) = 1 + \cos(π x).
 # ```
 
-using Plots, LaTeXStrings
-pyplot(html_output_format = :svg)  # hide
+using CairoMakie
 
 θ₀(x) = 1 + cos(π * x)
-plot(θ₀, -1, 1; label=L"θ_0(x)", xlabel=L"x", ylabel=L"θ")
+
+fig = Figure()
+ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ")
+plot!(ax, -1..1, θ₀; label = "θ₀(x)")
+fig
 
 # ## Defining a B-spline basis
 
@@ -52,17 +55,22 @@ B = BSplineBasis(BSplineOrder(4), knots_in)
 
 # We can now plot the knot locations and the generated B-spline basis:
 
-function plot_basis(B; eval_args = (), kw...)
-    plt = plot(; legend = false, xlabel = L"x", kw...)
+function plot_basis!(ax, B; eval_args = ())
     ts = knots(B)
-    plot!(ts, zero(ts); marker = :x, color = :red)
-    for bi in B
-        plot!(plt, x -> bi(x, eval_args...), -1, 1; linewidth = 1.5)
+    plot!(ax, ts, zero(ts); marker = :x, color = :red)
+    cmap = cgrad(:tab20)
+    N = length(B)
+    for (n, bi) in enumerate(B)
+        color = cmap[(n - 1) / (N - 1)]
+        lines!(ax, -1..1, x -> bi(x, eval_args...); color, linewidth = 2.5)
     end
-    plt
+    ax
 end
 
-plot_basis(B; ylabel = L"b_i(x)")
+fig = Figure()
+ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "bᵢ(x)")
+plot_basis!(ax, B)
+fig
 
 # ## Imposing boundary conditions
 
@@ -80,14 +88,21 @@ plot_basis(B; ylabel = L"b_i(x)")
 # In this example we generate a basis satisfying homogeneous Neumann BCs:
 
 R = RecombinedBSplineBasis(Derivative(1), B)
-plot_basis(R; ylabel = L"\phi_i(x)")
+
+fig = Figure()
+ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "ϕᵢ(x)")
+plot_basis!(ax, R)
+fig
 
 # We notice that, on each of the two boundaries, the two initial (or final)
 # B-splines of the original basis have been combined to produce a single basis
 # function that has zero derivative at each respective boundary.
 # To verify this, we can plot the basis function derivatives:
 
-plot_basis(R; ylabel = L"\phi_i^{\prime}(x)", eval_args = (Derivative(1), ))
+fig = Figure()
+ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "ϕᵢ′(x)")
+plot_basis!(ax, R; eval_args = (Derivative(1), ))
+fig
 
 # Note that the new basis has two less functions than the original one,
 # reflecting a loss of two degrees of freedom corresponding to the new
