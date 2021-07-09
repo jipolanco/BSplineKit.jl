@@ -1,7 +1,7 @@
 name = "BSplineKit"
 uuid = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 authors = ["Juan Ignacio Polanco <jipolanc@gmail.com>"]
-version = "0.6.4"
+version = "0.7.0"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
@@ -20,6 +20,7 @@ ArrayLayouts = "0.5, 0.6, 0.7"
 BandedMatrices = "0.16"
 FastGaussQuadrature = "0.4"
 Interpolations = "0.13"
+LazyArrays = "0.21"
 Reexport = "1.0"
 StaticArrays = "1.0"
 julia = "1.5"
