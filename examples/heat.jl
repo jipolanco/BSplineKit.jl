@@ -27,7 +27,7 @@
 # *knot* locations within the spatial domain, which form the spatial grid.
 
 # For this example, we take a uniform repartition of knots in ``[-1, 1]``.
-knots_in = range(-1, 1, length=11)
+knots_in = range(-1, 1; length = 11)
 
 # We then create a B-spline basis of order ``k = 4`` using these knots.
 using BSplineKit
@@ -411,13 +411,16 @@ plot_heat_solution(sol_galerkin, R)
 
 fig = Figure(resolution = (800, 400))
 let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t = $(tspan[end]))")
-    for pair in ("Collocation" => sol_collocation, "Galerkin" => sol_galerkin)
+    for pair in (
+            "Collocation" => sol_collocation,
+            "Galerkin" => sol_galerkin,
+        )
         label, sol = pair
         u = last(sol.u)
         S = Spline(R, u)
         lines!(ax, -1..1, x -> S(x); label, linewidth = 2)
-        axislegend(ax; position = :cb)
     end
+    axislegend(ax; position = :cb)
 end
 let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference")
     Sc = Spline(R, last(sol_collocation.u))
@@ -426,7 +429,54 @@ let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference")
 end
 fig
 
-# Indeed, there is some additional dissipation in the domain interior when using
-# the collocation method, compared to the Galerkin method.
-# This hints at the presence of numerical dissipation introduced by the
-# collocation method.
+# Compared to the Galerkin method, there seems to be some additional dissipation
+# in the domain interior when using the collocation method.
+# This hints at the presence of numerical dissipation introduced by this method.
+
+# To finish, we compare the two solutions to a solution at a higher resolution, using
+# a higher number of B-spline knots and a higher B-spline order.
+# The solution is obtained via the collocation method.
+# Note that the low-resolution solution with the Galerkin method matches the
+# high-resolution solution.
+
+hi_res = let
+    knots_in = range(-1, 1; length = 101)
+    B = BSplineBasis(BSplineOrder(6), knots_in)
+    R = RecombinedBSplineBasis(Derivative(1), B)
+    θ₀_spline = approximate(θ₀, R)
+    u_init = coefficients(θ₀_spline)
+    xcol = collocation_points(R)
+    Acol = collocation_matrix(R, xcol)
+    Lcol = ν .* collocation_matrix(R, xcol, Derivative(2))
+    params_col = (A = lu(Acol), L = Lcol)
+    prob = ODEProblem(heat_rhs!, u_init, tspan, params_col)
+    sol = solve(prob, Tsit5(); saveat = 0.5)
+    (; R, sol)
+end
+
+fig = Figure(resolution = (800, 400))
+let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t = $(tspan[end]))")
+    for pair in (
+            "Collocation" => sol_collocation,
+            "Galerkin" => sol_galerkin,
+        )
+        label, sol = pair
+        u = last(sol.u)
+        S = Spline(R, u)
+        lines!(ax, -1..1, x -> S(x); label, linewidth = 2)
+    end
+    let u = last(hi_res.sol.u)
+        S = Spline(hi_res.R, u)
+        lines!(ax, -1..1, x -> S(x); label = "Hi-res", linewidth = 2, linestyle = :dash, color = :gray)
+    end
+    axislegend(ax; position = :cb)
+end
+let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference with hi-res solution")
+    Sc = Spline(R, last(sol_collocation.u))
+    Sg = Spline(R, last(sol_galerkin.u))
+    S_hi = Spline(hi_res.R, last(hi_res.sol.u))
+    lines!(ax, -1..1, x -> Sc(x) - S_hi(x); label = "Colloc.", linewidth = 2)
+    lines!(ax, -1..1, x -> Sg(x) - S_hi(x); label = "Galerkin", linewidth = 2)
+    axislegend(ax; position = :rb)
+end
+fig
