@@ -178,7 +178,7 @@ Approximate function `f` in the given basis.
 The approximation is performed by interpolation of a discrete set of evaluated
 values ``y_i = f(x_i)``, where the data points ``x_i`` may be given as input.
 
-The returned [`SplineInterpolation`](@ref) approximates the given function.
+Returns a [`SplineInterpolation`](@ref) approximating the given function.
 
 # Example
 
@@ -191,6 +191,9 @@ SplineInterpolation containing the 7-element Spline{Float64}:
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
  coefficients: [-0.8414709848078965, -0.7317273726556252, -0.39726989430226317, 0.0, 0.39726989430226317, 0.7317273726556252, 0.8414709848078965]
  interpolation points: [-1.0, -0.8, -0.4, 0.0, 0.4, 0.8, 1.0]
+
+julia> sin(0.3), S(0.3)
+(0.29552020666133955, 0.2959895327282942)
 ```
 """
 function approximate(
