@@ -52,7 +52,7 @@ knots(B)
 using CairoMakie
 CairoMakie.activate!(type = "svg")
 
-function plot_knots!(ax, ts; knot_offset = 0.03)
+function plot_knots!(ax, ts; knot_offset = 0.03, kws...)
     ys = zero(ts)
     ## Add offset to distinguish knots with multiplicity > 1
     for i in eachindex(ts)[(begin + 1):end]
@@ -60,18 +60,21 @@ function plot_knots!(ax, ts; knot_offset = 0.03)
             ys[i] = ys[i - 1] + knot_offset
         end
     end
-    scatter!(ax, ts, ys; marker = :x, markersize = 20, color = :gray)
+    scatter!(ax, ts, ys; marker = :x, markersize = 20, color = :gray, kws...)
     ax
 end
 
 function plot_basis!(ax, B; eval_args = (), kws...)
     cmap = cgrad(:tab20)
     N = length(B)
+    ts = knots(B)
+    hlines!(ax, 0; color = :gray)
     for (n, bi) in enumerate(B)
         color = cmap[(n - 1) / (N - 1)]
-        lines!(ax, -1..1, x -> bi(x, eval_args...); color, linewidth = 2.5)
+        i, j = extrema(support(bi))
+        lines!(ax, ts[i]..ts[j], x -> bi(x, eval_args...); color, linewidth = 2.5)
     end
-    plot_knots!(ax, knots(B); kws...)
+    plot_knots!(ax, ts; kws...)
     ax
 end
 
@@ -198,6 +201,7 @@ let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ")
 end
 let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference")
     lines!(ax, -1..1, x -> θ₀(x) - θ₀_spline(x))
+    plot_knots!(ax, knots(R); knot_offset = 0)
 end
 fig
 
