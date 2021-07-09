@@ -426,15 +426,3 @@ fig
 # the collocation method, compared to the Galerkin method.
 # This hints at the presence of numerical dissipation introduced by the
 # collocation method.
-#
-# One can verify this by looking at the energy balance equation, obtained by
-# multiplying the heat equation by $θ$ and then integrating:
-#
-# ```math
-# \frac{1}{2} ∂_t ⟨ θ, θ ⟩ ≡ \frac{\mathrm{d}}{\mathrm{d} t} E
-# = ν ⟨ θ, ∂_{xx} θ ⟩ = -ν ⟨ ∂_x θ, ∂_x θ ⟩ = -ε
-# ```
-#
-# where ``E = \frac{1}{2} ⟨ θ, θ ⟩`` is the total energy of the system,
-# and ``ε`` is the energy dissipation rate.
-# Here we have used integration by parts along with the boundary conditions.
