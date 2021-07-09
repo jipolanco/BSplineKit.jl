@@ -5,7 +5,7 @@ Represents a spline function.
 
 ---
 
-    Spline(B::BSplineBasis, coefs::AbstractVector)
+    Spline(B::AbstractBSplineBasis, coefs::AbstractVector)
 
 Construct a spline from a B-spline basis and a vector of B-spline coefficients.
 
@@ -25,7 +25,7 @@ julia> S = Spline(B, coefs)
 
 ---
 
-    Spline(undef, B::BSplineBasis, [T=Float64])
+    Spline(undef, B::AbstractBSplineBasis, [T=Float64])
 
 Construct a spline with uninitialised vector of coefficients.
 
@@ -37,13 +37,13 @@ Evaluate spline at coordinate `x`.
 """
 struct Spline{
         T,  # type of coefficient (e.g. Float64, ComplexF64)
-        Basis <: BSplineBasis,
+        Basis <: AbstractBSplineBasis,
         CoefVector <: AbstractVector{T},
     }
     basis :: Basis
     coefs :: CoefVector
 
-    function Spline(B::BSplineBasis, coefs::AbstractVector)
+    function Spline(B::AbstractBSplineBasis, coefs::AbstractVector)
         length(coefs) == length(B) ||
             throw(ArgumentError("wrong number of coefficients"))
         Basis = typeof(B)
@@ -74,11 +74,14 @@ Base.isapprox(P::Spline, Q::Spline; kwargs...) =
     basis(P) == basis(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
-function Spline(::UndefInitializer, B::BSplineBasis,
+function Spline(::UndefInitializer, B::AbstractBSplineBasis,
                 ::Type{T}=Float64) where {T}
     coefs = Vector{T}(undef, length(B))
     Spline(B, coefs)
 end
+
+parent_spline(S::Spline) = parent_spline(basis(S), S)
+parent_spline(::BSplineBasis, S::Spline) = S
 
 """
     coefficients(S::Spline)
@@ -104,7 +107,7 @@ Returns type of element returned when evaluating the [`Spline`](@ref).
 Base.eltype(S::Spline{T}) where {T} = T
 
 """
-    basis(S::Spline) -> BSplineBasis
+    basis(S::Spline) -> AbstractBSplineBasis
 
 Returns the associated B-spline basis.
 """
@@ -116,7 +119,9 @@ order(S::Spline) = order(typeof(S))
 
 # TODO allow evaluating derivatives at point `x` (should be much cheaper than
 # constructing a new Spline for the derivative)
-function (S::Spline)(x)
+(S::Spline)(x) = _evaluate(basis(S), S, x)
+
+function _evaluate(::BSplineBasis, S::Spline, x)
     T = eltype(S)
     t = knots(S)
     n = knot_interval(t, x)
@@ -124,6 +129,9 @@ function (S::Spline)(x)
     k = order(S)
     spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
 end
+
+# Fallback, if the basis is not a regular BSplineBasis
+_evaluate(::AbstractBSplineBasis, S::Spline, x) = parent_spline(S)(x)
 
 function spline_kernel(
         c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
@@ -171,8 +179,13 @@ end
 
 Return `N`-th derivative of spline `S` as a new spline.
 """
-function Base.diff(S::Spline,
-                   ::Derivative{Ndiff} = Derivative(1)) where {Ndiff}
+Base.diff(S::Spline, deriv = Derivative(1)) = _diff(basis(S), S, deriv)
+
+_diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
+
+function _diff(
+        ::BSplineBasis, S::Spline, ::Derivative{Ndiff} = Derivative(1),
+    ) where {Ndiff}
     Ndiff :: Integer
     @assert Ndiff >= 1
 
@@ -186,7 +199,8 @@ function Base.diff(S::Spline,
     end
 
     Base.require_one_based_indexing(u)
-    du = copy(u)
+    du = similar(u)
+    copy!(du, u)
 
     @inbounds for m = 1:Ndiff, i in Iterators.Reverse(eachindex(du))
         dt = t[i + k - m] - t[i]
@@ -221,7 +235,11 @@ Returns an antiderivative of the given spline as a new spline.
 
 The algorithm is described in de Boor 2001, p. 127.
 """
-function integral(S::Spline)
+integral(S::Spline) = _integral(basis(S), S)
+
+_integral(::AbstractBSplineBasis, S, etc...) = integral(parent_spline(S), etc...)
+
+function _integral(::BSplineBasis, S::Spline)
     u = coefficients(S)
     t = knots(S)
     k = order(S)

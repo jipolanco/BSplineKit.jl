@@ -12,7 +12,6 @@ Recombinations
 
 ```@docs
 RecombinedBSplineBasis
-Spline(::RecombinedBSplineBasis, coefs)
 parent(::RecombinedBSplineBasis)
 length(::RecombinedBSplineBasis)
 constraints
@@ -32,4 +31,5 @@ nzrows
 
 ```@docs
 NoUniqueSolutionError
+parent_coefficients
 ```

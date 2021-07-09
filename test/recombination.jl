@@ -197,13 +197,27 @@ function test_basis_recombination()
             @test R == RecombinedBSplineBasis(Derivative(1), B)
         end
 
-        # This constructs a Spline in the parent B-spline basis.
+        # This constructs a Spline using the recombined basis.
         S = @inferred Spline(R, coefs)
         @test S isa Spline
 
-        @test coefficients(S) == recombination_matrix(R) * coefs
-        @test length(S) == length(B)
-        @test basis(S) === B
+        @test coefficients(S) === coefs
+        @test length(S) == length(R)
+        @test basis(S) === R
+
+        @test @allocated(Recombinations.parent_coefficients(R, coefs)) == 0
+
+        # Construct a Spline in the original B-spline basis.
+        @test @allocated(Splines.parent_spline(S)) == 0
+        Sp = Splines.parent_spline(S)
+        @test coefficients(Sp) == recombination_matrix(R) * coefs
+        @test length(Sp) == length(B)
+        @test basis(Sp) === B
+
+        # Check that both splines are exactly the same
+        @test Sp(0.4242) == S(0.4242)
+        @test diff(Sp) == diff(S)  # this always returns a Spline in the original basis
+        @test integral(Sp) == integral(S)  # same as above
     end
 
     @testset "Order $D" for D = 0:(k - 1)

@@ -2,7 +2,7 @@ using BSplineKit: BSplineOrder
 using BSplineKit.BSplines: multiplicity
 using LinearAlgebra
 
-eval_poly(x::AbstractVector, P) = [@evalpoly(t, P...) for t in x]
+eval_poly(x::Number, P) = @evalpoly(x, P...)
 
 # Test a polynomial of degree k - 1.
 # The splines should approximate the polynomial (and its derivatives) perfectly.
@@ -15,11 +15,20 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     Pint = (0, ntuple(d -> P[d] / d, Val(k))...)  # antiderivative
 
     # Interpolate polynomial at `x` locations.
-    y = eval_poly(x, P)
+    y = eval_poly.(x, Ref(P))
     itp = @inferred interpolate(x, y, BSplineOrder(k))
+
+    @test startswith(repr(itp), "SplineInterpolation containing")
 
     S = spline(itp)
     @test length(S) == length(x)
+
+    @testset "Function approximations" begin
+        fpoly(x) = eval_poly(x, P)
+        fapprox = approximate(fpoly, basis(S))
+        xfine = range(first(x), last(x); length = 2 * length(x))
+        @test fapprox.(xfine) ≈ fpoly.(xfine)
+    end
 
     @testset "Interpolations" begin
         @test itp.(x) ≈ y
@@ -38,8 +47,14 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
         # "incompatible lengths of B-spline basis and collocation points"
         @test_throws(
             DimensionMismatch,
-            SplineInterpolation(basis(S), x[1:4], eltype(S)),
+            SplineInterpolation(undef, basis(S), x[1:4], eltype(S)),
         )
+
+        let B = basis(S)
+            xs = collocation_points!(Vector{Float32}(undef, length(B)), B)
+            itp = @inferred SplineInterpolation(undef, B, xs)
+            @test eltype(itp) === Float32
+        end
 
         # "input data has incorrect length"
         @test_throws DimensionMismatch interpolate!(itp, rand(length(x) - 1))
@@ -177,6 +192,7 @@ function test_splines(B::BSplineBasis, knots_in)
         @test coefficients(S) === coefs
         @test diff(S, Derivative(0)) === S
         @test_nowarn show(devnull, S)
+        @test Splines.parent_spline(S) === S
 
         # Broadcasting
         f(S, x) = S(x)
