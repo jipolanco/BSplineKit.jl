@@ -226,7 +226,7 @@ Returns the number of functions in the recombined basis.
 boundaries(R::RecombinedBSplineBasis) = boundaries(parent(R))
 
 knots(R::RecombinedBSplineBasis) = knots(parent(R))
-order(R::RecombinedBSplineBasis{k}) where {k} = k
+order(::Type{<:RecombinedBSplineBasis{k}}) where {k} = k
 Base.eltype(::Type{RecombinedBSplineBasis{k,T}}) where {k,T} = T
 
 """

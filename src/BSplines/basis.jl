@@ -178,5 +178,5 @@ knots(g::BSplineBasis) = g.t
 Returns order of B-splines as an integer.
 """
 order(::Type{<:BSplineBasis{k}}) where {k} = k
-order(b::BSplineBasis) = order(typeof(b))
+order(b::AbstractBSplineBasis) = order(typeof(b))
 order(::BSplineOrder{k}) where {k} = k
