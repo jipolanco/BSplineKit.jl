@@ -1,5 +1,7 @@
-using Documenter
 using BSplineKit
+
+using Documenter
+using Literate
 
 const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
 
@@ -11,6 +13,15 @@ DocMeta.setdocmeta!(BSplineKit.BandedTensors, :DocTestSetup,
 
 with_checks = !MAKE_FAST
 
+# Generate examples using Literate
+# See https://github.com/fredrikekre/Literate.jl/blob/master/docs/make.jl
+example_dir = joinpath(@__DIR__, "..", "examples")
+output_dir = joinpath(@__DIR__, "src/generated")
+
+for example in ("heat.jl", )
+    filename = joinpath(example_dir, example)
+    Literate.markdown(filename, output_dir, documenter=true)
+end
 @time makedocs(
     sitename="BSplineKit.jl",
     format=Documenter.HTML(
@@ -21,6 +32,9 @@ with_checks = !MAKE_FAST
     modules=[BSplineKit],
     pages=[
         "Home" => "index.md",
+        "Examples" => [
+            "generated/heat.md",
+        ],
         "Library" => [
             "bsplines.md",
             "splines.md",
