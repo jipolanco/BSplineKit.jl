@@ -435,9 +435,8 @@ fig
 
 # To finish, we compare the two solutions to a solution at a higher resolution, using
 # a higher number of B-spline knots and a higher B-spline order.
-# The solution is obtained via the collocation method.
-# Note that the low-resolution solution with the Galerkin method matches the
-# high-resolution solution.
+# This last solution is obtained using the collocation method to allow for
+# better comparisons between both methods.
 
 hi_res = let
     knots_in = range(-1, 1; length = 101)
@@ -480,3 +479,8 @@ let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference with hi-res solution
     axislegend(ax; position = :rb)
 end
 fig
+
+# We see that the low-resolution solution with the Galerkin method matches the
+# high-resolution solution.
+# This confirms that the Galerkin method provides higher accuracy than the
+# collocation method when both are used at the same resolution.
