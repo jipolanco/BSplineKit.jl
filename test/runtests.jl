@@ -21,6 +21,7 @@ import BSplineKit.Recombinations:
 gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
 
 include("diffops.jl")
+include("knots.jl")
 include("splines.jl")
 include("recombination.jl")
 include("collocation.jl")

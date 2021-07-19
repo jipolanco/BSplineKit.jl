@@ -1,3 +1,5 @@
+using Base: @propagate_inbounds
+
 """
     AugmentedKnots{T,k} <: AbstractVector{T}
 
@@ -22,7 +24,17 @@ breakpoints(t::AugmentedKnots) = t.x
 Base.size(t::AugmentedKnots) = (t.Nt, )
 Base.IndexStyle(::Type{<:AugmentedKnots}) = IndexLinear()
 
-@inline function Base.getindex(t::AugmentedKnots, i::Int)
+# Custom definition of searchsortedlast, for sligthly faster determination of
+# the knot interval corresponding to a given point `x` (used when evaluating
+# splines; see `Splines.knot_interval`).
+# TODO does this actually improve performance??
+function Base.searchsortedlast(t::AugmentedKnots, x; kws...)
+    n = searchsortedlast(breakpoints(t), x; kws...)
+    iszero(n) && return n  # if x < t[begin]
+    n + padding(t)
+end
+
+@propagate_inbounds function Base.getindex(t::AugmentedKnots, i::Int)
     @boundscheck checkbounds(t, i)
     x = breakpoints(t)
     j = clamp(i - padding(t), 1, length(x))

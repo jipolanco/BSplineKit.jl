@@ -64,7 +64,13 @@ struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
+        # TODO when `knots` is a regular Vector, it would be nice to avoid
+        # modifying the vector and to instead use an AugmentedKnots instance
+        # (commented line below).
+        # However, for now that seems to be sligthly slower when evaluating
+        # splines, not sure why...
         t = Augment ? augment_knots!(knots, k) : knots
+        # t = Augment ? AugmentedKnots{k}(knots) : knots
         N = length(t) - k
         Knots = typeof(t)
         new{k, T, Knots}(N, t)
