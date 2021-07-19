@@ -50,6 +50,7 @@ knots(B)
 # We can now plot the knot locations (crosses) and the generated B-spline basis:
 
 using CairoMakie
+using LaTeXStrings
 CairoMakie.activate!(type = "svg")
 
 function plot_knots!(ax, ts; knot_offset = 0.03, kws...)
@@ -79,7 +80,7 @@ function plot_basis!(ax, B; eval_args = (), kws...)
 end
 
 fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "bᵢ(x)")
+ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"b_i(x)")
 plot_basis!(ax, B)
 fig
 
@@ -101,7 +102,7 @@ fig
 R = RecombinedBSplineBasis(Derivative(1), B)
 
 fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "ϕᵢ(x)")
+ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"ϕ_i(x)")
 plot_basis!(ax, R)
 fig
 
@@ -111,7 +112,7 @@ fig
 # To verify this, we can plot the basis function derivatives:
 
 fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "ϕᵢ′(x)")
+ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"ϕ_i^′(x)")
 plot_basis!(ax, R; eval_args = (Derivative(1), ), knot_offset = 0.4)
 fig
 
@@ -194,12 +195,12 @@ T = recombination_matrix(R)
 # its spline approximation, which show no important differences.
 
 fig = Figure(resolution = (800, 400))
-let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ")
-    lines!(ax, -1..1, θ₀; label = "θ₀(x)", color = :blue)
+let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"\theta")
+    lines!(ax, -1..1, θ₀; label = L"θ_0(x)", color = :blue)
     lines!(ax, -1..1, x -> θ₀_spline(x); label = "Approximation", color = :orange, linestyle = :dash)
     axislegend(ax; position = :cb)
 end
-let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference")
+let ax = Axis(fig[1, 2]; xlabel = L"x", ylabel = "Difference")
     lines!(ax, -1..1, x -> θ₀(x) - θ₀_spline(x))
     plot_knots!(ax, knots(R); knot_offset = 0)
 end
@@ -320,7 +321,7 @@ sol_collocation = solve(prob, Tsit5(); saveat = 0.5)
 
 function plot_heat_solution(sol, R)
     fig = Figure()
-    ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t)")
+    ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"θ(x, t)")
     colormap = cgrad(:viridis)
     tspan = sol.prob.tspan
     Δt = tspan[2] - tspan[1]
@@ -410,7 +411,7 @@ plot_heat_solution(sol_galerkin, R)
 # However, as seen below, there are non-negligible differences between the two.
 
 fig = Figure(resolution = (800, 400))
-let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t = $(tspan[end]))")
+let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = latexstring("θ(x, t = $(tspan[end]))"))
     for pair in (
             "Collocation" => sol_collocation,
             "Galerkin" => sol_galerkin,
@@ -422,7 +423,7 @@ let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t = $(tspan[end]))")
     end
     axislegend(ax; position = :cb)
 end
-let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference")
+let ax = Axis(fig[1, 2]; xlabel = L"x", ylabel = "Difference")
     Sc = Spline(R, last(sol_collocation.u))
     Sg = Spline(R, last(sol_galerkin.u))
     lines!(ax, -1..1, x -> Sc(x) - Sg(x); linewidth = 2)
@@ -454,7 +455,7 @@ hi_res = let
 end
 
 fig = Figure(resolution = (800, 400))
-let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t = $(tspan[end]))")
+let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = latexstring("θ(x, t = $(tspan[end]))"))
     for pair in (
             "Collocation" => sol_collocation,
             "Galerkin" => sol_galerkin,
@@ -470,7 +471,7 @@ let ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "θ(x, t = $(tspan[end]))")
     end
     axislegend(ax; position = :cb)
 end
-let ax = Axis(fig[1, 2]; xlabel = "x", ylabel = "Difference with hi-res solution")
+let ax = Axis(fig[1, 2]; xlabel = L"x", ylabel = "Difference with hi-res solution")
     Sc = Spline(R, last(sol_collocation.u))
     Sg = Spline(R, last(sol_galerkin.u))
     S_hi = Spline(hi_res.R, last(hi_res.sol.u))
