@@ -7,7 +7,7 @@ using Test
         k = 4
         ts = BSplines.AugmentedKnots{k}(ξs)
         ys = collect(ts)
-        for x ∈ -1.05:0.5:1.05
+        for x ∈ -1.05:0.05:1.05
             @test searchsortedlast(ts, x) == searchsortedlast(ys, x)
         end
     end

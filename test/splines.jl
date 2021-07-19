@@ -1,6 +1,9 @@
-using BSplineKit: BSplineOrder
+using BSplineKit
 using BSplineKit.BSplines: multiplicity
+
+using BandedMatrices
 using LinearAlgebra
+using Test
 
 eval_poly(x::Number, P) = @evalpoly(x, P...)
 
@@ -217,6 +220,7 @@ function test_splines(B::BSplineBasis, knots_in)
 end
 
 function test_splines(::BSplineOrder{k}) where {k}
+    gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
     breaks = (
         -1:0.05:1,
         gauss_lobatto_points(10 + k),

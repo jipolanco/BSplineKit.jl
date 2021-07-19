@@ -29,9 +29,14 @@ Base.IndexStyle(::Type{<:AugmentedKnots}) = IndexLinear()
 # splines; see `Splines.knot_interval`).
 # TODO does this actually improve performance??
 function Base.searchsortedlast(t::AugmentedKnots, x; kws...)
-    n = searchsortedlast(breakpoints(t), x; kws...)
-    iszero(n) && return n  # if x < t[begin]
-    n + padding(t)
+    ξ = breakpoints(t)
+    if x < first(ξ)
+        0
+    elseif x ≥ last(ξ)
+        length(t)
+    else
+        searchsortedlast(ξ, x; kws...) + padding(t)
+    end
 end
 
 @propagate_inbounds function Base.getindex(t::AugmentedKnots, i::Int)
