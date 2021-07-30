@@ -25,7 +25,7 @@ function galerkin_tensor(
     dims = length.(Bs)
     b = order(first(Bs)) - 1   # band width
     if length(Bs[1]) != length(Bs[2])
-        throw(ArgumentError("the first two bases must have the same lengths"))
+        throw(DimensionMismatch("the first two bases must have the same lengths"))
     end
     δl, δr = num_constraints(Bs[3]) .- num_constraints(Bs[1])
     A = BandedTensor3D{T}(undef, dims, Val(b), bandshift=(0, 0, δl))
@@ -56,7 +56,7 @@ function galerkin_tensor!(
 
     Ns = size(A)
     if Ns != length.(Bs)
-        throw(ArgumentError("wrong dimensions of Galerkin tensor"))
+        throw(DimensionMismatch("wrong dimensions of Galerkin tensor"))
     end
 
     Bi, Bj, Bl = Bs
