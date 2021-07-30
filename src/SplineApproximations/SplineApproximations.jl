@@ -25,7 +25,6 @@ export
     VariationDiminishing,
     ApproxByInterpolation,
     MinimiseL2Error,
-    MinimizeL2Error,
     approximate,
     approximate!
 

@@ -3,7 +3,10 @@ using ..Galerkin:
     galerkin_projection!,
     galerkin_projection  # for Documenter only...
 
-using LinearAlgebra: cholesky!, ldiv!
+using LinearAlgebra:
+    cholesky!,
+    Cholesky,
+    ldiv!
 
 @doc raw"""
     MinimiseL2Error <: AbstractApproxMethod
@@ -49,13 +52,15 @@ to yield a very good approximation of the integral, and thus of the optimal coef
 """
 struct MinimiseL2Error <: AbstractApproxMethod end
 
-const MinimizeL2Error = MinimiseL2Error
-
 function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
     T = typeof(f(first(knots(B))))
     S = Spline{T}(undef, B)
     M = galerkin_matrix(B)  # by default it's a BandedMatrix
-    Mfact = cholesky!(M)
+
+    # We annotate the return type to avoid inference issue in ArrayLayouts...
+    # https://github.com/JuliaMatrices/ArrayLayouts.jl/issues/66
+    Mfact = cholesky!(M) :: Cholesky{eltype(M), typeof(parent(M))}
+
     data = (; M = Mfact)
     A = SplineApproximation(m, S, data)
     approximate!(f, A)

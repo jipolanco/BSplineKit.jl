@@ -51,9 +51,7 @@ function galerkin_projection!(
     )
     N = length(B)
     if length(φ) != N
-        throw(DimensionMismatch(
-            "output vector must have length $N (got length $(length(φ)))"
-        ))
+        throw(DimensionMismatch("incorrect length of output vector φ"))
     end
     Base.require_one_based_indexing(φ)
 
@@ -90,10 +88,17 @@ function galerkin_projection!(
 
         # Evaluate all required basis functions on quadrature nodes.
         bis = eval_basis_functions(B, is, xs, deriv)
-        fs = map(f, xs)
+
+        fs = ntuple(i -> f(xs[i]), Val(length(xs)))  # this works fine!
+
+        # For some reason, the alternatives below allocate and give bad
+        # performance... (on Julia 1.7-beta2)
+        # fs = map(f, xs)
+        # fs = f.(xs)
 
         for (ni, i) in enumerate(is)
-            φ[i] += metric.α * ((bis[ni] .* fs) ⋅ quadw)
+            bs = bis[ni]
+            φ[i] += metric.α * ((bs .* fs) ⋅ quadw)
         end
     end
 
