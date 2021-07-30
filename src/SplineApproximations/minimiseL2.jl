@@ -1,3 +1,10 @@
+using ..Galerkin:
+    galerkin_matrix,
+    galerkin_projection!,
+    galerkin_projection  # for Documenter only...
+
+using LinearAlgebra: cholesky!, ldiv!
+
 @doc raw"""
     MinimiseL2Error <: AbstractApproxMethod
 
@@ -9,7 +16,7 @@ between ``f`` and its spline approximation ``g(x)``.
 Minimises the ``L^2`` distance between the two functions:
 
 ```math
-{\left\lVert f - g \right\rVert}^2 = \left< f - g, f - g \right>
+{\left\lVert f - g \right\rVert}^2 = \left< f - g, f - g \right>,
 ```
 
 where
@@ -25,8 +32,9 @@ Here, ``g`` is the spline ``g(x) = ∑_{i = 1}^N c_i \, b_i(x)``, and
 
 One can show that the optimal coefficients ``c_i`` minimising the ``L^2`` error
 are the solution to the linear system ``\bm{M} \bm{c} = \bm{φ}``,
-where ``M_{ij} = \left< b_i, b_j \right>`` (computed by [`galerkin_matrix`](@ref))
-and ``φ_i = \left< b_i, f \right>``.
+where ``M_{ij} = \left< b_i, b_j \right>`` and ``φ_i = \left< b_i, f \right>``.
+These two terms are respectively computed by [`galerkin_matrix`](@ref) and
+[`galerkin_projection`](@ref).
 
 The integrals associated to ``\bm{M}`` and ``\bm{φ}`` are computed via
 Gauss--Legendre quadrature.
@@ -42,3 +50,22 @@ to yield a very good approximation of the integral, and thus of the optimal coef
 struct MinimiseL2Error <: AbstractApproxMethod end
 
 const MinimizeL2Error = MinimiseL2Error
+
+function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
+    T = typeof(f(first(knots(B))))
+    S = Spline{T}(undef, B)
+    M = galerkin_matrix(B)  # by default it's a BandedMatrix
+    Mfact = cholesky!(M)
+    data = (; M = Mfact)
+    A = SplineApproximation(m, S, data)
+    approximate!(f, A)
+end
+
+function _approximate!(f, A, m::MinimiseL2Error)
+    @assert method(A) === m
+    S = spline(A)
+    cs = coefficients(S)
+    galerkin_projection!(f, cs, basis(S))  # computes rhs onto cs
+    ldiv!(data(A).M, cs)  # now cs = M \ rhs
+    A
+end

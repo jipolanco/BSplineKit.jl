@@ -25,7 +25,7 @@ julia> S = Spline(B, coefs)
 
 ---
 
-    Spline(undef, B::AbstractBSplineBasis, [T=Float64])
+    Spline{T = Float64}(undef, B::AbstractBSplineBasis)
 
 Construct a spline with uninitialised vector of coefficients.
 
@@ -74,11 +74,16 @@ Base.isapprox(P::Spline, Q::Spline; kwargs...) =
     basis(P) == basis(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
-function Spline(::UndefInitializer, B::AbstractBSplineBasis,
-                ::Type{T}=Float64) where {T}
-    coefs = Vector{T}(undef, length(B))
+function Spline{T}(init, B::AbstractBSplineBasis) where {T}
+    coefs = Vector{T}(init, length(B))
     Spline(B, coefs)
 end
+
+Spline(init, B::AbstractBSplineBasis) = Spline{Float64}(init, B)
+
+# TODO deprecate?
+Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T} =
+    Spline{T}(init, B)
 
 parent_spline(S::Spline) = parent_spline(basis(S), S)
 parent_spline(::BSplineBasis, S::Spline) = S

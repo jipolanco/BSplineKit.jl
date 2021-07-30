@@ -23,10 +23,9 @@ For details, see e.g. de Boor 2001, chapter XI.
 """
 struct VariationDiminishing <: AbstractApproxMethod end
 
-Base.show(io::IO, ::VariationDiminishing) = print(io, "variation diminishing")
-
 function approximate(f, B::AbstractBSplineBasis, m::VariationDiminishing)
-    S = Spline(undef, B)
+    T = typeof(f(first(knots(B))))
+    S = Spline{T}(undef, B)
     A = SplineApproximation(m, S, nothing)
     approximate!(f, A)
 end

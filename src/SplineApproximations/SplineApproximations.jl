@@ -36,8 +36,6 @@ Abstract type describing a type of approximation method.
 """
 abstract type AbstractApproxMethod end
 
-Base.show(io::IO, m::AbstractApproxMethod) = print(io, nameof(typeof(m)))
-
 struct SplineApproximation{
         ApproxSpline <: Spline,
         Method <: AbstractApproxMethod,
@@ -106,10 +104,17 @@ SplineApproximation containing the 7-element Spline{Float64}:
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
  coefficients: [0.36787944117144233, 0.44932896411722156, 0.6703200460356393, 1.0, 1.4918246976412703, 2.225540928492468, 2.718281828459045]
- approximation method: variation diminishing
+ approximation method: VariationDiminishing()
 
-julia> x = 0.3; exp(x), S_interp(x), S_fast(x)
-(1.3498588075760032, 1.3491015490105398, 1.3764276336437629)
+julia> S_opt = approximate(exp, B, MinimiseL2Error())
+SplineApproximation containing the 7-element Spline{Float64}:
+ order: 3
+ knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
+ coefficients: [0.368073806165329, 0.4403423586370571, 0.6570767565347361, 0.9802789580270397, 1.4621592525088214, 2.182012185989042, 2.7166900724062018]
+ approximation method: MinimiseL2Error()
+
+julia> x = 0.34; exp(x), S_opt(x), S_interp(x), S_fast(x)
+(1.4049475905635938, 1.4044530324752085, 1.4044149581073815, 1.4328668494041878)
 ```
 """
 approximate(f, B::AbstractBSplineBasis) =
