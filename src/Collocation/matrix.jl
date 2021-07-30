@@ -32,9 +32,6 @@ positivity of spline collocation matrices (de Boor 2001, p. 175).
 well as out-of-place factorisation using [`lu`](@ref). LU decomposition may also
 be performed via `factorize`.
 
-!!! warning "Matrix shape"
-    For now, LU factorisation is only supported for **square** collocation matrices.
-
 """
 struct CollocationMatrix{
         T,

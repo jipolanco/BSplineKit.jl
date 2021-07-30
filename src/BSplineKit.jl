@@ -28,4 +28,7 @@ include("Galerkin/Galerkin.jl")
 include("SplineInterpolations/SplineInterpolations.jl")
 @reexport using .SplineInterpolations
 
+include("SplineApproximations/SplineApproximations.jl")
+@reexport using .SplineApproximations
+
 end

@@ -17,8 +17,7 @@ import Interpolations:
     interpolate, interpolate!
 
 export
-    SplineInterpolation, spline, interpolate, interpolate!,
-    approximate, approximate!
+    SplineInterpolation, spline, interpolate, interpolate!
 
 """
     SplineInterpolation
@@ -46,12 +45,12 @@ Use [`interpolate!`](@ref) to actually interpolate data known on the `x`
 locations.
 """
 struct SplineInterpolation{
-        T <: Number,
-        S <: Spline{T},
+        S <: Spline,
         F <: Factorization,
         Points <: AbstractVector,
-    }
-    s :: S
+    } <: SplineWrapper{S}
+
+    spline :: S
     C :: F  # factorisation of collocation matrix
     x :: Points
 
@@ -65,7 +64,7 @@ struct SplineInterpolation{
             throw(DimensionMismatch("wrong number of collocation points"))
         T = eltype(C)
         s = Spline(undef, B, T)  # uninitialised spline
-        new{T, typeof(s), typeof(C), typeof(x)}(s, C, x)
+        new{typeof(s), typeof(C), typeof(x)}(s, C, x)
     end
 end
 
@@ -83,7 +82,6 @@ function SplineInterpolation(
     SplineInterpolation(B, lu!(C), x)
 end
 
-Base.eltype(::Type{<:SplineInterpolation{T}}) where {T} = T
 interpolation_points(S::SplineInterpolation) = S.x
 
 SplineInterpolation(init, B, x::AbstractVector) =
@@ -93,22 +91,6 @@ function Base.show(io::IO, I::SplineInterpolation)
     println(io, nameof(typeof(I)), " containing the ", spline(I))
     println(io, " interpolation points: ", interpolation_points(I))
     nothing
-end
-
-"""
-    spline(I::SplineInterpolation) -> Spline
-
-Returns the [`Spline`](@ref) associated to the interpolation.
-"""
-spline(I::SplineInterpolation) = I.s
-
-# For convenience, wrap some commonly used functions that apply to the
-# underlying spline.
-(I::SplineInterpolation)(x) = spline(I)(x)
-Base.diff(I::SplineInterpolation, etc...) = diff(spline(I), etc...)
-
-for f in (:basis, :order, :knots, :coefficients, :integral)
-    @eval $f(I::SplineInterpolation) = $f(spline(I))
 end
 
 """
@@ -168,55 +150,6 @@ function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
     T = float(eltype(y))
     itp = SplineInterpolation(undef, B, x, T)
     interpolate!(itp, y)
-end
-
-"""
-    approximate(f, B::AbstractBSplineBasis, [x = collocation_points(B)]) -> SplineInterpolation
-
-Approximate function `f` in the given basis.
-
-The approximation is performed by interpolation of a discrete set of evaluated
-values ``y_i = f(x_i)``, where the data points ``x_i`` may be given as input.
-
-Returns a [`SplineInterpolation`](@ref) approximating the given function.
-
-# Example
-
-```jldoctest
-julia> B = BSplineBasis(BSplineOrder(3), -1:0.4:1);
-
-julia> S = approximate(sin, B)
-SplineInterpolation containing the 7-element Spline{Float64}:
- order: 3
- knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
- coefficients: [-0.8414709848078965, -0.7317273726556252, -0.39726989430226317, 0.0, 0.39726989430226317, 0.7317273726556252, 0.8414709848078965]
- interpolation points: [-1.0, -0.8, -0.4, 0.0, 0.4, 0.8, 1.0]
-
-julia> sin(0.3), S(0.3)
-(0.29552020666133955, 0.2959895327282942)
-```
-"""
-function approximate(
-        f, B::AbstractBSplineBasis,
-        xs::AbstractVector = collocation_points(B),
-    )
-    S = SplineInterpolation(undef, B, xs)
-    approximate!(f, S)
-end
-
-"""
-    approximate!(f, S::SplineInterpolation)
-
-Approximate function `f` in the basis associated to the
-[`SplineInterpolation`](@ref) `S`.
-
-See also [`approximate`](@ref).
-"""
-function approximate!(f, S::SplineInterpolation)
-    xs = interpolation_points(S)
-    ys = coefficients(S)  # just to avoid allocating extra vector
-    map!(f, ys, xs)  # equivalent to ys .= f.(xs)
-    interpolate!(S, ys)
 end
 
 # Define B-spline knots from collocation points and B-spline order.
