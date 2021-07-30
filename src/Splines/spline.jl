@@ -100,11 +100,12 @@ Note that this is equal to the number of basis functions, `length(basis(S))`.
 Base.length(S::Spline) = length(coefficients(S))
 
 """
+    eltype(::Type{<:Spline})
     eltype(S::Spline)
 
 Returns type of element returned when evaluating the [`Spline`](@ref).
 """
-Base.eltype(S::Spline{T}) where {T} = T
+Base.eltype(::Type{<:Spline{T}}) where {T} = T
 
 """
     basis(S::Spline) -> AbstractBSplineBasis
