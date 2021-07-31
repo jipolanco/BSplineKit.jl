@@ -4,9 +4,12 @@ using Test
 # TODO
 # - test recombined basis (test function should satisfy BCs...)
 
-function check_approximate_in_place!(f, fapprox)
+# We make sure that the function is specialised on `f`, to fully avoid
+# allocations.
+# See https://docs.julialang.org/en/v1/manual/performance-tips/#Be-aware-of-when-Julia-avoids-specializing
+function check_approximate_in_place!(f::F, fapprox) where {F}
     S = copy(spline(fapprox))  # assumed to already approximate `f`
-    @test 32 ≥ @allocated approximate!(f, fapprox)  # (almost) no allocations!
+    @test 0 == @allocated approximate!(f, fapprox)  # no allocations!
     @test spline(fapprox) == S  # check that nothing changed
     nothing
 end
@@ -33,16 +36,18 @@ function test_approximation(B)
     # Polynomial of degree k - 1.
     # The interpolation and minimisation methods should exactly approximate such
     # a polynomial.
-    poly_coefs = ntuple(d -> (-d)^d, Val(k))
-    fpoly(x) = evalpoly(x, poly_coefs)
+    @testset "Polynomial" begin
+        poly_coefs = ntuple(d -> (-d)^d, Val(k))
+        fpoly(x) = evalpoly(x, poly_coefs)
 
-    xfine = range(boundaries(B)...; length = 3 * length(B))
+        xfine = range(boundaries(B)...; length = 3 * length(B))
 
-    approximate!(fpoly, f_interp)
-    @test fpoly.(xfine) ≈ f_interp.(xfine)
+        approximate!(fpoly, f_interp)
+        @test fpoly.(xfine) ≈ f_interp.(xfine)
 
-    approximate!(fpoly, f_opt)
-    @test fpoly.(xfine) ≈ f_opt.(xfine)
+        approximate!(fpoly, f_opt)
+        @test fpoly.(xfine) ≈ f_opt.(xfine)
+    end
 
     nothing
 end
