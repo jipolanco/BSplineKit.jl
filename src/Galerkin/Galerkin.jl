@@ -1,6 +1,8 @@
 module Galerkin
 
 export
+    galerkin_projection,
+    galerkin_projection!,
     galerkin_matrix,
     galerkin_matrix!,
     galerkin_tensor,
@@ -21,7 +23,8 @@ using StaticArrays
 const DerivativeCombination{N} = Tuple{Vararg{Derivative,N}}
 
 include("quadratures.jl")
-include("linear.jl")     # galerkin_matrix
-include("quadratic.jl")  # galerkin_tensor
+include("projection.jl")  # galerkin_projection
+include("linear.jl")      # galerkin_matrix
+include("quadratic.jl")   # galerkin_tensor
 
 end

@@ -18,7 +18,7 @@ with_checks = !MAKE_FAST
 example_dir = joinpath(@__DIR__, "..", "examples")
 output_dir = joinpath(@__DIR__, "src/generated")
 
-for example in ("heat.jl", )
+for example in ["approximation.jl", "heat.jl", ]
     filename = joinpath(example_dir, example)
     Literate.markdown(filename, output_dir, documenter=true)
 end
@@ -33,12 +33,14 @@ end
     pages=[
         "Home" => "index.md",
         "Examples" => [
+            "generated/approximation.md",
             "generated/heat.md",
         ],
         "Library" => [
             "bsplines.md",
             "splines.md",
             "interpolation.md",
+            "approximation.md",
             "recombination.md",
             "tensors.md",
             "galerkin.md",

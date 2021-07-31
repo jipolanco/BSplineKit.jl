@@ -26,13 +26,6 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     S = spline(itp)
     @test length(S) == length(x)
 
-    @testset "Function approximations" begin
-        fpoly(x) = eval_poly(x, P)
-        fapprox = approximate(fpoly, basis(S))
-        xfine = range(first(x), last(x); length = 2 * length(x))
-        @test fapprox.(xfine) ≈ fpoly.(xfine)
-    end
-
     @testset "Interpolations" begin
         @test itp.(x) ≈ y
 

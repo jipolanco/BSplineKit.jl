@@ -182,14 +182,10 @@ T = recombination_matrix(R)
 
 # First, we approximate this initial condition in the recombined
 # B-spline basis that we have just constructed.
-# This may be easily done using [`approximate`](@ref), which interpolates the
-# function by evaluating it over a discrete set of interpolation points.
+# This may be easily done using [`approximate`](@ref):
 
 θ₀(x) = 1 + cos(π * x)
-θ₀_spline = approximate(θ₀, R)
-
-# Note that the interpolation points don't include the boundaries, since there
-# the boundary conditions are exactly satisfied by the spline approximation.
+θ₀_spline = approximate(θ₀, R, MinimiseL2Error())
 
 # To see that everything went well, we can plot the exact initial condition and
 # its spline approximation, which show no important differences.

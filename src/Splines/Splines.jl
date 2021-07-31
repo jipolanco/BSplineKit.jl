@@ -1,6 +1,13 @@
 module Splines
 
-export Spline, coefficients, integral
+export
+    Spline,
+    coefficients,
+    integral
+
+export
+    SplineWrapper,
+    spline
 
 using Base.Cartesian: @nexprs
 
@@ -10,5 +17,6 @@ using ..DifferentialOps
 import ..BSplines: basis, knots, order
 
 include("spline.jl")
+include("wrapper.jl")
 
 end

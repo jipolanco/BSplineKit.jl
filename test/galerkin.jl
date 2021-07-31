@@ -1,7 +1,18 @@
-function test_galerkin()
+using BSplineKit
+using BandedMatrices
+using LinearAlgebra
+using SparseArrays
+using Test
+
+using BSplineKit.Recombinations:
+    num_constraints,
+    num_recombined
+
+function test_galerkin_analytical()
     # Compare Galerkin mass matrix against analytical integrals for k = 2
     # (easy!).
     # Test with non-uniform grid (Chebyshev points).
+    gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
     x = gauss_lobatto_points(42)
     B = BSplineBasis(2, copy(x))
     t = knots(B)
@@ -20,11 +31,31 @@ function test_galerkin()
     nothing
 end
 
-function test_galerkin_recombined()
-    @testset "Basis recombination" begin
-        knots_base = gauss_lobatto_points(41)
+function test_galerkin_projection(B)
+    # Idea: project a spline with all coefficients set to c_i = 1.
+    # The resulting projection should be equal to the sum of the rows (or
+    # columns?) of the Galerkin matrix.
+    @testset "Projection | $deriv" for deriv ∈ (Derivative(0), Derivative(1))
+        M = @inferred galerkin_matrix(B, (Derivative(0), deriv))
+        S = @inferred Spline(B, ones(length(B)))
+        φ = @inferred galerkin_projection(S, B, deriv)
+        @test φ ≈ vec(sum(M; dims = 1))
+    end
 
-        B = BSplineBasis(6, copy(knots_base))
+    # Length of output must be equal to length of basis
+    u = Vector{Float32}(undef, length(B) + 3)
+    @test_throws DimensionMismatch galerkin_projection!(sin, u, B)
+
+    nothing
+end
+
+function test_galerkin_recombined()
+    gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
+    knots_base = gauss_lobatto_points(41)
+
+    B = BSplineBasis(6, copy(knots_base))
+
+    @testset "Basis recombination" begin
         R0 = RecombinedBSplineBasis(Derivative(0), B)
         R1 = RecombinedBSplineBasis(Derivative(1), B)
         R2 = RecombinedBSplineBasis(Derivative(2), B)
@@ -34,7 +65,7 @@ function test_galerkin_recombined()
             test_galerkin_tensor(R1)
 
             # "the first two bases must have the same lengths"
-            @test_throws ArgumentError galerkin_tensor(
+            @test_throws DimensionMismatch galerkin_tensor(
                 (B, R0, R0), Derivative.((0, 0, 0)),
             )
         end
@@ -52,12 +83,15 @@ function test_galerkin_recombined()
 
         let M2 = copy(G2), M = copy(G)
             @test M isa Hermitian && M2 isa Hermitian
+
             # "matrix will not be symmetric with deriv = $deriv"
             @test_throws ArgumentError galerkin_matrix!(M, (B, B), Derivative.((0, 1)))
             # "matrix will not be symmetric if bases are different"
-            @test_throws ArgumentError galerkin_matrix!(M, (B, R0))
+            B_alt = BSplineBasis(6, knots_base .+ 0.1)
+            @test_throws ArgumentError galerkin_matrix!(M, (B, B_alt))
+
             # "wrong dimensions of Galerkin matrix"
-            @test_throws ArgumentError galerkin_matrix!(M2, (B, B))
+            @test_throws DimensionMismatch galerkin_matrix!(M2, (B, B))
         end
 
         # Due to the partition of unity property, the sum of all elements
@@ -184,7 +218,7 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
     end
 
     # The first two bases must have the same lengths
-    @test_throws ArgumentError galerkin_tensor((B, R, R), derivs)
+    @test_throws DimensionMismatch galerkin_tensor((B, R, R), derivs)
 
     A_base = galerkin_tensor((B, B, B), derivs)
     A = galerkin_tensor((B, B, R), derivs)
@@ -204,7 +238,10 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
     @test view(A, I, I, (r + 1):(n - r)) == view(A_base, I, I, I)
 
     # "BandedTensor3D must have bandshift = (0, 0, 0)"
-    @test_throws ArgumentError galerkin_tensor!(A, (B, B, B), derivs)
+    let A = BandedTensor3D{Float64}(undef, size(A_base), Val(order(B) - 1);
+                                    bandshift = (0, 0, 2))
+        @test_throws ArgumentError galerkin_tensor!(A, (B, B, B), derivs)
+    end
 
     let A = BandedTensor3D{Float64}(undef, size(A_base), Val(order(B)),
                                     bandshift=bandshift(A_base))
@@ -215,13 +252,20 @@ function test_galerkin_tensor(R::RecombinedBSplineBasis,
     let k = order(B)
         Bp = BSplineBasis(k - 1, knots(B); augment=Val(false))
         # "wrong dimensions of Galerkin tensor"
-        @test_throws ArgumentError galerkin_tensor!(A_base, (Bp, Bp, Bp), derivs)
+        @test_throws DimensionMismatch galerkin_tensor!(A_base, (Bp, Bp, Bp), derivs)
     end
 
     nothing
 end
 
 @testset "Galerkin" begin
-    test_galerkin()
+    test_galerkin_analytical()
+
+    gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
+
+    knots_base = gauss_lobatto_points(41)
+    B = BSplineBasis(5, copy(knots_base))
+    test_galerkin_projection(B)
+
     test_galerkin_recombined()
 end

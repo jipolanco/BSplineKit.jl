@@ -174,7 +174,7 @@ function galerkin_matrix!(
     same_ij = B1 == B2 && deriv[1] == deriv[2]
 
     if size(S) != length.(Bs)
-        throw(ArgumentError("wrong dimensions of Galerkin matrix"))
+        throw(DimensionMismatch("wrong dimensions of Galerkin matrix"))
     end
 
     # Orders and knots are assumed to be the same (see _check_bases).

@@ -20,3 +20,10 @@ basis(::Spline)
 diff
 integral
 ```
+
+## Spline wrappers
+
+```@docs
+SplineWrapper
+spline
+```

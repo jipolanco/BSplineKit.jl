@@ -1,7 +1,14 @@
-# Galerkin arrays
+# Galerkin tools
 
 ```@meta
 CurrentModule = BSplineKit
+```
+
+## Projections
+
+```@docs
+galerkin_projection
+galerkin_projection!
 ```
 
 ## Matrices

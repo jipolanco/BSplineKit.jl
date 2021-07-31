@@ -29,11 +29,14 @@ abstract type SelectionMethod end
 """
     AvgKnots <: SelectionMethod
 
-Each collocation point is chosen as a sliding average over `k - 1` knots.
+Each collocation point is chosen as a sliding average over `k - 1` knots:
+
+```math
+x_i = \\frac{1}{k - 1} ∑_{j = 1}^{k - 1} t_{i + j}
+```
 
 The resulting collocation points are sometimes called Greville sites
-(de Boor 2001) or Marsden--Schoenberg points (e.g. Botella & Shariff IJCFD
-2003).
+(de Boor 2001).
 """
 struct AvgKnots <: SelectionMethod end
 
