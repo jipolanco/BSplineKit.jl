@@ -45,7 +45,9 @@ function _approximate!(f, A, m::ApproxByInterpolation)
     xs = SplineInterpolations.interpolation_points(S)
     @assert xs === method(A).xs
     ys = coefficients(S)  # just to avoid allocating extra vector
-    map!(f, ys, xs)  # equivalent to ys .= f.(xs)
+    @inbounds for i in eachindex(xs, ys)
+        ys[i] = f(xs[i])
+    end
     interpolate!(S, ys)
     A
 end
