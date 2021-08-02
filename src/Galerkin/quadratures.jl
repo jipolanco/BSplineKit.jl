@@ -65,10 +65,9 @@ Broadcast.broadcastable(M::QuadratureMetric) = Ref(M)
 # as is the default).
 # TODO implement evaluation of all B-splines at once (should be much faster...)
 function eval_basis_functions(B, is, xs, args...)
-    N = length(xs)
     k = order(B)
     @assert length(is) ≤ k
-    bis = ntuple(Val(k)) do n
+    ntuple(Val(k)) do n
         # In general, `is` will have length equal `k`.
         # If its length is less than `k` (may happen near boundaries, if knots
         # are not "augmented"), we repeat values for the first B-spline, just
