@@ -80,9 +80,12 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
 
     x = T(tsum / (k - 1))
 
-    # If this is the last point and there are no right BCs, we make sure
-    # that the point exactly matches the right boundary.
-    if cr === 0 && i == N - 1
+    # If this is the first (last) point and there are no BCs on the left
+    # (right), we make sure that the point exactly matches the left (right)
+    # boundary.
+    if cl === 0 && i == 0
+        x = T(first(lims))
+    elseif cr === 0 && i == N - 1
         x = T(last(lims))
     end
 
