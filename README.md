@@ -2,6 +2,8 @@
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jipolanco.github.io/BSplineKit.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jipolanco.github.io/BSplineKit.jl/dev/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5150350.svg)](https://doi.org/10.5281/zenodo.5150350)
+
 [![Build Status](https://github.com/jipolanco/BSplineKit.jl/workflows/CI/badge.svg)](https://github.com/jipolanco/BSplineKit.jl/actions)
 [![Coverage](https://codecov.io/gh/jipolanco/BSplineKit.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jipolanco/BSplineKit.jl)
 

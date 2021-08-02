@@ -8,7 +8,7 @@ authors:
     website: https://jipolanco.gitlab.io
 title: "BSplineKit.jl: a collection of B-spline tools in Julia"
 version: 0.8.0
-# doi: ?????
+doi: 10.5281/zenodo.5150350
 date-released: 2021-07-31
 repository-code: https://github.com/jipolanco/BSplineKit.jl
 license: MIT
