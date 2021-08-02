@@ -78,7 +78,13 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
         compensation = (tsum - tsum_prev) - y
     end
 
-    x = tsum / (k - 1)
+    x = T(tsum / (k - 1))
+
+    # If this is the last point and there are no right BCs, we make sure
+    # that the point exactly matches the right boundary.
+    if cr === 0 && i == N - 1
+        x = T(last(lims))
+    end
 
     # Make sure that the point is inside the domain.
     # This may not be the case if end knots have multiplicity less than k.
