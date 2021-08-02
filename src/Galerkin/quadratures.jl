@@ -22,47 +22,21 @@ function _quadrature_prod(::Val{p}) where {p}
     _gausslegendre(Val(n))
 end
 
-# Precomputed Gauss--Legendre nodes and weights, for low numbers of nodes.
-# Copied from FastGaussQuadrature.jl, with the difference that the
-# implementation below directly returns SVector's (avoiding small allocations).
-_gausslegendre(::Val{1}) = (
-    SVector(0.0),
-    SVector(2.0),
-)
-
-_gausslegendre(::Val{2}) = (
-    SVector(-1 / sqrt(3), 1 / sqrt(3)),
-    SVector(1.0, 1.0),
-)
-
-_gausslegendre(::Val{3}) = (
-    SVector(-sqrt(3 / 5), 0.0, sqrt(3 / 5)),
-    SVector(5 / 9, 8 / 9, 5 / 9),
-)
-
-function _gausslegendre(::Val{4})
-    a = 2 / 7 * sqrt(6 / 5)
-    (
-        SVector(-sqrt(3 / 7 + a), -sqrt(3/7-a), sqrt(3/7-a), sqrt(3/7+a)),
-        SVector((18 - sqrt(30)) / 36, (18 + sqrt(30)) / 36,
-                (18 + sqrt(30)) / 36, (18 - sqrt(30)) / 36),
-    )
-end
-
-function _gausslegendre(::Val{5})
-    b = 2 * sqrt(10 / 7)
-    (
-        SVector(-sqrt(5 + b) / 3, -sqrt(5 - b) / 3, 0.0,
-                 sqrt(5 - b) / 3,  sqrt(5 + b) / 3),
-        SVector((322 - 13 * sqrt(70)) / 900, (322 + 13 * sqrt(70)) / 900, 128 / 225,
-                (322 + 13 * sqrt(70)) / 900, (322 - 13 * sqrt(70)) / 900),
-    )
-end
-
-# Fallback: call `gausslegendre` from FastGaussQuadrature.jl
+# Compile-time computation of Gauss--Legendre nodes and weights.
+# If the @generated branch is taken, then the computation is done at compile
+# time, making sure that no runtime allocations are performed.
 function _gausslegendre(::Val{n}) where {n}
-    x, w = gausslegendre(n)
-    SVector{n}(x), SVector{n}(w)
+    if @generated
+        vecs = _gausslegendre_impl(Val(n))
+        :( $vecs )
+    else
+        _gausslegendre_impl(Val(n))
+    end
+end
+
+function _gausslegendre_impl(::Val{n}) where {n}
+    data = gausslegendre(n)
+    map(SVector{n}, data)
 end
 
 # Metric for integration on interval [a, b].
