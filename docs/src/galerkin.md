@@ -1,4 +1,4 @@
-# Galerkin tools
+# [Galerkin tools](@id galerkin-api)
 
 ```@meta
 CurrentModule = BSplineKit

@@ -1,4 +1,4 @@
-# Banded tensors
+# [Banded tensors](@id banded-tensors-api)
 
 ```@meta
 CurrentModule = BSplineKit.BandedTensors

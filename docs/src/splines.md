@@ -1,4 +1,4 @@
-# Splines
+# [Splines](@id Splines-api)
 
 ```@meta
 CurrentModule = BSplineKit.Splines

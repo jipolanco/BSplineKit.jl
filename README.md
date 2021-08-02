@@ -17,12 +17,12 @@ This package provides:
 
 - evaluation of splines and their derivatives and integrals;
 
-- spline interpolations;
+- spline interpolations and function approximation;
 
 - basis recombination, for generating bases satisfying homogeneous boundary
   conditions using linear combinations of B-splines.
-  Supported boundary conditions include Dirichlet, Neumann, Robin, and more
-  complex variants;
+  Supported boundary conditions include Dirichlet, Neumann, Robin, and
+  generalisations of these;
 
 - banded Galerkin and collocation matrices for solving differential equations,
   using B-spline and recombined bases;
@@ -35,12 +35,29 @@ This package provides:
 The following is a very brief overview of some of the functionality provided
 by this package.
 
-- Create B-spline basis of order `k = 4` (polynomial degree 3) from a given
+- Interpolate discrete data using cubic splines (B-spline order `k = 4`):
+
+  ```julia
+  xdata = (0:10).^2  # points don't need to be uniformly distributed
+  ydata = rand(length(xdata))
+  itp = interpolate(xdata, ydata, BSplineOrder(4))
+  itp(12.3)  # interpolation can be evaluated at any intermediate point
+  ```
+
+- Create B-spline basis of order `k = 6` (polynomial degree 5) from a given
   set of breakpoints:
 
   ```julia
-  breaks = -1:0.1:1
-  B = BSplineBasis(4, breaks)
+  breaks = log2.(1:16)  # breakpoints don't need to be uniformly distributed either
+  B = BSplineBasis(BSplineOrder(6), breaks)
+  ```
+
+- Approximate known function by a spline in a previously constructed basis:
+
+  ```julia
+  f(x) = exp(-x) * sin(x)
+  fapprox = approximate(f, B)
+  f(2.3), fapprox(2.3)  # (0.07476354233090601, 0.0747642348243861)
   ```
 
 - Create derived basis satisfying homogeneous [Robin boundary
@@ -69,41 +86,9 @@ by this package.
   T = galerkin_tensor(R, (Derivative(0), Derivative(1), Derivative(0)))
   ```
 
-A tutorial showcasing this and much more functionality is coming in the
-future.
-
-## Comparison with similar packages
-
-This project presents several similarities with the excellent
-[BSplines](https://github.com/sostock/BSplines.jl) package.
-This includes various types and functions which have the same names (e.g.
-`BSplineBasis`, `Spline`, `knots`, `order`).
-In most cases this is pure coincidence, as I wasn't aware of BSplines when
-development of BSplineKit started.
-Some inspiration was later taken from that package (including, for instance,
-the idea of a `Derivative` type).
-
-Some design differences with the BSplines package include:
-
-- in BSplineKit, the B-spline order `k` is considered a compile-time
-  constant, as it is encoded in the `BSplineBasis` type.
-  This leads to important performance gains when evaluating splines.
-  It also enables the construction of efficient 3D banded structures based on
-  stack-allocated
-  [StaticArrays](https://github.com/JuliaArrays/StaticArrays.jl);
-
-- we do not assume that knots are repeated `k` times at the boundaries, even
-  though this is still the default when creating a B-spline basis.
-  This is to allow the possibility of imposing periodic boundary conditions
-  on the basis.
-
-In addition to the common functionality,
-BSplineKit provides easy to use tools for solving
-[boundary-value problems](https://en.wikipedia.org/wiki/Boundary_value_problem)
-using B-splines.
-This includes the generation of bases satisfying a chosen set of boundary
-conditions (*basis recombination*), as well as the construction of
-arrays for solving such problems using collocation and Galerkin methods.
+See the [heat equation
+example](https://jipolanco.github.io/BSplineKit.jl/stable/generated/heat/) in
+the docs for the use of these tools to solve partial differential equations.
 
 ## References
 

@@ -1,4 +1,4 @@
-# Data interpolation
+# [Data interpolation](@id interpolation-api)
 
 ```@meta
 CurrentModule = BSplineKit.SplineInterpolations

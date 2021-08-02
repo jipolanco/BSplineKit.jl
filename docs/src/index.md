@@ -6,39 +6,63 @@ Tools for B-spline based Galerkin and collocation methods in Julia.
 
 This package provides:
 
-- B-spline bases of arbitrary order on uniform and non-uniform grids;
+- [B-spline bases](@ref BSplines-api) of arbitrary order on uniform and
+  non-uniform grids;
 
-- evaluation of splines and their derivatives and integrals;
+- evaluation of [splines](@ref Splines-api) and their derivatives and
+  integrals;
 
-- spline interpolations;
+- [spline interpolations](@ref interpolation-api) and
+  [function approximation](@ref function-approximation-api);
 
-- basis recombination, for generating bases satisfying homogeneous boundary
-  conditions using linear combinations of B-splines.
-  Supported boundary conditions include Dirichlet, Neumann, Robin, and more
-  complex variants;
+- [basis recombination](@ref basis-recombination-api), for generating bases
+  satisfying homogeneous boundary conditions using linear combinations of
+  B-splines.
+  Supported boundary conditions include Dirichlet, Neumann, Robin, and
+  generalisations of these;
 
-- banded Galerkin and collocation matrices for solving differential equations,
-  using B-spline and recombined bases;
+- banded [Galerkin](@ref galerkin-api) and [collocation](@ref collocation-api)
+  matrices for solving differential equations, using B-spline and recombined
+  bases;
 
-- efficient "banded" 3D arrays as an extension of banded matrices.
+- efficient ["banded" 3D arrays](@ref banded-tensors-api) as an extension of
+  banded matrices.
   These can store 3D tensors associated to quadratic terms in Galerkin methods.
 
 ## Example usage
 
 The following is a very brief overview of some of the functionality provided
 by this package.
+See the examples in the sidebar for more details.
 
-- Create B-spline basis of order ``k = 4`` (polynomial degree 3) from a given
+- Interpolate discrete data using cubic splines (B-spline order `k = 4`):
+
+  ```julia
+  xdata = (0:10).^2  # points don't need to be uniformly distributed
+  ydata = rand(length(xdata))
+  itp = interpolate(xdata, ydata, BSplineOrder(4))
+  itp(12.3)  # interpolation can be evaluated at any intermediate point
+  ```
+
+- Create B-spline basis of order `k = 6` (polynomial degree 5) from a given
   set of breakpoints:
 
   ```julia
-  breaks = -1:0.1:1
-  B = BSplineBasis(4, breaks)
+  breaks = log2.(1:16)  # breakpoints don't need to be uniformly distributed either
+  B = BSplineBasis(BSplineOrder(6), breaks)
   ```
 
-- Create derived basis satisfying the homogeneous [Robin boundary
-  conditions](https://en.wikipedia.org/wiki/Robin_boundary_condition)
-  ``u + 3 \frac{∂u}{∂n} = 0`` on the two boundaries:
+- Approximate known function by a spline in a previously constructed basis:
+
+  ```julia
+  f(x) = exp(-x) * sin(x)
+  fapprox = approximate(f, B)
+  f(2.3), fapprox(2.3)  # (0.07476354233090601, 0.0747642348243861)
+  ```
+
+- Create derived basis satisfying homogeneous [Robin boundary
+  conditions](https://en.wikipedia.org/wiki/Robin_boundary_condition) on the
+  two boundaries:
 
   ```julia
   bc = Derivative(0) + 3Derivative(1)
@@ -62,19 +86,14 @@ by this package.
   T = galerkin_tensor(R, (Derivative(0), Derivative(1), Derivative(0)))
   ```
 
-A tutorial showcasing this and much more functionality is coming in the
-future.
-
 ## Comparison with similar packages
 
 This project presents several similarities with the excellent
 [BSplines](https://github.com/sostock/BSplines.jl) package.
 This includes various types and functions which have the same names (e.g.
 `BSplineBasis`, `Spline`, `knots`, `order`).
-In most cases this is pure coincidence, as I wasn't aware of BSplines when
-development of BSplineKit started.
-Some inspiration was later taken from that package (including, for instance,
-the idea of a `Derivative` type).
+In most cases this is pure coincidence, even though some inspiration was later
+taken from that package (for instance, the idea of a `Derivative` type).
 
 Some design differences with the BSplines package include:
 

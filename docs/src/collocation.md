@@ -1,4 +1,4 @@
-# Collocation tools
+# [Collocation tools](@id collocation-api)
 
 ```@meta
 CurrentModule = BSplineKit.Collocation

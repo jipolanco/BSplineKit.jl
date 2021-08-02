@@ -1,4 +1,4 @@
-# Basis recombination
+# [Basis recombination](@id basis-recombination-api)
 
 ```@meta
 CurrentModule = BSplineKit.Recombinations

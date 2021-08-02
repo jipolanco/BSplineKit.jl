@@ -28,7 +28,7 @@ basis is enough to apply homogeneous Dirichlet BCs. Imposing BCs for derivatives
 is slightly more complex, but still possible.
 
 Note that, when combining basis recombination with [collocation methods](@ref
-Collocation-tools), there must be **no** collocation points at the boundaries,
+collocation-api), there must be **no** collocation points at the boundaries,
 or the resulting collocation matrices may not be invertible.
 
 ## Order of the boundary condition

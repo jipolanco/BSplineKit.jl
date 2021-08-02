@@ -1,4 +1,4 @@
-# Function approximation
+# [Function approximation](@id function-approximation-api)
 
 ```@meta
 CurrentModule = BSplineKit.SplineApproximations

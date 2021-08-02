@@ -1,4 +1,4 @@
-# # Function approximation
+# # [Function approximation](@id function-approximation-example)
 #
 # The objective of this example is to approximate a known function ``f`` by a
 # spline.

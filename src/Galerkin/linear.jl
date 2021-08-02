@@ -69,7 +69,7 @@ Note that, if both bases are different, the matrix will not be symmetric, and
 will not even be square if the bases have different lengths.
 
 In practice, this feature may be used to combine a B-spline basis `B`, with a
-recombined basis `R` generated from `B` (see [Basis recombination](@ref)).
+recombined basis `R` generated from `B` (see [Basis recombination](@ref basis-recombination-api)).
 """
 function galerkin_matrix(
         Bs::NTuple{2,AbstractBSplineBasis},
