@@ -32,45 +32,45 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
 
 @inline function Base.iterate(it::GrevilleSiteIterator, state = nothing)
     B = basis(it)
+    N = length(B)
+    T = eltype(it)
 
     if state === nothing
         i = 0
+        compensation = zero(T)
     else
-        i, sum_prev = state
-        i === length(B) && return nothing
+        i, xprev, compensation = state
+        i == N && return nothing
     end
 
     # For recombined bases, skip points at the boundaries.
-    ii = i + first(num_constraints(B))
+    cl, cr = num_constraints(B)  # left/right constraints
+    ii = i + cl
 
     k = order(B)
     ts = knots(B)
-    T = eltype(it)
     lims = boundaries(B)
 
     if state === nothing
-        x_unnorm = zero(eltype(ts))
+        x = zero(T)
         for j = 2:k
-            x_unnorm += @inbounds ts[ii + j]
+            x += @inbounds ts[ii + j]
         end
+        x /= k - 1
     else
         # Optimised window averaging: reuse result from previous iteration.
-        x_unnorm = @inbounds sum_prev + (ts[ii + k] - ts[ii + 1])
+        # We use Kahan summation to avoid roundoff errors.
+        # https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+        y = @inbounds (ts[ii + k] - ts[ii + 1]) / (k - 1) - compensation
+        x = xprev + y
+        compensation = (x - xprev) - y
     end
-
-    x = x_unnorm / (k - 1)
 
     # Make sure that the point is inside the domain.
     # This may not be the case if end knots have multiplicity less than k.
     x = clamp(x, lims...)
 
-    x, (i + 1, x_unnorm)
-end
-
-@inline function Base.iterate(it::GrevilleSiteIterator)
-    B = basis(it)
-    x0_unnorm = zero(eltype(knots(B)))
-    iterate(it, (0, x0_unnorm))
+    x, (i + 1, x, compensation)
 end
 
 """

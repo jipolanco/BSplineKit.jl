@@ -62,7 +62,7 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
     @test C_banded == C_sparse
 
     @testset "Greville sites" begin
-        xs = collocation_points(B, AvgKnots())
+        xs = collocation_points(B; method = Collocation.AvgKnots())
         it = Collocation.GrevilleSiteIterator(B)
         @test xs == collect(it)
     end
