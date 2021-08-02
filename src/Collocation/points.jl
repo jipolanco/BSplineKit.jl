@@ -30,7 +30,7 @@ BSplines.basis(it::GrevilleSiteIterator) = it.basis
 Base.length(it::GrevilleSiteIterator) = length(basis(it))
 Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
 
-@inline function Base.iterate(it::GrevilleSiteIterator, state)
+@inline function Base.iterate(it::GrevilleSiteIterator, state = nothing)
     B = basis(it)
 
     if state === nothing
@@ -55,7 +55,7 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
         end
     else
         # Optimised window averaging: reuse result from previous iteration.
-        x_unnorm = @inbounds sum_prev - ts[ii + 1] + ts[ii + k]
+        x_unnorm = @inbounds sum_prev + (ts[ii + k] - ts[ii + 1])
     end
 
     x = x_unnorm / (k - 1)
