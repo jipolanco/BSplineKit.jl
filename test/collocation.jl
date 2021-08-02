@@ -61,6 +61,12 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
     @test C_dense == C_banded
     @test C_banded == C_sparse
 
+    @testset "Greville sites" begin
+        xs = collocation_points(B; method = Collocation.AvgKnots())
+        it = Collocation.GrevilleSiteIterator(B)
+        @test xs == collect(it)
+    end
+
     @testset "Basis recombination" begin
         C = collocation_matrix(B, xcol)
         N = length(B)
@@ -75,7 +81,7 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
         # conditions (points at the boundaries are removed!).
         x = collocation_points(R0)
         @test length(x) == Nr
-        @test x == @view xcol[2:end-1]
+        @test x ≈ @view xcol[2:end-1]
 
         @inferred collocation_matrix(R0, x)
         C0 = collocation_matrix(R0, x)
@@ -83,7 +89,7 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
 
         # C0 is simply the interior elements of C.
         let r = 2:(N - 1)
-            @test C0 == @view C[r, r]
+            @test C0 ≈ @view C[r, r]
         end
 
         # Neumann BCs (du/dx = 0)
@@ -93,9 +99,9 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
         @test size(C1) == (Nr, Nr)
 
         let r = 2:(N - 1)
-            @test @views C1[:, 1] == C[r, 1] .+ C[r, 2]
-            @test @views C1[:, Nr] == C[r, N - 1] .+ C[r, N]
-            @test @views C1[:, 2:(Nr - 1)] == C[r, 3:(N - 2)]
+            @test @views C1[:, 1] ≈ C[r, 1] .+ C[r, 2]
+            @test @views C1[:, Nr] ≈ C[r, N - 1] .+ C[r, N]
+            @test @views C1[:, 2:(Nr - 1)] ≈ C[r, 3:(N - 2)]
         end
     end
 

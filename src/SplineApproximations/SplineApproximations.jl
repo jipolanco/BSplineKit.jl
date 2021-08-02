@@ -13,7 +13,6 @@ Different approximation approaches are implemented, trading accuracy and speed.
 module SplineApproximations
 
 using ..BSplines
-using ..Collocation: collocation_points
 using ..SplineInterpolations
 using ..Splines
 

@@ -1,3 +1,5 @@
+using ..Collocation: collocation_points
+
 """
     ApproxByInterpolation <: AbstractApproxMethod
 

@@ -1,3 +1,5 @@
+using ..Collocation: GrevilleSiteIterator
+
 """
     VariationDiminishing <: AbstractApproxMethod
 
@@ -32,27 +34,11 @@ end
 
 function _approximate!(f, A, m::VariationDiminishing)
     @assert method(A) === m
-    # TODO
-    # - optimise window averaging operation
-    # - reuse code here and in collocation_points: define lazy iterator over
-    #   Greville sites?
-    # - does this work properly with recombined bases (-> shift index of first
-    #   knot)
+    B = basis(A)
     S = spline(A)
-    N = length(S)
-    ts = knots(S)
-    k = order(S)
     cs = coefficients(S)
-    degree = k - 1
-    T = float(eltype(ts))
-    @inbounds for i = 1:N
-        # Compute Greville site
-        x = zero(T)
-        for j = 1:degree
-            x += ts[i + j]
-        end
-        x /= degree
-        cs[i] = f(x)
+    for (i, x) in zip(eachindex(cs), GrevilleSiteIterator(B))
+        @inbounds cs[i] = f(x)
     end
     A
 end
