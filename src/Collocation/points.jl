@@ -25,24 +25,36 @@ struct GrevilleSiteIterator{Basis <: AbstractBSplineBasis}
 end
 
 BSplines.basis(it::GrevilleSiteIterator) = it.basis
+
+# These are needed for `collect(it)`
 Base.length(it::GrevilleSiteIterator) = length(basis(it))
 Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
 
 # TODO
 # - optimise window averaging?
-function Base.iterate(it::GrevilleSiteIterator, i = 0)
+@inline function Base.iterate(it::GrevilleSiteIterator, i = 0)
     B = basis(it)
     i === length(B) && return nothing
-    # Account for basis recombination / boundary conditions
+
+    # For recombined bases, skip points at the boundaries.
     ii = i + first(num_constraints(B))
+
     k = order(B)
     ts = knots(B)
     T = eltype(it)
     x = zero(T)
+    lims = boundaries(B)
+
     @inbounds for j = 2:k
         x += ts[ii + j]
     end
+
     x /= k - 1
+
+    # Make sure that the point is inside the domain.
+    # This may not be the case if end knots have multiplicity less than k.
+    x = clamp(x, lims...)
+
     x, i + 1
 end
 
@@ -88,36 +100,8 @@ function collocation_points!(
         throw(ArgumentError(
             "number of collocation points must match number of B-splines"))
     end
-    collocation_points!(method, x, B)
+    _collocation_points!(x, B, method)
 end
 
-function collocation_points!(::AvgKnots, x, B::AbstractBSplineBasis)
-    N = length(B)           # number of functions in basis
-    @assert length(x) == N
-    k = order(B)
-    t = knots(B)
-    T = eltype(x)
-
-    # For recombined bases, skip points at the boundaries.
-    # Note that j = 0 for non-recombined bases, i.e. boundaries are included.
-    j, _ = num_constraints(B)
-
-    v::T = inv(k - 1)
-    a::T, b::T = boundaries(B)
-
-    for i in eachindex(x)
-        j += 1  # generally i = j, unless x has weird indexation
-        xi = zero(T)
-
-        for n = 1:k-1
-            xi += T(t[j + n])
-        end
-        xi *= v
-
-        # Make sure that the point is inside the domain.
-        # This may not be the case if end knots have multiplicity less than k.
-        x[i] = clamp(xi, a, b)
-    end
-
-    x
-end
+_collocation_points!(xs, B::AbstractBSplineBasis, ::AvgKnots) =
+    copyto!(xs, GrevilleSiteIterator(B))
