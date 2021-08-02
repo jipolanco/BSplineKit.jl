@@ -58,9 +58,22 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
         end
     else
         # Optimised window averaging: reuse result from previous iteration.
-        # We use Kahan summation to avoid roundoff errors.
+        #
+        # We use a two-step Kahan summation to avoid roundoff errors.
         # https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-        y = @inbounds (ts[ii + k] - ts[ii + 1]) - compensation
+        #
+        # The non-compensated summation would be written as:
+        # tsum = tsum_prev + ts[ii + k] - ts[ii + 1]
+
+        # 1. Add next knot
+        y = @inbounds ts[ii + k] - compensation
+        tsum = tsum_prev + y
+        compensation = (tsum - tsum_prev) - y
+
+        tsum_prev = tsum
+
+        # 2. Remove previous knot
+        y = @inbounds -ts[ii + 1] - compensation
         tsum = tsum_prev + y
         compensation = (tsum - tsum_prev) - y
     end
