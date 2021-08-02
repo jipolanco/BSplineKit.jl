@@ -39,7 +39,7 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
         i = 0
         compensation = zero(T)
     else
-        i, xprev, compensation = state
+        i, tsum_prev, compensation = state
         i == N && return nothing
     end
 
@@ -52,25 +52,26 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
     lims = boundaries(B)
 
     if state === nothing
-        x = zero(T)
+        tsum = zero(eltype(ts))
         for j = 2:k
-            x += @inbounds ts[ii + j]
+            tsum += @inbounds ts[ii + j]
         end
-        x /= k - 1
     else
         # Optimised window averaging: reuse result from previous iteration.
         # We use Kahan summation to avoid roundoff errors.
         # https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-        y = @inbounds (ts[ii + k] - ts[ii + 1]) / (k - 1) - compensation
-        x = xprev + y
-        compensation = (x - xprev) - y
+        y = @inbounds (ts[ii + k] - ts[ii + 1]) - compensation
+        tsum = tsum_prev + y
+        compensation = (tsum - tsum_prev) - y
     end
+
+    x = tsum / (k - 1)
 
     # Make sure that the point is inside the domain.
     # This may not be the case if end knots have multiplicity less than k.
     x = clamp(x, lims...)
 
-    x, (i + 1, x, compensation)
+    x, (i + 1, tsum, compensation)
 end
 
 """
