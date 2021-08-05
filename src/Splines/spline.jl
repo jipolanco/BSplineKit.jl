@@ -20,7 +20,7 @@ julia> S = Spline(B, coefs)
 13-element Spline{Float64}:
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
- coefficients: [0.18588655648969699, 0.9029166384444702, 0.9260613807703459, 0.8547964724816131, 0.39474318453198, 0.7014911606231877, 0.7532136707230797, 0.9360833341053749, 0.23429394964461725, 0.8755953969471848, 0.8421116493609568, 0.6943510993657007, 0.3825519047441852]
+ coefficients: [0.484368, 0.973024, 0.474683, 0.77864, 0.0663495, 0.818427, 0.629158, 0.00961182, 0.180137, 0.100973, 0.444828, 0.422792, 0.438264]
 ```
 
 ---
@@ -62,8 +62,10 @@ Base.copy(S::Spline) = Spline(basis(S), copy(coefficients(S)))
 function Base.show(io::IO, S::Spline)
     println(io, length(S), "-element ", nameof(typeof(S)), '{', eltype(S), '}', ':')
     println(io, " order: ", order(S))
-    println(io, " knots: ", knots(S))
-    print(io, " coefficients: ", coefficients(S))
+    let io = IOContext(io, :compact => true, :limit => true)
+        println(io, " knots: ", knots(S))
+        print(io, " coefficients: ", coefficients(S))
+    end
     nothing
 end
 

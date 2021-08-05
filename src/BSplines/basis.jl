@@ -22,22 +22,19 @@ julia> breaks = range(-1, 1, length = 21)
 -1.0:0.1:1.0
 
 julia> B = BSplineBasis(5, breaks)
-24-element BSplineBasis: order 5, domain [-1.0, 1.0]
+24-element BSplineBasis of order 5, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5  …  0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0]
 ```
 
 This is equivalent to the above:
 
 ```jldoctest BSplineBasis
 julia> B = BSplineBasis(BSplineOrder(5), breaks)
-24-element BSplineBasis: order 5, domain [-1.0, 1.0]
+24-element BSplineBasis of order 5, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5  …  0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0]
 ```
 
-Note that first and last knots have multiplicity ``k = 5``:
-
-```jldoctest BSplineBasis
-julia> show(knots(B))
-[-1.0, -1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0]
-```
+Note that first and last knots are repeated ``k = 5`` times.
 
 If `augment = Val(false)`, input breakpoints are taken without modification as
 the knots ``t_i`` of the B-spline basis. Note that the valid domain is reduced to
@@ -46,11 +43,10 @@ where ``N`` is the length of the basis (below, ``N = 16``).
 
 ```jldoctest BSplineBasis
 julia> Bn = BSplineBasis(5, breaks, augment = Val(false))
-16-element BSplineBasis: order 5, domain [-0.6, 0.6]
-
-julia> show(knots(Bn))
--1.0:0.1:1.0
+16-element BSplineBasis of order 5, domain [-0.6, 0.6]
+ knots: -1.0:0.1:1.0
 ```
+
 """
 struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,T}
     N :: Int    # number of B-splines
@@ -98,11 +94,12 @@ by the basis.
 
 ```jldoctest
 julia> B = BSplineBasis(BSplineOrder(4), -1:0.1:1)
-23-element BSplineBasis: order 4, domain [-1.0, 1.0]
+23-element BSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4  …  0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
 
 julia> B[6]
 Basis function i = 6
-  from 23-element BSplineBasis: order 4, domain [-1.0, 1.0]
+  from 23-element BSplineBasis of order 4, domain [-1.0, 1.0]
   support: [-0.8, -0.4) (knots 6:10)
 
 julia> B[6](-0.5)
@@ -133,13 +130,20 @@ end
     B[i], i
 end
 
-Base.show(io::IO, B::AbstractBSplineBasis) = summary(io, B)
+function Base.show(io::IO, B::AbstractBSplineBasis)
+    summary(io, B)
+    let io = IOContext(io, :compact => true, :limit => true)
+        print(io, "\n knots: ", knots(B))
+    end
+    nothing
+end
+
 Base.summary(io::IO, B::BSplineBasis) = summary_basis(io, B)
 
 function summary_basis(io, B::AbstractBSplineBasis)
     a, b = boundaries(B)
     print(io, length(B), "-element ", nameof(typeof(B)))
-    print(io, ": order ", order(B), ", domain [", a, ", ", b, "]")
+    print(io, " of order ", order(B), ", domain [", a, ", ", b, "]")
     nothing
 end
 

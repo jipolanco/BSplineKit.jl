@@ -250,8 +250,11 @@ function test_basis_recombination()
             N = length(R)
             a, b = boundaries(R)
             cl, cr = constraints(R)
-            @test string(R) ==
-            "$N-element RecombinedBSplineBasis: order $k, domain [$a, $b], BCs {left => $cl, right => $cr}"
+            for f ∈ (repr, summary)
+                @test startswith(
+                    f(R), "$N-element RecombinedBSplineBasis of order $k",
+                )
+            end
         end
 
         @testset "Robin-like BCs" begin

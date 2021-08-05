@@ -29,8 +29,11 @@ struct ApproxByInterpolation{Points <: AbstractVector} <: AbstractApproxMethod
     xs :: Points
 end
 
-Base.show(io::IO, m::ApproxByInterpolation) =
-    print(io, "interpolation at ", m.xs)
+function Base.show(io::IO, m::ApproxByInterpolation)
+    let io = IOContext(io, :compact => true, :limit => true)
+        print(io, "interpolation at ", m.xs)
+    end
+end
 
 ApproxByInterpolation(B::AbstractBSplineBasis) =
     ApproxByInterpolation(collocation_points(B))

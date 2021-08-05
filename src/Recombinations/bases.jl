@@ -112,6 +112,26 @@ Robin BCs.
 Higher-order derivatives are also allowed, being only limited by the order of
 the B-spline basis.
 
+## Examples
+
+```jldoctest RecombinedBSplineBasis
+julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1)
+13-element BSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+
+julia> R_neumann = RecombinedBSplineBasis(Derivative(1), B)
+11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ BCs left:  (D{1},)
+ BCs right: (D{1},)
+
+julia> R_robin = RecombinedBSplineBasis(Derivative(0) + 3Derivative(1), B)
+11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ BCs left:  (D{0} + 3 * D{1},)
+ BCs right: (D{0} + 3 * D{1},)
+```
+
 ---
 
     RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
@@ -150,6 +170,26 @@ supported:
 
 In all cases, the degrees of the differential operators must be in increasing
 order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
+
+## Examples
+
+```jldoctest RecombinedBSplineBasis
+julia> ops = (Derivative(0), Derivative(1));
+
+julia> R1 = RecombinedBSplineBasis(ops, B)
+9-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ BCs left:  (D{0}, D{1})
+ BCs right: (D{0}, D{1})
+
+julia> ops = (Derivative(0), Derivative(1) - 4Derivative(2));
+
+julia> R2 = RecombinedBSplineBasis(ops, B)
+9-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ BCs left:  (D{0}, D{1} + -4 * D{2})
+ BCs right: (D{0}, D{1} + -4 * D{2})
+```
 """
 struct RecombinedBSplineBasis{
             k, T, Parent <: BSplineBasis{k,T},
@@ -183,6 +223,16 @@ function Base.summary(io::IO, R::RecombinedBSplineBasis)
     cl, cr = constraints(R)
     print(io, ", BCs {left => ", cl, ", right => ", cr, "}")
     nothing
+end
+
+function Base.show(io::IO, R::RecombinedBSplineBasis)
+    summary_basis(io, R)
+    cl, cr = constraints(R)
+    let io = IOContext(io, :compact => true, :limit => true)
+        print(io, "\n knots: ", knots(R))
+        print(io, "\n BCs left:  ", cl)
+        print(io, "\n BCs right: ", cr)
+    end
 end
 
 """

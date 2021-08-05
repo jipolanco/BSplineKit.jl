@@ -81,7 +81,7 @@ julia> S_interp = approximate(sin, B)
 SplineApproximation containing the 7-element Spline{Float64}:
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
- coefficients: [-0.8414709848078965, -0.7317273726556252, -0.39726989430226317, 0.0, 0.39726989430226317, 0.7317273726556252, 0.8414709848078965]
+ coefficients: [-0.841471, -0.731727, -0.39727, 0.0, 0.39727, 0.731727, 0.841471]
  approximation method: interpolation at [-1.0, -0.8, -0.4, 0.0, 0.4, 0.8, 1.0]
 
 julia> sin(0.3), S_interp(0.3)
@@ -91,7 +91,7 @@ julia> approximate!(exp, S_interp)
 SplineApproximation containing the 7-element Spline{Float64}:
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
- coefficients: [0.36787944117144233, 0.4403725424224455, 0.6570101184826601, 0.9801271149667085, 1.4622271917170906, 2.181107315860912, 2.718281828459045]
+ coefficients: [0.367879, 0.440373, 0.65701, 0.980127, 1.46223, 2.18111, 2.71828]
  approximation method: interpolation at [-1.0, -0.8, -0.4, 0.0, 0.4, 0.8, 1.0]
 
 julia> exp(0.3), S_interp(0.3)
@@ -101,14 +101,14 @@ julia> S_fast = approximate(exp, B, VariationDiminishing())
 SplineApproximation containing the 7-element Spline{Float64}:
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
- coefficients: [0.36787944117144233, 0.44932896411722156, 0.6703200460356393, 1.0, 1.4918246976412703, 2.225540928492468, 2.718281828459045]
+ coefficients: [0.367879, 0.449329, 0.67032, 1.0, 1.49182, 2.22554, 2.71828]
  approximation method: VariationDiminishing()
 
 julia> S_opt = approximate(exp, B, MinimiseL2Error())
 SplineApproximation containing the 7-element Spline{Float64}:
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
- coefficients: [0.368073806165329, 0.4403423586370571, 0.6570767565347361, 0.9802789580270397, 1.4621592525088214, 2.182012185989042, 2.7166900724062018]
+ coefficients: [0.368074, 0.440342, 0.657077, 0.980279, 1.46216, 2.18201, 2.71669]
  approximation method: MinimiseL2Error()
 
 julia> x = 0.34; exp(x), S_opt(x), S_interp(x), S_fast(x)

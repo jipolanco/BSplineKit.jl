@@ -117,7 +117,10 @@ function test_splines(B::BSplineBasis, knots_in)
         @test evaluate(B, 1, a) == 1.0
         @test evaluate(B, N, b) == 1.0
 
-        @test string(B) == "$N-element BSplineBasis: order $k, domain [$a, $b]"
+        @test startswith(
+            repr(B),
+            "$N-element BSplineBasis of order $k",
+        )
 
         xs = range(a, b; length = 4N + 1)
         us = similar(xs)
