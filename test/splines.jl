@@ -38,7 +38,7 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
         @test knots(itp) === knots(S)
         @test coefficients(itp) === coefficients(S)
         @test integral(itp) == integral(S)
-        @test diff(itp, Derivative(1)) == diff(S, Derivative(1))
+        @test diff(itp, Derivative(1)) == diff(S, Derivative(1)) == Derivative() * itp
 
         # "incompatible lengths of B-spline basis and collocation points"
         @test_throws(
@@ -57,6 +57,7 @@ function test_polynomial(x, ::BSplineOrder{k}) where {k}
     end
 
     S′ = diff(S, Derivative(1))
+    @test Derivative() * S == S′  # alternative notation
     Sint = integral(S)
 
     a, b = boundaries(basis(S))
