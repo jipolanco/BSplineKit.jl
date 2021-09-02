@@ -86,6 +86,12 @@ Specifies the `n`-th derivative of a function.
 struct Derivative{n} <: AbstractDifferentialOp end
 
 Derivative(n::Integer) = Derivative{n}()
+Derivative() = Derivative(1)
+
+function Base.literal_pow(::typeof(^), op::Derivative{n}, ::Val{p}) where {n,p}
+    Derivative(n * p)
+end
+
 max_order(::Derivative{n}) where {n} = n
 
 # We return a ScaledDerivative for type stability.

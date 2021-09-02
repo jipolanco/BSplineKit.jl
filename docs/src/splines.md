@@ -17,6 +17,7 @@ basis(::Spline)
 ## Derivatives and integrals
 
 ```@docs
+*
 diff
 integral
 ```

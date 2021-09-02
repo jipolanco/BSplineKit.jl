@@ -183,11 +183,46 @@ function spline_kernel(
 end
 
 """
-    diff(S::Spline, [deriv::Derivative = Derivative(1)]) -> Spline
+    *(op::Derivative, S::Spline) -> Spline
 
-Return `N`-th derivative of spline `S` as a new spline.
+Returns `N`-th derivative of spline `S` as a new spline.
+
+See also [`diff`](@ref).
+
+# Examples
+
+```jldoctest; filter = r"coefficients: \\[.*\\]"
+julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
+
+julia> S = Spline(B, rand(length(B)))
+13-element Spline{Float64}:
+ order: 4
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ coefficients: [0.411779, 0.477218, 0.602547, 0.30413, 0.304017, 0.750247, 0.614036, 0.519966, 0.657764, 0.437818, 0.107356, 0.429024, 0.435861]
+
+julia> Derivative(1) * S
+12-element Spline{Float64}:
+ order: 3
+ knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
+ coefficients: [0.981589, 0.939965, -1.49208, -0.000564486, 2.23115, -0.681057, -0.470348, 0.688991, -1.09973, -1.65231, 2.41251, 0.102554]
+
+julia> Derivative(2) * S
+11-element Spline{Float64}:
+ order: 2
+ knots: [-1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0]
+ coefficients: [-0.416237, -12.1602, 7.45759, 11.1586, -14.561, 1.05354, 5.7967, -8.94361, -2.7629, 20.3241, -23.0995]
+```
 """
-Base.diff(S::Spline, deriv = Derivative(1)) = _diff(basis(S), S, deriv)
+Base.:*(op::Derivative, S::Spline) = _diff(basis(S), S, op)
+
+"""
+    diff(S::Spline, [op::Derivative = Derivative(1)]) -> Spline
+
+Same as `op * S`.
+
+Returns `N`-th derivative of spline `S` as a new spline.
+"""
+Base.diff(S::Spline, op = Derivative(1)) = op * S
 
 _diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
 
