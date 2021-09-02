@@ -7,6 +7,15 @@ using LinearAlgebra: ⋅
     @test max_order(D2) == 2
     @test max_order(D3) == 3
 
+    @test D2^2 === Derivative(4)
+    @test D2^3 === Derivative(6)
+    @test Derivative() === Derivative(1)
+    @test Derivative()^3 === Derivative(3)
+
+    @inferred (() -> Derivative())()
+    @inferred (() -> Derivative()^3)()
+    @inferred (() -> Derivative(3))()
+
     S = D2 + 5 * D3
     S′ = 5 * D3 + D2
     @test S == S′
