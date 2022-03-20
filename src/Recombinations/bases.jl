@@ -176,6 +176,7 @@ order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
 ```jldoctest RecombinedBSplineBasis
 julia> ops = (Derivative(0), Derivative(1));
 
+
 julia> R1 = RecombinedBSplineBasis(ops, B)
 9-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
@@ -183,6 +184,7 @@ julia> R1 = RecombinedBSplineBasis(ops, B)
  BCs right: (D{0}, D{1})
 
 julia> ops = (Derivative(0), Derivative(1) - 4Derivative(2));
+
 
 julia> R2 = RecombinedBSplineBasis(ops, B)
 9-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]

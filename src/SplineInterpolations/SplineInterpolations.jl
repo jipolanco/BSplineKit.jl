@@ -136,6 +136,7 @@ julia> ys = cospi.(xs);
 
 julia> itp = interpolate(xs, ys, BSplineOrder(4))
 SplineInterpolation containing the 21-element Spline{Float64}:
+ basis: 21-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3  …  0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.0, 1.0, 1.0]
  coefficients: [-1.0, -1.00111, -0.8975, -0.597515, -0.314147, 1.3265e-6, 0.314142, 0.597534, 0.822435, 0.96683  …  0.96683, 0.822435, 0.597534, 0.314142, 1.3265e-6, -0.314147, -0.597515, -0.8975, -1.00111, -1.0]
