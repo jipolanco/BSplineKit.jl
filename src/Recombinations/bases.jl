@@ -166,8 +166,17 @@ Currently, the following cases are supported:
    boundaries, with Robin BCs for the derivative, ``u' + λ u'' = 0``, which
    corresponds to `ops = (Derivative(0), Derivative(1) + λ Derivative(2))`.
 
-In all cases, the degrees of the differential operators must be in increasing
-order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
+3. generalised natural boundary conditions:
+
+        ops = Natural()
+
+   This is equivalent to `ops = (Derivative(2), Derivative(3), ..., Derivative(k ÷ 2))`
+   where `k` is the spline order (which must be even).
+   See [`Natural`](@ref) for details.
+
+In the first two cases, the degrees of the differential operators must be in
+increasing order.
+For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
 
 ## Examples
 
@@ -189,6 +198,12 @@ julia> R2 = RecombinedBSplineBasis(ops, B)
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{0}, D{1} + -4 * D{2})
  BCs right: (D{0}, D{1} + -4 * D{2})
+
+julia> R3 = RecombinedBSplineBasis(Natural(), B)
+11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ BCs left:  (D{2},)
+ BCs right: (D{2},)
 ```
 """
 struct RecombinedBSplineBasis{

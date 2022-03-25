@@ -92,6 +92,7 @@ end
 
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
+_default_eltype(::BoundaryCondition) = Float64
 _default_eltype(::DiffOpList) = Float64
 _default_eltype(::Derivative{0}) = Bool  # Dirichlet BCs
 _default_eltype(::Derivative{1}) = Bool  # Neumann BCs
@@ -99,8 +100,14 @@ _default_eltype(::Derivative{1}) = Bool  # Neumann BCs
 # Case (D(0), D(1), D(2), ...)
 _default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool
 
-RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, B::BSplineBasis) =
-    RecombineMatrix(ops, B, _default_eltype(ops...))
+RecombineMatrix(ops, B::BSplineBasis) =
+    RecombineMatrix(ops, B, _default_eltype(ops))
+
+RecombineMatrix(op::AbstractDifferentialOp, B::BSplineBasis, args...) =
+    RecombineMatrix((op,), B, args...)
+
+RecombineMatrix(r::DerivativeUnitRange, B::BSplineBasis, args...) =
+    RecombineMatrix(Tuple(r), B, args...)
 
 # Specialisation for Dirichlet BCs.
 function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
@@ -137,13 +144,108 @@ end
 # In that case, `n` is the maximum degree of the operator.
 function RecombineMatrix(ops::DiffOpList, B::BSplineBasis, ::Type{T}) where {T}
     _check_bspline_order(ops, B)
+    h = order(B) ÷ 2
+    # Identify operators corresponding to natural splines
+    if ops === _natural_ops(Val(h))
+        return RecombineMatrix(Natural(), B, T)
+    end
     op = last(ops)
     n = max_order(op)
     m = _bsplines_to_drop(ops...)
     _make_matrix(Val(n + 1), Val(m), ops, B, T)
 end
 
-# Case of mixed BCs (D(0), D(1), ..., D(n)).
+# Generalised natural boundary conditions.
+#
+# This is equivalent to:
+#
+#       ops = (Derivative(2), Derivative(3), …, Derivative(k ÷ 2))
+#
+function RecombineMatrix(::Natural, B::BSplineBasis, ::Type{T}) where {T}
+    k = order(B)
+    isodd(k) && throw(ArgumentError(
+        "`Natural` boundary condition only supported for even-order splines (got k = $k)"
+    ))
+    h = k ÷ 2
+    xleft, xright = boundaries(B)
+    N = length(B)
+
+    # rhs = [h, 0, 0, …, 0] (the `h` at the beginning is kind of arbitrary)
+    rhs = SVector(ntuple(i -> i == 1 ? T(h) : zero(T), Val(h + 1))...)
+
+    # Left boundary
+    Tl = let x = xleft
+        js = 1:(h + 1)  # indices of left B-splines
+
+        # Evaluate B-spline derivatives at boundary.
+        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
+
+        # Construct linear systems for determining recombination matrix
+        # coefficients.
+        A = _natural_system_matrix(bs, 1)
+        T1 = A \ rhs  # coefficients associated to recombined function ϕ₁
+
+        A = _natural_system_matrix(bs, 2)
+        T2 = A \ rhs  # coefficients associated to recombined function ϕ₂
+
+        hcat(T1, T2)
+    end
+
+    Tr = let x = xright
+        js = (N - h):N
+        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
+
+        A = _natural_system_matrix(bs, 1)
+        T1 = A \ rhs
+
+        A = _natural_system_matrix(bs, 2)
+        T2 = A \ rhs
+
+        hcat(T1, T2)
+    end
+
+    ops = _natural_ops(Val(h))
+
+    RecombineMatrix(ops, N, Tl, Tr)
+end
+
+@inline function _natural_ops(::Val{h}) where {h}
+    @assert h ≥ 2
+    (_natural_ops(Val(h - 1))..., Derivative(h))
+end
+@inline _natural_ops(::Val{1}) = ()
+
+# Evaluate derivatives 2:h of B-splines 1:(h + 1) at the boundaries.
+function _natural_eval_derivatives(B, x, js, ::Val{h}, ::Type{T}) where {h, T}
+    @assert length(js) == h + 1
+    M = MMatrix{h - 1, h + 1, T}(undef)
+    for k ∈ axes(M, 2)
+        j = js[k]
+        bs = B[j](x, Derivative(2:h))  # returns tuple (bⱼ⁽²⁾, bⱼ⁽³⁾, …, bⱼ⁽ʰ⁾)
+        M[:, k] = SVector(bs)
+    end
+    SMatrix(M)
+end
+
+# On the left boundary, `i` is the index of the resulting recombined basis
+# function ϕᵢ.
+function _natural_system_matrix(bs::SMatrix{hm, hp}, i) where {hm, hp}
+    h = hm + 1
+    @assert hp == h + 1
+    M = similar(bs, Size(hp, hp))
+    fill!(M, 0)
+    M[1, :] .= 1  # arbitrary condition
+    M[2:h, :] .= bs
+    @assert i ∈ (1, 2)
+    if i == 1
+        M[hp, hp] = 1
+    elseif i == 2
+        M[hp, 1] = 1
+    end
+    SMatrix(M)
+end
+
+# Case of mixed BCs (D(0), D(1), ..., D(n - 1)).
 # B-splines are dropped, and new functions are not created.
 # This is a generalisation of the Dirichlet case.
 function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
