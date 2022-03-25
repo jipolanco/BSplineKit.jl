@@ -77,8 +77,8 @@ struct RecombineMatrix{
             ops::DiffOpList, N::Integer,
             ul::SMatrix{n1,n}, lr::SMatrix{n1,n},
         ) where {n1,n}
-        if n1 <= n
-            throw(ArgumentError("matrices must have dimensions (m, n) with m > n"))
+        if n1 < n
+            throw(ArgumentError("matrices must have dimensions (m, n) with m ≥ n"))
         end
         nc = length(ops)
         @assert nc == n1 - n
@@ -166,6 +166,7 @@ function RecombineMatrix(::Natural, B::BSplineBasis, ::Type{T}) where {T}
     isodd(k) && throw(ArgumentError(
         "`Natural` boundary condition only supported for even-order splines (got k = $k)"
     ))
+
     h = k ÷ 2
     xleft, xright = boundaries(B)
     N = length(B)
@@ -219,9 +220,12 @@ end
 function _natural_eval_derivatives(B, x, js, ::Val{h}, ::Type{T}) where {h, T}
     @assert length(js) == h + 1
     M = MMatrix{h - 1, h + 1, T}(undef)
+    if h == 1
+        return SMatrix(M)
+    end
     for k ∈ axes(M, 2)
         j = js[k]
-        bs = B[j](x, Derivative(2:h))  # returns tuple (bⱼ⁽²⁾, bⱼ⁽³⁾, …, bⱼ⁽ʰ⁾)
+        bs = B[j, T](x, Derivative(2:h))  # returns tuple (bⱼ⁽²⁾, bⱼ⁽³⁾, …, bⱼ⁽ʰ⁾)
         M[:, k] = SVector(bs)
     end
     SMatrix(M)

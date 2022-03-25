@@ -78,6 +78,7 @@ dot(op::AbstractDifferentialOp, dir::AbstractNormalDirection) = dot(dir, op)
 dot(::RightNormal, op) = op
 
 max_order(ops::Vararg{AbstractDifferentialOp}) = max(max_order.(ops)...)
+max_order() = 0  # no operators
 
 """
     Derivative{n} <: AbstractDifferentialOp
