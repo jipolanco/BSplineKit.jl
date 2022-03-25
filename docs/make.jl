@@ -50,6 +50,7 @@ end
             "tensors.md",
             "galerkin.md",
             "collocation.md",
+            "boundary_conditions.md",
             "Internals" => ["diffops.md"],
         ],
     ],
