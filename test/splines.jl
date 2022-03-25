@@ -101,7 +101,8 @@ function test_splines(B::BSplineBasis, knots_in)
             @test b isa BasisFunction
             @test @inferred(b(x, Derivative(0:2))) ==
                 (b(x), b(x, Derivative(1)), b(x, Derivative(2)))
-            @test @inferred(Tuple(Derivative(2:5))) === Derivative.((2, 3, 4, 5))
+            tup = @inferred (() -> Tuple(Derivative(2:5)))()
+            @test tup === Derivative.((2, 3, 4, 5))
         end
 
         @test_throws BoundsError B[0]
