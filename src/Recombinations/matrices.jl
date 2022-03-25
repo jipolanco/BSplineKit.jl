@@ -177,7 +177,7 @@ function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
 
     Nc = length(ops)  # this is the number of constraints
     a, b = boundaries(B)
-    Ca = zeros(T, q + Nc, q)
+    Ca = zero(MMatrix{q + Nc, q, T})
     Cb = copy(Ca)
 
     N = length(B)
@@ -218,8 +218,8 @@ function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
         end
     end
 
-    ul = SMatrix{q + Nc, q}(Ca)
-    lr = SMatrix{q + Nc, q}(Cb)
+    ul = SMatrix(Ca)
+    lr = SMatrix(Cb)
 
     RecombineMatrix(ops, N, ul, lr)
 end
