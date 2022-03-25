@@ -64,6 +64,7 @@ end
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo="github.com/jipolanco/BSplineKit.jl",
-    forcepush=true,
+    repo = "github.com/jipolanco/BSplineKit.jl",
+    forcepush = true,
+    push_preview = true,  # PRs deploy at https://jipolanco.github.io/BSplineKit.jl/previews/PR##
 )
