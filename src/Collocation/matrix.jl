@@ -11,6 +11,10 @@ import LinearAlgebra:
 
 import Base: @propagate_inbounds
 
+@static if !isdefined(LinearAlgebra, :NoPivot)
+    const NoPivot = Val{false}
+end
+
 """
     CollocationMatrix{T} <: AbstractBandedMatrix{T}
 
