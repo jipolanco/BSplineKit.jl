@@ -73,21 +73,62 @@ struct RecombineMatrix{
     N :: Int      # length of B-spline basis
     ul :: Corner  # upper-left corner of matrix, size (n1, n)
     lr :: Corner  # lower-right corner of matrix, size (n1, n)
+    allowed_nonzeros_per_column :: NTuple{2, Int}
+
     function RecombineMatrix(
             ops::DiffOpList, N::Integer,
-            ul::SMatrix{n1,n}, lr::SMatrix{n1,n},
+            ul::SMatrix{n1,n}, lr::SMatrix{n1,n};
+            dropped_bsplines::NTuple{2, Integer},
         ) where {n1,n}
         if n1 < n
             throw(ArgumentError("matrices must have dimensions (m, n) with m ≥ n"))
         end
+
         nc = length(ops)
         @assert nc == n1 - n
         M = N - 2nc
         T = eltype(ul)
+
+        # Locality condition: make sure corner arrays are as close to banded as possible.
+        allowed_nonzeros_per_column = (nc + 1) .- dropped_bsplines
+
+        _check_locality(ul, :upper_left, allowed_nonzeros_per_column[1])
+        _check_locality(lr, :lower_right, allowed_nonzeros_per_column[2])
+
         Corner = typeof(ul)
         Ops = typeof(ops)
-        new{T, Ops, n, n1, Corner}(ops, M, N, ul, lr)
+
+        new{T, Ops, n, n1, Corner}(ops, M, N, ul, lr, allowed_nonzeros_per_column)
     end
+end
+
+function _check_locality(A, corner, allowed_nonzeros_per_column)
+    m, n = size(A)
+    nc = m - n  # number of constraints
+    is = axes(A, 1)
+    js = axes(A, 2)
+
+    @inbounds if corner == :upper_left
+        dropped_bsplines = nc + 1 - allowed_nonzeros_per_column
+        for j ∈ js
+            istart = j + dropped_bsplines
+            iend = istart + (allowed_nonzeros_per_column - 1)
+            iallowed = istart:iend
+            for i ∈ is
+                @assert i ∈ iallowed || iszero(A[i, j])
+            end
+        end
+    elseif corner == :lower_right
+        # allowed_nonzeros_per_column = nc - dropped_bsplines + 1
+        for j ∈ js
+            iallowed = j:(j + allowed_nonzeros_per_column - 1)
+            for i ∈ is
+                @assert i ∈ iallowed || iszero(A[i, j])
+            end
+        end
+    end
+
+    nothing
 end
 
 # Default element type of recombination matrix.
@@ -116,7 +157,7 @@ function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
-    RecombineMatrix(op, N, ul, lr)
+    RecombineMatrix(op, N, ul, lr; dropped_bsplines = (1, 1))
 end
 
 # Specialisation for Neumann BCs.
@@ -126,7 +167,7 @@ function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis,
     N = length(B)
     ul = SMatrix{2,1,T}(1, 1)
     lr = copy(ul)
-    RecombineMatrix(op, N, ul, lr)
+    RecombineMatrix(op, N, ul, lr; dropped_bsplines = (0, 0))
 end
 
 # Generalisation to higher orders and to more general differential operators
@@ -189,7 +230,7 @@ function RecombineMatrix(::Natural, B::BSplineBasis, ::Type{T}) where {T}
         A = _natural_system_matrix(bs, 2)
         T2 = A \ rhs  # coefficients associated to recombined function ϕ₂
 
-        hcat(T1, T2)
+        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
     end
 
     Tr = let x = xright
@@ -202,12 +243,18 @@ function RecombineMatrix(::Natural, B::BSplineBasis, ::Type{T}) where {T}
         A = _natural_system_matrix(bs, 2)
         T2 = A \ rhs
 
-        hcat(T1, T2)
+        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
     end
 
     ops = _natural_ops(Val(h))
 
-    RecombineMatrix(ops, N, Tl, Tr)
+    RecombineMatrix(ops, N, Tl, Tr; dropped_bsplines = (0, 0))
+end
+
+function _remove_near_zeros(A::SArray; rtol = 100 * eps(eltype(A)))
+    v = maximum(abs, A)
+    ϵ = rtol * v
+    typeof(A)((abs(x) < ϵ ? zero(x) : x) for x ∈ A)
 end
 
 @inline function _natural_ops(::Val{h}) where {h}
@@ -241,6 +288,7 @@ function _natural_system_matrix(bs::SMatrix{hm, hp}, i) where {hm, hp}
     M[1, :] .= 1  # arbitrary condition
     M[2:h, :] .= bs
     @assert i ∈ (1, 2)
+    # This is a locality condition: we want the matrix to be kind of banded.
     if i == 1
         M[hp, hp] = 1
     elseif i == 2
@@ -259,7 +307,7 @@ function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
     N = length(B)
     ul = SMatrix{Nc,0,T}()
     lr = copy(ul)
-    RecombineMatrix(ops, N, ul, lr)
+    RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (n, n))
 end
 
 _droplast(a) = ()
@@ -327,7 +375,7 @@ function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
     ul = SMatrix(Ca)
     lr = SMatrix(Cb)
 
-    RecombineMatrix(ops, N, ul, lr)
+    RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (m, m))
 end
 
 # Verify that the B-spline order is compatible with the given differential
@@ -408,11 +456,15 @@ Returns the range of row indices `i` such that `A[i, col]` is non-zero.
     block = which_recombine_block(A, j)
     j += num_constraints(A)[1]
     if block == 1
-        (j - 1):j
+        # We take advantage of the locality condition imposed when constructing
+        # the recombination matrix.
+        δ = A.allowed_nonzeros_per_column[1]
+        (j - δ + 1):j
     elseif block == 2
         j:j  # shifted diagonal of ones
     else
-        j:(j + 1)
+        δ = A.allowed_nonzeros_per_column[2]
+        j:(j + δ - 1)
     end
 end
 
