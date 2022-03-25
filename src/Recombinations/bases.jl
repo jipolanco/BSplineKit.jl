@@ -134,14 +134,12 @@ julia> R_robin = RecombinedBSplineBasis(Derivative(0) + 3Derivative(1), B)
 
 ---
 
-    RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                           B::BSplineBasis)
+    RecombinedBSplineBasis(ops, B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs
 associated to multiple differential operators.
 
-Currently, the following specific combinations of differential operators are
-supported:
+Currently, the following cases are supported:
 
 1. all derivatives up to order `m`:
 
@@ -195,24 +193,17 @@ julia> R2 = RecombinedBSplineBasis(ops, B)
 """
 struct RecombinedBSplineBasis{
             k, T, Parent <: BSplineBasis{k,T},
-            DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},
-            RMatrix <: RecombineMatrix{Q,DiffOps} where Q,
+            RMatrix <: RecombineMatrix,
         } <: AbstractBSplineBasis{k,T}
     B :: Parent   # original B-spline basis
-    ops :: DiffOps  # list of differential operators for BCs
     M :: RMatrix  # basis recombination matrix
 
-    function RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                                    B::BSplineBasis{k,T}) where {k,T}
+    function RecombinedBSplineBasis(ops, B::BSplineBasis{k,T}) where {k,T}
         Parent = typeof(B)
         M = RecombineMatrix(ops, B)
         RMatrix = typeof(M)
-        Ops = typeof(ops)
-        new{k,T,Parent,Ops,RMatrix}(B, ops, M)
+        new{k,T,Parent,RMatrix}(B, M)
     end
-
-    RecombinedBSplineBasis(op::AbstractDifferentialOp, args...) =
-        RecombinedBSplineBasis((op, ), args...)
 end
 
 Base.:(==)(A::RecombinedBSplineBasis, B::RecombinedBSplineBasis) =
@@ -246,8 +237,8 @@ homogeneous boundary conditions associated one or more differential operators.
 This variant does not require a previously constructed [`BSplineBasis`](@ref).
 Arguments are passed to the `BSplineBasis` constructor.
 """
-RecombinedBSplineBasis(order, args...; kwargs...) =
-    RecombinedBSplineBasis(order, BSplineBasis(args...; kwargs...))
+RecombinedBSplineBasis(ops, args...; kwargs...) =
+    RecombinedBSplineBasis(ops, BSplineBasis(args...; kwargs...))
 
 """
     parent(R::RecombinedBSplineBasis)
@@ -265,7 +256,7 @@ For non-recombined bases such as [`BSplineBasis`](@ref), this returns the
 identity matrix (`LinearAlgebra.I`).
 """
 recombination_matrix(R::RecombinedBSplineBasis) = R.M
-recombination_matrix(B::AbstractBSplineBasis) = LinearAlgebra.I
+recombination_matrix(::AbstractBSplineBasis) = LinearAlgebra.I
 
 """
     length(R::RecombinedBSplineBasis)
