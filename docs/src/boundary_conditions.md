@@ -1,4 +1,4 @@
-# Boundary conditions
+# [Boundary conditions](@id boundary-conditions-api)
 
 ```@meta
 CurrentModule = BSplineKit.BoundaryConditions

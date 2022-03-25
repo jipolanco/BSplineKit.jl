@@ -130,8 +130,8 @@ Grid points `x` must be real-valued and are assumed to be in increasing order.
 Returns a [`SplineInterpolation`](@ref) which can be evaluated at any intermediate
 point.
 
-Optionally, one may pass one of the boundary conditions listed in [Boundary
-conditions](@ref Boundary-conditions)).
+Optionally, one may pass one of the boundary conditions listed in the [Boundary
+conditions](@ref boundary-conditions-api) section.
 For now, only the [`Natural`](@ref) boundary condition is available.
 
 See also [`interpolate!`](@ref).
