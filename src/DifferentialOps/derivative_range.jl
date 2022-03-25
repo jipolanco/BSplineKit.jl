@@ -29,13 +29,10 @@ Base.show(io::IO, ::DerivativeUnitRange{m, n}) where {m, n} =
 @inline Derivative(r::UnitRange{<:Integer}) =
     Derivative(r.start):Derivative(r.stop)
 
-@inline function Base.Tuple(::DerivativeUnitRange{m, n}) where {m, n}
-    if m > n
-        ()
-    elseif m == n
-        (Derivative(n),)
-    else
-        next = DerivativeUnitRange{m + 1, n}()
-        (Derivative(m), Tuple(next)...)
+@generated function Base.Tuple(::DerivativeUnitRange{m, n}) where {m, n}
+    ex = :(())
+    for i ∈ m:n
+        push!(ex.args, :(Derivative($i)))
     end
+    ex
 end
