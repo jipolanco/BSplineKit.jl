@@ -195,7 +195,7 @@ function interpolate(
     )
     # For natural BCs, the number of required unique knots is equal to the
     # number of data points, and therefore we just make them equal.
-    B = BSplineBasis(k, x)  # note that this modifies x!!
+    B = BSplineBasis(k, copy(x))  # note that this modifies x, so we create a copy...
     R = RecombinedBSplineBasis(bc, B)
     T = float(eltype(y))
     itp = SplineInterpolation(undef, R, x, T)
