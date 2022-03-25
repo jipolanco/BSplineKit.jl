@@ -10,6 +10,9 @@ include("BandedTensors/BandedTensors.jl")
 include("DifferentialOps/DifferentialOps.jl")
 using .DifferentialOps
 
+include("BoundaryConditions/BoundaryConditions.jl")
+@reexport using .BoundaryConditions
+
 include("BSplines/BSplines.jl")
 @reexport using .BSplines
 

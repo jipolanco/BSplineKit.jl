@@ -13,6 +13,7 @@ export
     DifferentialOpSum,
     LeftNormal,
     RightNormal,
+    DerivativeUnitRange,
     max_order
 
 import LinearAlgebra: dot
@@ -156,5 +157,7 @@ Base.show(io::IO, D::DifferentialOpSum) = print(io, D.a, " + ", D.b)
 max_order(D::DifferentialOpSum) = max_order(D.a, D.b)
 
 dot(dir::LeftNormal, D::DifferentialOpSum) = DifferentialOpSum(dot.(dir, (D.a, D.b))...)
+
+include("derivative_range.jl")
 
 end
