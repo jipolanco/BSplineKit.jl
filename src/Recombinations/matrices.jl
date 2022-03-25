@@ -1,3 +1,5 @@
+const DiffOpList = Tuple{Vararg{AbstractDifferentialOp}}
+
 """
     RecombineMatrix{T} <: AbstractMatrix{T}
 
@@ -61,21 +63,26 @@ is the default.
 See the [`RecombinedBSplineBasis`](@ref) constructor for details on the
 `ops` argument.
 """
-struct RecombineMatrix{T,
-                       DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},
-                       n, n1,   # nc = n1 - n
-                       Corner <: SMatrix{n1,n,T}} <: AbstractMatrix{T}
+struct RecombineMatrix{
+        T, DiffOps <: DiffOpList,
+        n, n1,   # nc = n1 - n
+        Corner <: SMatrix{n1,n,T},
+    } <: AbstractMatrix{T}
     ops :: DiffOps  # list of differential operators for BCs
     M :: Int      # length of recombined basis (= N - 2nc)
     N :: Int      # length of B-spline basis
     ul :: Corner  # upper-left corner of matrix, size (n1, n)
     lr :: Corner  # lower-right corner of matrix, size (n1, n)
-    function RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                             N::Integer, ul::SMatrix{n1,n}, lr::SMatrix{n1,n}) where {n1,n}
+    function RecombineMatrix(
+            ops::DiffOpList, N::Integer,
+            ul::SMatrix{n1,n}, lr::SMatrix{n1,n},
+        ) where {n1,n}
         if n1 <= n
             throw(ArgumentError("matrices must have dimensions (m, n) with m > n"))
         end
-        M = N - 2 * length(ops)
+        nc = length(ops)
+        @assert nc == n1 - n
+        M = N - 2nc
         T = eltype(ul)
         Corner = typeof(ul)
         Ops = typeof(ops)
@@ -85,7 +92,7 @@ end
 
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
-_default_eltype(::Vararg{AbstractDifferentialOp}) = Float64
+_default_eltype(::DiffOpList) = Float64
 _default_eltype(::Derivative{0}) = Bool  # Dirichlet BCs
 _default_eltype(::Derivative{1}) = Bool  # Neumann BCs
 
@@ -128,8 +135,7 @@ end
 #
 # That last operator is allowed to be a linear combination of `Derivative`s.
 # In that case, `n` is the maximum degree of the operator.
-function RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                         B::BSplineBasis, ::Type{T}) where {T}
+function RecombineMatrix(ops::DiffOpList, B::BSplineBasis, ::Type{T}) where {T}
     _check_bspline_order(ops, B)
     op = last(ops)
     n = max_order(op)
@@ -141,6 +147,7 @@ end
 # B-splines are dropped, and new functions are not created.
 # This is a generalisation of the Dirichlet case.
 function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
+    @assert ops === Tuple(Derivative(0:(n - 1)))
     Nc = length(ops)
     @assert Nc >= 2  # case Nc = 1 is treated by different functions
     N = length(B)
@@ -149,9 +156,21 @@ function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
     RecombineMatrix(ops, N, ul, lr)
 end
 
+_droplast(a) = ()
+_droplast(a, etc...) = (a, _droplast(etc...)...)
+
 # Case of single BC, or mixed BCs where the last one is "different" from the
 # others.
 function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
+    No = length(ops)
+
+    # Check that operators look like:
+    #
+    #   (D{0}, D{1}, …, D{No - 2}, some other operator of order ≥ No - 1)
+    #
+    @assert _droplast(ops...) === Tuple(Derivative(0:(No - 2)))
+    @assert max_order(last(ops)) ≥ No - 1
+
     n = n1 - 1
     q = n - m
     @assert q >= 1
@@ -242,11 +261,6 @@ function _bsplines_to_drop(::Val{n}, op) where {n}
     end
     Val(n)
 end
-
-# Unsupported cases
-RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, args...) =
-    throw(ArgumentError(
-        "boundary condition combination is currently unsupported: $ops"))
 
 Base.size(A::RecombineMatrix) = (A.N, A.M)
 
