@@ -292,6 +292,18 @@ function test_basis_recombination()
     nothing
 end
 
+function test_natural_recombination()
+    knots_base = gauss_lobatto_points(40)
+    B = BSplineBasis(BSplineOrder(6), knots_base)
+    R = RecombinedBSplineBasis(Natural(), B)
+    M = recombination_matrix(R)
+    test_nzrows(M)
+    nothing
+end
+
 @testset "Basis recombination" begin
     test_basis_recombination()
+    @testset "Natural BCs" begin
+        test_natural_recombination()
+    end
 end

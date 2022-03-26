@@ -95,6 +95,16 @@ function test_splines(B::BSplineBasis, knots_in)
         @test_throws DomainError evaluate(B, 0, 0.2)
         @test_throws DomainError evaluate(B, N + 1, 0.2)
 
+        @testset "Derivative ranges" begin
+            x = 0.2
+            b = B[3]  # third B-spline
+            @test b isa BasisFunction
+            @test @inferred(b(x, Derivative(0:2))) ==
+                (b(x), b(x, Derivative(1)), b(x, Derivative(2)))
+            tup = @inferred (() -> Tuple(Derivative(2:5)))()
+            @test tup === Derivative.((2, 3, 4, 5))
+        end
+
         @test_throws BoundsError B[0]
         @test_throws BoundsError B[N + 1]
 

@@ -134,14 +134,12 @@ julia> R_robin = RecombinedBSplineBasis(Derivative(0) + 3Derivative(1), B)
 
 ---
 
-    RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                           B::BSplineBasis)
+    RecombinedBSplineBasis(ops, B::BSplineBasis)
 
 Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs
 associated to multiple differential operators.
 
-Currently, the following specific combinations of differential operators are
-supported:
+Currently, the following cases are supported:
 
 1. all derivatives up to order `m`:
 
@@ -168,8 +166,17 @@ supported:
    boundaries, with Robin BCs for the derivative, ``u' + λ u'' = 0``, which
    corresponds to `ops = (Derivative(0), Derivative(1) + λ Derivative(2))`.
 
-In all cases, the degrees of the differential operators must be in increasing
-order. For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
+3. generalised natural boundary conditions:
+
+        ops = Natural()
+
+   This is equivalent to `ops = (Derivative(2), Derivative(3), ..., Derivative(k ÷ 2))`
+   where `k` is the spline order (which must be even).
+   See [`Natural`](@ref) for details.
+
+In the first two cases, the degrees of the differential operators must be in
+increasing order.
+For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
 
 ## Examples
 
@@ -191,28 +198,27 @@ julia> R2 = RecombinedBSplineBasis(ops, B)
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{0}, D{1} + -4 * D{2})
  BCs right: (D{0}, D{1} + -4 * D{2})
+
+julia> R3 = RecombinedBSplineBasis(Natural(), B)
+11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+ BCs left:  (D{2},)
+ BCs right: (D{2},)
 ```
 """
 struct RecombinedBSplineBasis{
             k, T, Parent <: BSplineBasis{k,T},
-            DiffOps <: Tuple{Vararg{AbstractDifferentialOp}},
-            RMatrix <: RecombineMatrix{Q,DiffOps} where Q,
+            RMatrix <: RecombineMatrix,
         } <: AbstractBSplineBasis{k,T}
     B :: Parent   # original B-spline basis
-    ops :: DiffOps  # list of differential operators for BCs
     M :: RMatrix  # basis recombination matrix
 
-    function RecombinedBSplineBasis(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                                    B::BSplineBasis{k,T}) where {k,T}
+    function RecombinedBSplineBasis(ops, B::BSplineBasis{k,T}) where {k,T}
         Parent = typeof(B)
         M = RecombineMatrix(ops, B)
         RMatrix = typeof(M)
-        Ops = typeof(ops)
-        new{k,T,Parent,Ops,RMatrix}(B, ops, M)
+        new{k,T,Parent,RMatrix}(B, M)
     end
-
-    RecombinedBSplineBasis(op::AbstractDifferentialOp, args...) =
-        RecombinedBSplineBasis((op, ), args...)
 end
 
 Base.:(==)(A::RecombinedBSplineBasis, B::RecombinedBSplineBasis) =
@@ -246,8 +252,8 @@ homogeneous boundary conditions associated one or more differential operators.
 This variant does not require a previously constructed [`BSplineBasis`](@ref).
 Arguments are passed to the `BSplineBasis` constructor.
 """
-RecombinedBSplineBasis(order, args...; kwargs...) =
-    RecombinedBSplineBasis(order, BSplineBasis(args...; kwargs...))
+RecombinedBSplineBasis(ops, args...; kwargs...) =
+    RecombinedBSplineBasis(ops, BSplineBasis(args...; kwargs...))
 
 """
     parent(R::RecombinedBSplineBasis)
@@ -265,7 +271,7 @@ For non-recombined bases such as [`BSplineBasis`](@ref), this returns the
 identity matrix (`LinearAlgebra.I`).
 """
 recombination_matrix(R::RecombinedBSplineBasis) = R.M
-recombination_matrix(B::AbstractBSplineBasis) = LinearAlgebra.I
+recombination_matrix(::AbstractBSplineBasis) = LinearAlgebra.I
 
 """
     length(R::RecombinedBSplineBasis)

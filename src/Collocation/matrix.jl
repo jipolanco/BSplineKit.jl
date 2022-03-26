@@ -11,6 +11,10 @@ import LinearAlgebra:
 
 import Base: @propagate_inbounds
 
+@static if !isdefined(LinearAlgebra, :NoPivot)
+    const NoPivot = Val{false}
+end
+
 """
     CollocationMatrix{T} <: AbstractBandedMatrix{T}
 
@@ -79,7 +83,7 @@ appearing in spline calculations (de Boor 1978).
 The code is ported from Carl de Boor's BANFAC routine in FORTRAN77, via its
 [FORTRAN90 version by John Burkardt](https://people.math.sc.edu/Burkardt/f_src/pppack/pppack.html).
 """
-function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
+function lu!(C::CollocationMatrix, ::NoPivot = NoPivot(); check = true)
     check || throw(ArgumentError("`check = false` not yet supported"))
     if size(C, 1) != size(C, 2)
         throw(DimensionMismatch(
@@ -151,7 +155,7 @@ function lu!(C::CollocationMatrix, _pivot_IGNORED = Val(false); check = true)
 end
 
 """
-    LinearAlgebra.lu(C::CollocationMatrix, pivot = Val(false); check = true)
+    LinearAlgebra.lu(C::CollocationMatrix, pivot = NoPivot(); check = true)
 
 Returns LU factorisation of collocation matrix.
 

@@ -23,7 +23,7 @@ with_checks = !MAKE_FAST
 example_dir = joinpath(@__DIR__, "..", "examples")
 output_dir = joinpath(@__DIR__, "src/generated")
 
-for example in ["approximation.jl", "heat.jl", ]
+for example in ["interpolation.jl", "approximation.jl", "heat.jl", ]
     filename = joinpath(example_dir, example)
     Literate.markdown(filename, output_dir, documenter=true)
 end
@@ -38,6 +38,7 @@ end
     pages=[
         "Home" => "index.md",
         "Examples" => [
+            "generated/interpolation.md",
             "generated/approximation.md",
             "generated/heat.md",
         ],
@@ -50,6 +51,7 @@ end
             "tensors.md",
             "galerkin.md",
             "collocation.md",
+            "boundary_conditions.md",
             "Internals" => ["diffops.md"],
         ],
     ],
@@ -62,6 +64,7 @@ end
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo="github.com/jipolanco/BSplineKit.jl",
-    forcepush=true,
+    repo = "github.com/jipolanco/BSplineKit.jl",
+    forcepush = true,
+    push_preview = true,  # PRs deploy at https://jipolanco.github.io/BSplineKit.jl/previews/PR##
 )

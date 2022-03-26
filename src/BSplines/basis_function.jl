@@ -25,6 +25,10 @@ Evaluate basis function at coordinate `x`.
 To evaluate a derivative, pass `Derivative(n)` as the `op` argument, with `n`
 the derivative order.
 
+To evaluate multiple derivatives, pass a derivative range `Derivative(m:n)`.
+In particular, `Derivative(m:n)` evaluates the basis function itself and its
+first `n` derivatives.
+
 More general differential operators, such as `Derivative(n) + λ Derivative(m)`,
 are also supported.
 """
@@ -160,6 +164,18 @@ function evaluate_diff(::Derivative{N}, ::BSplineOrder{k}, t, i, x,
         y -= dy
     end
     (y * (k - 1)) :: T
+end
+
+# TODO this can be optimised... it should be possible to compute all derivatives
+# at once.
+@generated function evaluate_diff(
+        ::DerivativeUnitRange{m, n}, args...,
+    ) where {m, n}
+    ex = :(())
+    for i = m:n
+        push!(ex.args, :(evaluate_diff(Derivative($i), args...)))
+    end
+    ex
 end
 
 # More general diff operators

@@ -13,6 +13,7 @@ export
     DifferentialOpSum,
     LeftNormal,
     RightNormal,
+    DerivativeUnitRange,
     max_order
 
 import LinearAlgebra: dot
@@ -77,6 +78,7 @@ dot(op::AbstractDifferentialOp, dir::AbstractNormalDirection) = dot(dir, op)
 dot(::RightNormal, op) = op
 
 max_order(ops::Vararg{AbstractDifferentialOp}) = max(max_order.(ops)...)
+max_order() = 0  # no operators
 
 """
     Derivative{n} <: AbstractDifferentialOp
@@ -156,5 +158,7 @@ Base.show(io::IO, D::DifferentialOpSum) = print(io, D.a, " + ", D.b)
 max_order(D::DifferentialOpSum) = max_order(D.a, D.b)
 
 dot(dir::LeftNormal, D::DifferentialOpSum) = DifferentialOpSum(dot.(dir, (D.a, D.b))...)
+
+include("derivative_range.jl")
 
 end

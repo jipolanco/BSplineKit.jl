@@ -16,6 +16,8 @@ import LinearAlgebra
 using LinearAlgebra: UniformScaling, ldiv!, dot
 using StaticArrays
 
+using ..BoundaryConditions:
+    BoundaryCondition, Natural
 using ..BSplines
 using ..DifferentialOps
 using ..Splines
