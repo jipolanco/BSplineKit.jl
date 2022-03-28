@@ -16,6 +16,7 @@ export
     basis,
     evaluate,
     evaluate!,
+    evaluate_all,
     nonzero_in_segment,
     support
 
@@ -43,5 +44,6 @@ struct BSplineOrder{k} end
 include("basis.jl")
 include("basis_function.jl")
 include("knots.jl")
+include("evaluate_all.jl")
 
 end

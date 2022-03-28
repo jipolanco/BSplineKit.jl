@@ -26,6 +26,7 @@ length(::BSplineBasis)
 BasisFunction
 support
 common_support
+evaluate_all
 evaluate
 evaluate!
 nonzero_in_segment
