@@ -3,6 +3,7 @@
 
 using Base.Cartesian: @ntuple
 using Base: @propagate_inbounds
+using StaticArrays: MVector
 
 # TODO
 # - what to do on the right boundary?
@@ -100,42 +101,81 @@ function find_knot_interval(ts::AbstractVector, x::Real)
     end
 end
 
-@generated function _evaluate_all_gen(
+function _evaluate_all_gen(
+        ts::AbstractVector, x::Real, ::BSplineOrder{k}, ::Type{T};
+        ileft = nothing,
+    ) where {k, T}
+    if @generated
+        @assert k ≥ 1
+        ex = quote
+            bs_1, i, zone = _evaluate_first(ts, x, T, ileft)
+            if zone ≠ 0
+                return (i, @ntuple($k, j -> zero($T)))
+            end
+        end
+        for q ∈ 2:k
+            bp = Symbol(:bs_, q - 1)
+            bq = Symbol(:bs_, q)
+            ex_q = quote
+                Δs = @ntuple $(q - 1) j -> @inbounds(_knotdiff(x, ts, i - j + 1, $q - 1))
+                $bq = _evaluate_step(Δs, $bp, BSplineOrder($q), $T)
+            end
+            push!(ex.args, ex_q)
+        end
+        bk = Symbol(:bs_, k)
+        push!(ex.args, :( return i, $bk ))
+        ex
+    else
+        _evaluate_all_alt(ts, x, BSplineOrder(k), T; ileft = ileft)
+    end
+end
+
+# Non-@generated version
+function _evaluate_all_alt(
         ts::AbstractVector, x::Real, ::BSplineOrder{k}, ::Type{T};
         ileft = nothing,
     ) where {k, T}
     @assert k ≥ 1
-    ex = quote
-        tlast = last(ts)
-        if isnothing(ileft)
-            i, zone = find_knot_interval(ts, x)
-        else
-            i = ileft
-            zone = (x < first(ts)) ? -1 : (x > tlast) ? 1 : 0
-        end
-        if zone ≠ 0
-            return (i, @ntuple($k, j -> zero($T)))
-        end
-        # Value of first-order B-spline.
-        bs_1 = if x == tlast
-            @inbounds (T(ts[i] < x ≤ ts[i + 1]),)
-        else
-            @inbounds (T(ts[i] ≤ x < ts[i + 1]),)
-        end
-        # @assert checkbounds(Bool, ts, (i - k + 1):(i + k))
+    bs_1, i, zone = _evaluate_first(ts, x, T, ileft)
+    if zone ≠ 0
+        return (i, ntuple(j -> zero(T), Val(k)))
     end
-    for q ∈ 2:k
-        bp = Symbol(:bs_, q - 1)
-        bq = Symbol(:bs_, q)
-        ex_q = quote
-            Δs = @ntuple $(q - 1) j -> @inbounds(_knotdiff(x, ts, i - j + 1, $q - 1))
-            $bq = _evaluate_step(Δs, $bp, BSplineOrder($q), $T)
+    bq = zero(MVector{k, T})
+    Δs = zero(MVector{k - 1, T})
+    bq[1] = bs_1[1]
+    @inbounds for q ∈ 2:k
+        for j ∈ 1:(q - 1)
+            Δs[j] = _knotdiff(x, ts, i - j + 1, q - 1)
         end
-        push!(ex.args, ex_q)
+        bp = bq[1]
+        Δp = Δs[1]
+        bq[1] = Δp * bp
+        for j = 2:(q - 1)
+            bpp, bp = bp, bq[j]
+            Δpp, Δp = Δp, Δs[j]
+            bq[j] = Δp * bp + (1 - Δpp) * bpp
+        end
+        bq[q] = (1 - Δp) * bp
     end
-    bk = Symbol(:bs_, k)
-    push!(ex.args, :( return i, $bk ))
-    ex
+    i, Tuple(bq)
+end
+
+function _evaluate_first(ts, x, ::Type{T}, ileft) where {T}
+    tlast = last(ts)
+    if isnothing(ileft)
+        i, zone = find_knot_interval(ts, x)
+    else
+        i = ileft
+        zone = (x < first(ts)) ? -1 : (x > tlast) ? 1 : 0
+    end
+    # Value of first-order B-spline.
+    bs_1 = if x == tlast
+        @inbounds (T(ts[i] < x ≤ ts[i + 1]),)
+    else
+        @inbounds (T(ts[i] ≤ x < ts[i + 1]),)
+    end
+    # @assert checkbounds(Bool, ts, (i - k + 1):(i + k))
+    bs_1, i, zone
 end
 
 @generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}, ::Type{T}) where {k, T}

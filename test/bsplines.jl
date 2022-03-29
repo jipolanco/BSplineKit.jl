@@ -56,6 +56,12 @@ function test_bsplines(ord::BSplineOrder)
         # 2. Compare with full evaluation of a spline
         cs = view(coefficients(S), i:-1:(i - k + 1))
         @test S(x) ≈ dot(cs, bs)
+
+        # 3. Compare to non-generated version (assuming the @generated version
+        #    is called)
+        @test evaluate_all(B, x) == @inferred BSplines._evaluate_all_alt(
+            knots(B), x, BSplineOrder(k), eltype(bs),
+        )
     end
 
     nothing
