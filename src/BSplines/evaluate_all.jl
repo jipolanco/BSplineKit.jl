@@ -6,14 +6,13 @@ using Base: @propagate_inbounds
 using StaticArrays: MVector
 
 # TODO
-# - derivatives
 # - define (::BSplineBasis)(x) as an alias for `evaluate_all`
 # - what about recombined bases?
 
 """
     evaluate_all(
         B::BSplineBasis, x::Real,
-        [D = Derivative(0)], [T = float(typeof(x))];
+        [op = Derivative(0)], [T = float(typeof(x))];
         [ileft = nothing],
     ) -> i, bs
 
@@ -44,21 +43,21 @@ More precisely:
 
 ## Computing derivatives
 
-One can pass the optional `D` argument to compute B-spline derivatives instead
+One can pass the optional `op` argument to compute B-spline derivatives instead
 of the actual B-spline values.
 
 """
 @propagate_inbounds function evaluate_all(
-        B::BSplineBasis, x::Real, D::Derivative, ::Type{T}; kws...,
-    ) where {T <: Real}
-    _evaluate_all(knots(B), x, BSplineOrder(order(B)), D, T; kws...)
+        B::BSplineBasis, x::Real, op::Derivative, ::Type{T}; kws...,
+    ) where {T <: Number}
+    _evaluate_all(knots(B), x, BSplineOrder(order(B)), op, T; kws...)
 end
 
 @propagate_inbounds evaluate_all(
-    B, x, D::AbstractDifferentialOp = Derivative(0); kws...,
-) = evaluate_all(B, x, D, float(typeof(x)); kws...)
+    B, x, op::AbstractDifferentialOp = Derivative(0); kws...,
+) = evaluate_all(B, x, op, float(typeof(x)); kws...)
 
-@propagate_inbounds evaluate_all(B, x, ::Type{T}; kws...) where {T <: Real} =
+@propagate_inbounds evaluate_all(B, x, ::Type{T}; kws...) where {T <: Number} =
     evaluate_all(B, x, Derivative(0), T; kws...)
 
 @propagate_inbounds function _knotdiff(x, ts, i, n)
@@ -109,7 +108,7 @@ end
 
 function _evaluate_all(
         ts::AbstractVector, x::Real, ::BSplineOrder{k},
-        D::Derivative{0}, ::Type{T};
+        op::Derivative{0}, ::Type{T};
         ileft = nothing,
     ) where {k, T}
     if @generated
@@ -144,14 +143,14 @@ function _evaluate_all(
             return i, $bk
         end
     else
-        _evaluate_all_alt(ts, x, BSplineOrder(k), D, T; ileft = ileft)
+        _evaluate_all_alt(ts, x, BSplineOrder(k), op, T; ileft = ileft)
     end
 end
 
 # Derivatives
 function _evaluate_all(
         ts::AbstractVector, x::Real, ::BSplineOrder{k},
-        D::Derivative{n}, ::Type{T};
+        op::Derivative{n}, ::Type{T};
         ileft = nothing,
     ) where {k, n, T}
     if @generated
@@ -181,7 +180,7 @@ function _evaluate_all(
             return i, $bk
         end
     else
-        _evaluate_all_alt(ts, x, BSplineOrder(k), D, T; ileft = ileft)
+        _evaluate_all_alt(ts, x, BSplineOrder(k), op, T; ileft = ileft)
     end
 end
 

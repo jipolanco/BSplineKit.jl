@@ -44,6 +44,10 @@ function test_bsplines(ord::BSplineOrder)
 
     S = Spline(B, randn(rng, length(B)))
 
+    let x = 0.3
+        @test evaluate_all(B, x) == @inferred B(x)  # alias for `evaluate_all`
+    end
+
     @testset "Evaluate $op | x = $x" for x ∈ xs_eval, op ∈ derivs
         i, bs = @inferred evaluate_all(B, x, op)
         @test length(bs) == k
