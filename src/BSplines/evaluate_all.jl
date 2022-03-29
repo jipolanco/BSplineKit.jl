@@ -62,26 +62,67 @@ end
     ifelse(x == ti == tj, one(y), y)  # avoid returning 0/0
 end
 
+# TODO
+# - this is redundant with Splines.knot_interval...
+"""
+    find_knot_interval(ts::AbstractVector, x::Real) -> (i, zone)
+
+Finds the index ``i`` corresponding to the knot interval ``[t_i, t_{i + 1}]``
+that should be used to evaluate B-splines at location ``x``.
+
+The knot vector is assumed to be sorted in non-decreasing order.
+
+It also returns a `zone` integer, which is:
+
+- `0`  if `x` is within the knot domain (`ts[begin] ≤ x ≤ ts[end]`),
+- `-1` if `x < ts[begin]`,
+- `1`  if `x > ts[end]`.
+
+This function is functionally equivalent to de Boor's `INTERV` routine (de Boor
+2001, p. 74).
+"""
+function find_knot_interval(ts::AbstractVector, x::Real)
+    if x < first(ts)
+        return firstindex(ts), -1
+    end
+    i = searchsortedlast(ts, x)
+    Nt = lastindex(ts)
+    if i == Nt
+        tlast = ts[Nt]
+        while true
+            i -= 1
+            ts[i] ≠ tlast && break
+        end
+        zone = (x > tlast) ? 1 : 0
+        return i, zone
+    else
+        return i, 0  # usual case
+    end
+end
+
 @generated function _evaluate_all_gen(
         ts::AbstractVector, x::Real, ::BSplineOrder{k}, ::Type{T};
         ileft = nothing,
     ) where {k, T}
     @assert k ≥ 1
     ex = quote
-        # TODO is this correct?
-        xleft = ts[begin + k - 1]
-        xright = ts[end - k + 1]
-        i = isnothing(ileft) ? searchsortedlast(ts, x) : ileft
-        if x < xleft || x > xright
+        tlast = last(ts)
+        if isnothing(ileft)
+            i, zone = find_knot_interval(ts, x)
+        else
+            i = ileft
+            zone = (x < first(ts)) ? -1 : (x > tlast) ? 1 : 0
+        end
+        if zone ≠ 0
             return (i, @ntuple($k, j -> zero($T)))
         end
-        bs_1 = if x == xright
-            i = lastindex(ts) - k
-            @inbounds (T(x == ts[i + 1]),)
+        # Value of first-order B-spline.
+        bs_1 = if x == tlast
+            @inbounds (T(ts[i] < x ≤ ts[i + 1]),)
         else
             @inbounds (T(ts[i] ≤ x < ts[i + 1]),)
         end
-        @assert checkbounds(Bool, ts, (i - k + 1):(i + k))
+        # @assert checkbounds(Bool, ts, (i - k + 1):(i + k))
     end
     for q ∈ 2:k
         bp = Symbol(:bs_, q - 1)
