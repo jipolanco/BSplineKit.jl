@@ -51,13 +51,14 @@ of the actual B-spline values.
 @propagate_inbounds function evaluate_all(
         B::BSplineBasis, x::Real, D::Derivative, ::Type{T}; kws...,
     ) where {T <: Real}
-    _evaluate_all_gen(knots(B), x, BSplineOrder(order(B)), D, T; kws...)
+    _evaluate_all(knots(B), x, BSplineOrder(order(B)), D, T; kws...)
 end
 
-evaluate_all(B, x, D::AbstractDifferentialOp = Derivative(0); kws...) =
-    evaluate_all(B, x, D, float(typeof(x)); kws...)
+@propagate_inbounds evaluate_all(
+    B, x, D::AbstractDifferentialOp = Derivative(0); kws...,
+) = evaluate_all(B, x, D, float(typeof(x)); kws...)
 
-evaluate_all(B, x, ::Type{T}; kws...) where {T <: Real} =
+@propagate_inbounds evaluate_all(B, x, ::Type{T}; kws...) where {T <: Real} =
     evaluate_all(B, x, Derivative(0), T; kws...)
 
 @propagate_inbounds function _knotdiff(x, ts, i, n)
@@ -106,7 +107,7 @@ function find_knot_interval(ts::AbstractVector, x::Real)
     end
 end
 
-function _evaluate_all_gen(
+function _evaluate_all(
         ts::AbstractVector, x::Real, ::BSplineOrder{k},
         D::Derivative{0}, ::Type{T};
         ileft = nothing,
@@ -147,8 +148,45 @@ function _evaluate_all_gen(
     end
 end
 
+# Derivatives
+function _evaluate_all(
+        ts::AbstractVector, x::Real, ::BSplineOrder{k},
+        D::Derivative{n}, ::Type{T};
+        ileft = nothing,
+    ) where {k, n, T}
+    if @generated
+        n::Int
+        @assert n ≥ 1
+        # We first need to evaluate the B-splines of order p.
+        p = k - n
+        if p < 1
+            # Derivatives are zero. The returned index is arbitrary...
+            return :( firstindex(ts), ntuple(_ -> zero($T), Val($k)) )
+        end
+        bp = Symbol(:bs_, p)
+        ex = quote
+            i, $bp = _evaluate_all(ts, x, BSplineOrder($p), Derivative(0), $T; ileft)
+        end
+        for q ∈ (p + 1):k
+            bp = Symbol(:bs_, q - 1)
+            bq = Symbol(:bs_, q)
+            ex = quote
+                $ex
+                $bq = _evaluate_step_deriv(ts, i, $bp, BSplineOrder($q), $T)
+            end
+        end
+        bk = Symbol(:bs_, k)
+        quote
+            $ex
+            return i, $bk
+        end
+    else
+        _evaluate_all_alt(ts, x, BSplineOrder(k), D, T; ileft = ileft)
+    end
+end
+
 # Non-@generated version
-function _evaluate_all_alt(
+@inline function _evaluate_all_alt(
         ts::AbstractVector, x::Real, ::BSplineOrder{k},
         ::Derivative{0}, ::Type{T};
         ileft = nothing,
@@ -158,8 +196,8 @@ function _evaluate_all_alt(
     if zone ≠ 0
         return (i, ntuple(j -> zero(T), Val(k)))
     end
-    bq = zero(MVector{k, T})
-    Δs = zero(MVector{k - 1, T})
+    bq = MVector{k, T}(undef)
+    Δs = MVector{k - 1, T}(undef)
     bq[1] = one(T)
     @inbounds for q ∈ 2:k
         for j ∈ 1:(q - 1)
@@ -178,6 +216,40 @@ function _evaluate_all_alt(
     i, Tuple(bq)
 end
 
+# Derivatives / non-@generated variant
+function _evaluate_all_alt(
+        ts::AbstractVector, x::Real, ::BSplineOrder{k},
+        ::Derivative{n}, ::Type{T};
+        ileft = nothing,
+    ) where {k, n, T}
+    n::Int
+    @assert n ≥ 1
+    # We first need to evaluate the B-splines of order m.
+    m = k - n
+    if m < 1
+        # Derivatives are zero. The returned index is arbitrary...
+        return firstindex(ts), ntuple(_ -> zero(T), Val(k))
+    end
+    i, bp = _evaluate_all(ts, x, BSplineOrder(m), Derivative(0), T; ileft)
+    bq = MVector{k, T}(undef)
+    us = MVector{k - 1, T}(undef)
+    bq[1:m] .= bp
+    for q = (m + 1):k
+        p = q - 1
+        for δj = 1:p
+            @inbounds us[δj] = bq[δj] / (ts[i + q - δj] - ts[i + 1 - δj])
+        end
+        @inbounds bq[1] = p * us[1]
+        for j = 2:(q - 1)
+            # Note: adding @inbounds here can slow down stuff (from 25ns to
+            # 80ns), which is very strange!! (Julia 1.8-beta2)
+            bq[j] = p * (us[j] - us[j - 1])
+        end
+        @inbounds bq[q] = -p * us[p]
+    end
+    i, Tuple(bq)
+end
+
 function _find_knot_interval(ts, x, ileft)
     if isnothing(ileft)
         i, zone = find_knot_interval(ts, x)
@@ -188,7 +260,7 @@ function _find_knot_interval(ts, x, ileft)
     i, zone
 end
 
-@generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}) where {k}
+@inline @generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}) where {k}
     ex = quote
         @inbounds b_1 = Δs[1] * bp[1]
     end
@@ -203,6 +275,32 @@ end
     quote
         $ex
         @inbounds $b_last = (1 - Δs[$k - 1]) * bp[$k - 1]
+        @ntuple $k b
+    end
+end
+
+@inline @generated function _evaluate_step_deriv(
+        ts, i, bp, ::BSplineOrder{k}, ::Type{T},
+    ) where {k, T}
+    p = k - 1
+    ex = quote
+        us = @ntuple(
+            $p,
+            δj -> @inbounds($T(bp[δj] / (ts[i + $k - δj] - ts[i + 1 - δj]))),
+        )
+        @inbounds b_1 = $p * us[1]
+    end
+    for j = 2:(k - 1)
+        bj = Symbol(:b_, j)
+        ex = quote
+            $ex
+            @inbounds $bj = $p * (-us[$j - 1] + us[$j])
+        end
+    end
+    b_last = Symbol(:b_, k)
+    quote
+        $ex
+        @inbounds $b_last = -$p * us[$p]
         @ntuple $k b
     end
 end
