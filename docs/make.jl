@@ -66,5 +66,5 @@ end
 deploydocs(
     repo = "github.com/jipolanco/BSplineKit.jl",
     forcepush = true,
-    push_preview = true,  # PRs deploy at https://jipolanco.github.io/BSplineKit.jl/previews/PR##
+    push_preview = true,  # PRs deploy at https://jipolanco.github.io/BSplineKit.jl/previews/PR??
 )

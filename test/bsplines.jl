@@ -42,10 +42,11 @@ function test_bsplines(ord::BSplineOrder)
     S = Spline(B, randn(rng, length(B)))
 
     @testset "Evaluate" for x ∈ xs_eval
-        # We evaluate B-splines using three independent methods and compare the
-        # results.
         i, bs = @inferred evaluate_all(B, x)
         @test length(bs) == k
+
+        # Test reusing knot interval (ileft)
+        @test (i, bs) == @inferred evaluate_all(B, x; ileft = i)
 
         # 1. Compare with evaluation of single B-spline
         for j ∈ eachindex(bs)
