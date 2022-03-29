@@ -52,6 +52,7 @@ end
     @boundscheck checkbounds(ts, i:(i + n))
     @inbounds ti = ts[i]
     @inbounds tj = ts[i + n]
+    # @assert ti ≠ tj
     (x - ti) / (tj - ti)
 end
 
@@ -100,10 +101,16 @@ function _evaluate_all_gen(
     if @generated
         @assert k ≥ 1
         ex = quote
-            bs_1, i, zone = _evaluate_first(ts, x, T, ileft)
+            i, zone = _find_knot_interval(ts, x, ileft)
             if zone ≠ 0
                 return (i, @ntuple($k, j -> zero($T)))
             end
+            # We assume that the value of `i` corresponds to the good interval,
+            # even if `ileft` was passed by the user.
+            # This is the same as in de Boor's BSPLVB routine.
+            # In particular, this allows plotting the extension of a polynomial
+            # piece outside of its knot interval (as in de Boor's Fig. 6, p. 114).
+            bs_1 = one(T)
         end
         for q ∈ 2:k
             bp = Symbol(:bs_, q - 1)
@@ -130,13 +137,13 @@ function _evaluate_all_alt(
         ileft = nothing,
     ) where {k, T}
     @assert k ≥ 1
-    bs_1, i, zone = _evaluate_first(ts, x, T, ileft)
+    i, zone = _find_knot_interval(ts, x, ileft)
     if zone ≠ 0
         return (i, ntuple(j -> zero(T), Val(k)))
     end
     bq = zero(MVector{k, T})
     Δs = zero(MVector{k - 1, T})
-    bq[1] = bs_1[1]
+    bq[1] = one(T)
     @inbounds for q ∈ 2:k
         for j ∈ 1:(q - 1)
             Δs[j] = _knotdiff(x, ts, i - j + 1, q - 1)
@@ -154,22 +161,14 @@ function _evaluate_all_alt(
     i, Tuple(bq)
 end
 
-function _evaluate_first(ts, x, ::Type{T}, ileft) where {T}
-    tlast = last(ts)
+function _find_knot_interval(ts, x, ileft)
     if isnothing(ileft)
         i, zone = find_knot_interval(ts, x)
     else
         i = ileft
-        zone = (x < first(ts)) ? -1 : (x > tlast) ? 1 : 0
+        zone = (x < first(ts)) ? -1 : (x > last(ts)) ? 1 : 0
     end
-    # Value of first-order B-spline.
-    bs_1 = if x == tlast
-        @inbounds (T(ts[i] < x ≤ ts[i + 1]),)
-    else
-        @inbounds (T(ts[i] ≤ x < ts[i + 1]),)
-    end
-    # @assert checkbounds(Bool, ts, (i - k + 1):(i + k))
-    bs_1, i, zone
+    i, zone
 end
 
 @generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}, ::Type{T}) where {k, T}

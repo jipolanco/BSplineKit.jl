@@ -48,6 +48,8 @@ function test_bsplines(ord::BSplineOrder)
         # Test reusing knot interval (ileft)
         @test (i, bs) == @inferred evaluate_all(B, x; ileft = i)
 
+        @test sum(bs) ≈ 1  # partition of unity property
+
         # 1. Compare with evaluation of single B-spline
         for j ∈ eachindex(bs)
             @test bs[j] ≈ B[i - j + 1](x)
