@@ -1,6 +1,7 @@
 using Test
 using BSplineKit
 using Random
+using LinearAlgebra: dot
 
 using BSplineKit.BSplines:
     find_knot_interval
@@ -38,13 +39,22 @@ function test_bsplines(ord::BSplineOrder)
         ts[end],                                            # at right boundary
     ]
 
+    S = Spline(B, randn(rng, length(B)))
+
     @testset "Evaluate" for x ∈ xs_eval
-        # We evaluate B-splines using two independent functions and compare the
+        # We evaluate B-splines using three independent methods and compare the
         # results.
         i, bs = @inferred evaluate_all(B, x)
+        @test length(bs) == k
+
+        # 1. Compare with evaluation of single B-spline
         for j ∈ eachindex(bs)
             @test bs[j] ≈ B[i - j + 1](x)
         end
+
+        # 2. Compare with full evaluation of a spline
+        cs = view(coefficients(S), i:-1:(i - k + 1))
+        @test S(x) ≈ dot(cs, bs)
     end
 
     nothing
