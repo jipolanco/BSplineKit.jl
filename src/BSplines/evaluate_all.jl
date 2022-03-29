@@ -6,10 +6,6 @@ using Base: @propagate_inbounds
 using StaticArrays: MVector
 
 # TODO
-# - what to do on the right boundary?
-#   * what happens when knots are not augmented??
-#   * what happens when x > xright? (extrapolation)
-# - add a non-generated variant (use `if @generated`)
 # - derivatives
 # - define (::BSplineBasis)(x) as an alias for `evaluate_all`
 # - what about recombined bases?
@@ -53,14 +49,10 @@ More precisely:
 end
 
 @propagate_inbounds function _knotdiff(x, ts, i, n)
-    ti = ts[i]
-    tj = ts[i + n]
-    y = (x - ti) / (tj - ti)
-    # TODO
-    # - do I need this?
-    # - is this actually right?
-    # - what happens with knots with multiplicity > 1?
-    ifelse(x == ti == tj, one(y), y)  # avoid returning 0/0
+    @boundscheck checkbounds(ts, i:(i + n))
+    @inbounds ti = ts[i]
+    @inbounds tj = ts[i + n]
+    (x - ti) / (tj - ti)
 end
 
 # TODO
@@ -116,15 +108,17 @@ function _evaluate_all_gen(
         for q ∈ 2:k
             bp = Symbol(:bs_, q - 1)
             bq = Symbol(:bs_, q)
-            ex_q = quote
+            ex = quote
+                $ex
                 Δs = @ntuple $(q - 1) j -> @inbounds(_knotdiff(x, ts, i - j + 1, $q - 1))
                 $bq = _evaluate_step(Δs, $bp, BSplineOrder($q), $T)
             end
-            push!(ex.args, ex_q)
         end
         bk = Symbol(:bs_, k)
-        push!(ex.args, :( return i, $bk ))
-        ex
+        quote
+            $ex
+            return i, $bk
+        end
     else
         _evaluate_all_alt(ts, x, BSplineOrder(k), T; ileft = ileft)
     end
