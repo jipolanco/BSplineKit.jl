@@ -12,7 +12,8 @@ using StaticArrays: MVector
 
 """
     evaluate_all(
-        B::BSplineBasis, x::Real, [T = float(typeof(x))];
+        B::BSplineBasis, x::Real,
+        [D = Derivative(0)], [T = float(typeof(x))];
         [ileft = nothing],
     ) -> i, bs
 
@@ -28,9 +29,8 @@ More precisely:
   In other words, it is such that ``t_{i} ≤ x < t{i + 1}``.
 
   It is effectively computed as `i = searchsortedlast(knots(B), x)`.
-  If one already knows the right value of `i`, and wants to avoid this
-  computation, one can manually pass `i` via the optional `ileft` keyword
-  argument.
+  If the right value of `i` is already known, one can avoid this computation by
+  manually passing this index via the optional `ileft` keyword argument.
 
 - `bs` is a tuple of B-splines evaluated at ``x``:
 
@@ -41,12 +41,24 @@ More precisely:
   It contains ``k`` values, where ``k`` is the order of the B-spline basis.
   Note that values are returned in backwards order starting from the ``i``-th
   B-spline.
+
+## Computing derivatives
+
+One can pass the optional `D` argument to compute B-spline derivatives instead
+of the actual B-spline values.
+
 """
 @propagate_inbounds function evaluate_all(
-        B::BSplineBasis, x::Real, ::Type{T}; kws...,
-    ) where {T}
-    _evaluate_all_gen(knots(B), x, BSplineOrder(order(B)), T; kws...)
+        B::BSplineBasis, x::Real, D::Derivative, ::Type{T}; kws...,
+    ) where {T <: Real}
+    _evaluate_all_gen(knots(B), x, BSplineOrder(order(B)), D, T; kws...)
 end
+
+evaluate_all(B, x, D::AbstractDifferentialOp = Derivative(0); kws...) =
+    evaluate_all(B, x, D, float(typeof(x)); kws...)
+
+evaluate_all(B, x, ::Type{T}; kws...) where {T <: Real} =
+    evaluate_all(B, x, Derivative(0), T; kws...)
 
 @propagate_inbounds function _knotdiff(x, ts, i, n)
     @boundscheck checkbounds(ts, i:(i + n))
@@ -95,7 +107,8 @@ function find_knot_interval(ts::AbstractVector, x::Real)
 end
 
 function _evaluate_all_gen(
-        ts::AbstractVector, x::Real, ::BSplineOrder{k}, ::Type{T};
+        ts::AbstractVector, x::Real, ::BSplineOrder{k},
+        D::Derivative{0}, ::Type{T};
         ileft = nothing,
     ) where {k, T}
     if @generated
@@ -117,8 +130,11 @@ function _evaluate_all_gen(
             bq = Symbol(:bs_, q)
             ex = quote
                 $ex
-                Δs = @ntuple $(q - 1) j -> @inbounds(_knotdiff(x, ts, i - j + 1, $q - 1))
-                $bq = _evaluate_step(Δs, $bp, BSplineOrder($q), $T)
+                Δs = @ntuple(
+                    $(q - 1),
+                    j -> @inbounds($T(_knotdiff(x, ts, i - j + 1, $q - 1))),
+                )
+                $bq = _evaluate_step(Δs, $bp, BSplineOrder($q))
             end
         end
         bk = Symbol(:bs_, k)
@@ -127,13 +143,14 @@ function _evaluate_all_gen(
             return i, $bk
         end
     else
-        _evaluate_all_alt(ts, x, BSplineOrder(k), T; ileft = ileft)
+        _evaluate_all_alt(ts, x, BSplineOrder(k), D, T; ileft = ileft)
     end
 end
 
 # Non-@generated version
 function _evaluate_all_alt(
-        ts::AbstractVector, x::Real, ::BSplineOrder{k}, ::Type{T};
+        ts::AbstractVector, x::Real, ::BSplineOrder{k},
+        ::Derivative{0}, ::Type{T};
         ileft = nothing,
     ) where {k, T}
     @assert k ≥ 1
@@ -171,7 +188,7 @@ function _find_knot_interval(ts, x, ileft)
     i, zone
 end
 
-@generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}, ::Type{T}) where {k, T}
+@generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}) where {k}
     ex = quote
         @inbounds b_1 = Δs[1] * bp[1]
     end
@@ -189,5 +206,3 @@ end
         @ntuple $k b
     end
 end
-
-evaluate_all(B, x; kws...) = evaluate_all(B, x, float(typeof(x)); kws...)

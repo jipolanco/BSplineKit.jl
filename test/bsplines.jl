@@ -44,6 +44,14 @@ function test_bsplines(ord::BSplineOrder)
     @testset "Evaluate" for x ∈ xs_eval
         i, bs = @inferred evaluate_all(B, x)
         @test length(bs) == k
+        @test eltype(bs) === Float64
+
+        let
+            i′, bs′ = @inferred evaluate_all(B, x, Float32)
+            @test eltype(bs′) === Float32
+            @test i === i′
+            @test all(bs .≈ bs′)
+        end
 
         # Test reusing knot interval (ileft)
         @test (i, bs) == @inferred evaluate_all(B, x; ileft = i)
@@ -62,7 +70,10 @@ function test_bsplines(ord::BSplineOrder)
         # 3. Compare to non-generated version (assuming the @generated version
         #    is called)
         @test evaluate_all(B, x) == @inferred BSplines._evaluate_all_alt(
-            knots(B), x, BSplineOrder(k), eltype(bs),
+            knots(B), x, BSplineOrder(k), Derivative(0), eltype(bs),
+        )
+        @test evaluate_all(B, x, Float32) == @inferred BSplines._evaluate_all_alt(
+            knots(B), x, BSplineOrder(k), Derivative(0), Float32,
         )
     end
 
