@@ -179,20 +179,22 @@ function _evaluate_first(ts, x, ::Type{T}, ileft) where {T}
 end
 
 @generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}, ::Type{T}) where {k, T}
-    bs = :(())
-    for j = 1:k
-        ex = quote
-            bj = zero($T)
-        end
-        if j ≠ 1
-            push!(ex.args, :( @inbounds bj += (1 - Δs[$j - 1]) * bp[$j - 1] ))
-        end
-        if j ≠ k
-            push!(ex.args, :( @inbounds bj += Δs[$j] * bp[$j] ))
-        end
-        push!(bs.args, ex)
+    ex = quote
+        @inbounds b_1 = Δs[1] * bp[1]
     end
-    bs
+    for j = 2:(k - 1)
+        bj = Symbol(:b_, j)
+        ex = quote
+            $ex
+            @inbounds $bj = (1 - Δs[$j - 1]) * bp[$j - 1] + Δs[$j] * bp[$j]
+        end
+    end
+    b_last = Symbol(:b_, k)
+    quote
+        $ex
+        @inbounds $b_last = (1 - Δs[$k - 1]) * bp[$k - 1]
+        @ntuple $k b
+    end
 end
 
 evaluate_all(B, x; kws...) = evaluate_all(B, x, float(typeof(x)); kws...)
