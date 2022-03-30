@@ -135,7 +135,9 @@ rng = MersenneTwister(42)
 
 @testset "B-splines (k = $k)" for k ∈ (2, 4, 5, 6, 8)
     B = BSplineBasis(BSplineOrder(k), copy(ξs))
-    @testset "B-spline basis" test_bsplines(B)
+    @testset "B-spline basis" begin
+        test_bsplines(B)
+    end
     ops = (Derivative(0), Derivative(1), Natural())
     @testset "Recombined (op = $op)" for op ∈ ops
         op == Natural() && isodd(k) && continue
