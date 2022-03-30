@@ -172,6 +172,7 @@ function galerkin_matrix!(
     _check_bases(Bs)
     B1, B2 = Bs
     same_ij = B1 == B2 && deriv[1] == deriv[2]
+    T = eltype(S)
 
     if size(S) != length.(Bs)
         throw(DimensionMismatch("wrong dimensions of Galerkin matrix"))
@@ -202,6 +203,8 @@ function galerkin_matrix!(
 
     fill!(S, 0)
     nlast = last(eachindex(ts))
+    δ1 = first(num_constraints(B1))
+    δ2 = first(num_constraints(B2))
 
     # We loop over all knot segments Ω[n] = (ts[n], ts[n + 1]).
     # We integrate all supported B-spline products B1[i] * B2[j] over this
@@ -217,24 +220,27 @@ function galerkin_matrix!(
         xs = metric .* quadx
         # @assert all(x -> tn ≤ x ≤ tn1, xs)
 
-        is = nonzero_in_segment(B1, n)
-        js = nonzero_in_segment(B2, n)
-
-        # This is a property of B-spline bases, which should be preserved by
-        # derived (recombined) bases.
-        @assert 0 < length(is) ≤ k && 0 < length(js) ≤ k
-
-        # Evaluate all required basis functions on quadrature nodes.
-        bis = eval_basis_functions(B1, is, xs, deriv[1])
-        bjs = same_ij ? bis : eval_basis_functions(B2, js, xs, deriv[2])
-
-        for (nj, j) in enumerate(js), (ni, i) in enumerate(is)
-            if !fill_upper && i < j
-                continue
-            elseif !fill_lower && i > j
-                continue
+        for (x, w) ∈ zip(xs, quadw)
+            ilast = n - δ1
+            jlast = n - δ2
+            _, bis = evaluate_all(B1, x, deriv[1], T; ileft = ilast)
+            _, bjs = same_ij ? (ilast, bis) : evaluate_all(B2, x, deriv[2], T; ileft = jlast)
+            for (δj, bj) ∈ pairs(bjs), (δi, bi) ∈ pairs(bis)
+                i = ilast + 1 - δi
+                j = jlast + 1 - δj
+                if !fill_upper && i < j
+                    continue
+                elseif !fill_lower && i > j
+                    continue
+                elseif i ∉ axes(A, 1)  # this can be true for recombined bases
+                    @assert iszero(bi)
+                    continue
+                elseif j ∉ axes(A, 2)
+                    @assert iszero(bj)
+                    continue
+                end
+                @inbounds A[i, j] += metric.α * w * bi * bj
             end
-            A[i, j] += metric.α * ((bis[ni] .* bjs[nj]) ⋅ quadw)
         end
     end
 
