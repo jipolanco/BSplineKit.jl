@@ -451,21 +451,23 @@ end
 
 Returns the range of row indices `i` such that `A[i, col]` is non-zero.
 """
-@propagate_inbounds function nzrows(A::RecombineMatrix,
-                                    j::Integer) :: UnitRange{Int}
-    block = which_recombine_block(A, j)
+@propagate_inbounds function nzrows(
+        A::RecombineMatrix, j::Integer;
+        block = nothing,  # to avoid recomputing it if already known
+    )
+    blk = something(block, which_recombine_block(A, j))
     j += num_constraints(A)[1]
-    if block == 1
+    if blk == 1
         # We take advantage of the locality condition imposed when constructing
         # the recombination matrix.
         δ = A.allowed_nonzeros_per_column[1]
         (j - δ + 1):j
-    elseif block == 2
+    elseif blk == 2
         j:j  # shifted diagonal of ones
     else
         δ = A.allowed_nonzeros_per_column[2]
         j:(j + δ - 1)
-    end
+    end :: UnitRange{Int}
 end
 
 # Pretty-printing, adapted from BandedMatrices.jl code.
@@ -474,18 +476,21 @@ function Base.replace_in_print_matrix(
     iszero(A[i, j]) ? Base.replace_with_centered_mark(s) : s
 end
 
-@inline function Base.getindex(A::RecombineMatrix, i::Integer, j::Integer)
+@inline function Base.getindex(
+        A::RecombineMatrix, i::Integer, j::Integer;
+        block = nothing,
+    )
     @boundscheck checkbounds(A, i, j)
     T = eltype(A)
-    @inbounds block = which_recombine_block(A, j)
+    @inbounds blk = something(block, which_recombine_block(A, j))
 
     cl, cr = num_constraints(A)  # left/right constraints
 
-    if block == 2
+    if blk == 2
         return T(i == j + cl)  # δ_{i, j+c}
     end
 
-    if block == 1
+    if blk == 1
         C = A.ul
         if i <= size(C, 1)
             return @inbounds C[i, j] :: T

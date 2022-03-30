@@ -5,10 +5,6 @@ using Base.Cartesian: @ntuple
 using Base: @propagate_inbounds
 using StaticArrays: MVector
 
-# TODO
-# - define (::BSplineBasis)(x) as an alias for `evaluate_all`
-# - what about recombined bases?
-
 """
     evaluate_all(
         B::BSplineBasis, x::Real,
