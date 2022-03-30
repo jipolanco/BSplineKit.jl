@@ -203,8 +203,8 @@ function galerkin_matrix!(
 
     fill!(S, 0)
     nlast = last(eachindex(ts))
-    δ1 = first(num_constraints(B1))
-    δ2 = first(num_constraints(B2))
+    ioff = first(num_constraints(B1))
+    joff = first(num_constraints(B2))
 
     # We loop over all knot segments Ω[n] = (ts[n], ts[n + 1]).
     # We integrate all supported B-spline products B1[i] * B2[j] over this
@@ -221,10 +221,11 @@ function galerkin_matrix!(
         # @assert all(x -> tn ≤ x ≤ tn1, xs)
 
         for (x, w) ∈ zip(xs, quadw)
-            ilast = n - δ1
-            jlast = n - δ2
+            ilast = n - ioff
+            jlast = n - joff
             _, bis = evaluate_all(B1, x, deriv[1], T; ileft = ilast)
             _, bjs = same_ij ? (ilast, bis) : evaluate_all(B2, x, deriv[2], T; ileft = jlast)
+            y = metric.α * w
             for (δj, bj) ∈ pairs(bjs), (δi, bi) ∈ pairs(bis)
                 i = ilast + 1 - δi
                 j = jlast + 1 - δj
@@ -239,7 +240,7 @@ function galerkin_matrix!(
                     @assert iszero(bj)
                     continue
                 end
-                @inbounds A[i, j] += metric.α * w * bi * bj
+                @inbounds A[i, j] += y * bi * bj
             end
         end
     end

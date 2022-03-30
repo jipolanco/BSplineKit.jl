@@ -62,9 +62,10 @@ function galerkin_projection!(
     quadx, quadw = _quadrature_prod(Val(2k - 2))
     @assert length(quadx) == k  # we need k quadrature points per knot segment
 
+    T = eltype(φ)
     fill!(φ, 0)
-
     nlast = last(eachindex(ts))
+    ioff = first(num_constraints(B))
 
     # We loop over all knot segments Ω[n] = (ts[n], ts[n + 1]).
     # For all B-splines with support in this segment, we integrate the product
@@ -80,25 +81,17 @@ function galerkin_projection!(
         xs = metric .* quadx
         # @assert all(x -> tn ≤ x ≤ tn1, xs)
 
-        is = nonzero_in_segment(B, n)
-
-        # This is a property of B-spline bases, which should be preserved by
-        # derived (recombined) bases.
-        @assert 0 < length(is) ≤ k
-
-        # Evaluate all required basis functions on quadrature nodes.
-        bis = eval_basis_functions(B, is, xs, deriv)
-
-        fs = ntuple(i -> f(xs[i]), Val(length(xs)))  # this works fine!
-
-        # For some reason, the alternatives below allocate and give bad
-        # performance... (on Julia 1.7-beta2)
-        # fs = map(f, xs)
-        # fs = f.(xs)
-
-        for (ni, i) in enumerate(is)
-            bs = bis[ni]
-            φ[i] += metric.α * ((bs .* fs) ⋅ quadw)
+        for (x, w) ∈ zip(xs, quadw)
+            ilast = n - ioff
+            _, bis = evaluate_all(B, x, deriv, T; ileft = ilast)
+            y = metric.α * w * f(x)
+            for (δi, bi) ∈ pairs(bis)
+                i = ilast + 1 - δi
+                if i ∉ axes(φ, 1)  # this can be true for recombined bases
+                    continue
+                end
+                @inbounds φ[i] += y * bi
+            end
         end
     end
 
