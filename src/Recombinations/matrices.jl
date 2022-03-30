@@ -263,19 +263,40 @@ end
 end
 @inline _natural_ops(::Val{1}) = ()
 
+# Case h = 1: return empty (0 × 2) matrix.
+_natural_eval_derivatives(B, x, js, ::Val{1}, ::Type{T}) where {T} =
+    zero(SMatrix{0, 2, T})
+
 # Evaluate derivatives 2:h of B-splines 1:(h + 1) at the boundaries.
-function _natural_eval_derivatives(B, x, js, ::Val{h}, ::Type{T}) where {h, T}
-    @assert length(js) == h + 1
-    M = MMatrix{h - 1, h + 1, T}(undef)
-    if h == 1
-        return SMatrix(M)
+@generated function _natural_eval_derivatives(
+        B, x, js, ::Val{h}, ::Type{T},
+    ) where {h, T}
+    @assert h ≥ 2
+    ex = quote
+        @assert length(js) == $h + 1
+        M = zero(MMatrix{$h - 1, $h + 1, $T})
     end
-    for k ∈ axes(M, 2)
-        j = js[k]
-        bs = B[j, T](x, Derivative(2:h))  # returns tuple (bⱼ⁽²⁾, bⱼ⁽³⁾, …, bⱼ⁽ʰ⁾)
-        M[:, k] = SVector(bs)
+    for i ∈ 1:(h - 1)
+        jlast = Symbol(:jlast_, i)
+        bs = Symbol(:bs_, i)
+        ileft = i == 1 ? :(nothing) : Symbol(:jlast_, i - 1)
+        ex = quote
+            $ex
+            $jlast, $bs = evaluate_all(B, x, Derivative($i + 1), $T; ileft = $ileft)
+            @assert length($bs) == order(B)
+            for n ∈ axes(M, 2)
+                j = js[n]
+                δj = $jlast + 1 - j
+                if δj ∈ eachindex($bs)
+                    @inbounds M[$i, n] = $bs[δj]
+                end
+            end
+        end
     end
-    SMatrix(M)
+    quote
+        $ex
+        SMatrix(M)
+    end
 end
 
 # On the left boundary, `i` is the index of the resulting recombined basis
