@@ -184,7 +184,7 @@ function test_galerkin_recombined()
             @testset "3D tensor" begin
                 test_galerkin_tensor(R)
             end
-            @test M == galerkin_matrix((B, R))'
+            @test M ≈ galerkin_matrix((B, R))'
             let (δl, δr) = num_constraints(R)
                 n, m = size(M)
                 @test n + δl + δr == m
@@ -196,7 +196,7 @@ function test_galerkin_recombined()
                 # basis.
                 M_base = galerkin_matrix(B)
                 I = (δl + r + 1):(m - (δr + r))
-                @test view(M, (r + 1):(n - r), I) == view(M_base, I, I)
+                @test view(M, (r + 1):(n - r), I) ≈ view(M_base, I, I)
             end
         end
     end
