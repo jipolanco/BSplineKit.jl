@@ -6,11 +6,7 @@ using LinearAlgebra: dot
 using BSplineKit.BSplines:
     find_knot_interval
 
-function test_bsplines(ord::BSplineOrder)
-    rng = MersenneTwister(42)
-    ξs = sort!(rand(rng, 20))
-    ξs[begin] = 0; ξs[end] = 1;
-    B = BSplineBasis(ord, copy(ξs))
+function test_bsplines(B::AbstractBSplineBasis)
     N = length(B)
     ts = knots(B)
     a = first(ts)
@@ -18,17 +14,19 @@ function test_bsplines(ord::BSplineOrder)
     @test (a, b) == boundaries(B)
     k = order(B)
 
-    @testset "Find interval" begin
-        @inferred find_knot_interval(ts, 0.3)
-        @test find_knot_interval(ts, a - 1) == (1, -1)
-        @test find_knot_interval(ts, a) == (k, 0)
-        @test find_knot_interval(ts, b) == (N, 0)
-        @test find_knot_interval(ts, b + 1) == (N, 1)
-        let x = (a + b) / 3  # test on a "normal" location
-            @test find_knot_interval(ts, x) == (searchsortedlast(ts, x), 0)
-        end
-        let i = length(ts) ÷ 2  # test on a knot location
-            @test find_knot_interval(ts, ts[i]) == (i, 0)
+    if B isa BSplineBasis
+        @testset "Find interval" begin
+            @inferred find_knot_interval(ts, 0.3)
+            @test find_knot_interval(ts, a - 1) == (1, -1)
+            @test find_knot_interval(ts, a) == (k, 0)
+            @test find_knot_interval(ts, b) == (N, 0)
+            @test find_knot_interval(ts, b + 1) == (N, 1)
+            let x = (a + b) / 3  # test on a "normal" location
+                @test find_knot_interval(ts, x) == (searchsortedlast(ts, x), 0)
+            end
+            let i = length(ts) ÷ 2  # test on a knot location
+                @test find_knot_interval(ts, ts[i]) == (i, 0)
+            end
         end
     end
 
@@ -53,7 +51,7 @@ function test_bsplines(ord::BSplineOrder)
         @test length(bs) == k
         @test eltype(bs) === Float64
 
-        let
+        if B isa BSplineBasis
             i′, bs′ = @inferred evaluate_all(B, x, op, Float32)
             @test eltype(bs′) === Float32
             @test i === i′
@@ -63,42 +61,85 @@ function test_bsplines(ord::BSplineOrder)
         # Test reusing knot interval (ileft)
         @test (i, bs) == @inferred evaluate_all(B, x, op; ileft = i)
 
-        if op === Derivative(0)
-            @test sum(bs) ≈ 1  # partition of unity property
-        else
-            @test abs(sum(bs)) < 10eps(maximum(bs))  # ≈ 0
+        if B isa BSplineBasis
+            if op === Derivative(0)
+                @test sum(bs) ≈ 1  # partition of unity property
+            else
+                @test abs(sum(bs)) < 10eps(maximum(bs))  # ≈ 0
+            end
         end
 
         nderiv = _order(op)
 
         # 1. Compare with evaluation of single B-spline
         if nderiv < k
-            for j ∈ eachindex(bs)
-                @test bs[j] ≈ B[i - j + 1](x, op)
+            for δj ∈ eachindex(bs)
+                j = i - δj + 1
+                # For recombined bases, the index can fall outside of the domain.
+                if B isa RecombinedBSplineBasis && j ∉ 1:N
+                    continue
+                end
+                bj = bs[δj]
+                if x == first(ts) && op ∈ first(constraints(B))
+                    # In this case all results are expected to be zero.
+                    @test abs(bj) < 1e-10
+                elseif x == last(ts) && op ∈ last(constraints(B))
+                    @test abs(bj) < 1e-10
+                else
+                    # Results are non-zero.
+                    @test bj ≈ B[j](x, op)
+                end
             end
         end
 
         # 2. Compare with full evaluation of a spline
         if nderiv < k
             S′ = op * S  # this is exactly `S` if op == Derivative(0)
-            cs = view(coefficients(S), i:-1:(i - k + 1))
-            @test S′(x) ≈ dot(cs, bs)
+            cs = let us = coefficients(S)
+                if B isa BSplineBasis
+                    ntuple(δ -> us[i + 1 - δ], Val(k))
+                else
+                    ntuple(Val(k)) do δ
+                        j = i + 1 - δ
+                        checkbounds(Bool, us, j) ? us[j] : zero(eltype(us))
+                    end
+                end
+            end
+            ϵ = 10eps(maximum(abs, coefficients(S′)))
+            u, v = S′(x), dot(cs, bs)
+            if abs(u) < ϵ
+                @test abs(v) < ϵ
+            else
+                @test u ≈ v
+            end
         end
 
         # 3. Compare to non-generated version (assuming the @generated version
         #    is called)
-        @test evaluate_all(B, x, op) == @inferred BSplines._evaluate_all_alt(
-            knots(B), x, BSplineOrder(k), op, eltype(bs),
-        )
-
-        @test evaluate_all(B, x, op, Float32) == @inferred BSplines._evaluate_all_alt(
-            knots(B), x, BSplineOrder(k), op, Float32,
-        )
+        if B isa BSplineBasis
+            @test evaluate_all(B, x, op) == @inferred BSplines._evaluate_all_alt(
+                knots(B), x, BSplineOrder(k), op, eltype(bs),
+            )
+            @test evaluate_all(B, x, op, Float32) == @inferred BSplines._evaluate_all_alt(
+                knots(B), x, BSplineOrder(k), op, Float32,
+            )
+        end
     end
 
     nothing
 end
 
+rng = MersenneTwister(42)
+ξs = sort!(rand(rng, 20))
+ξs[begin] = 0; ξs[end] = 1;
+
 @testset "B-splines (k = $k)" for k ∈ (2, 4, 5, 6, 8)
-    test_bsplines(BSplineOrder(k))
+    B = BSplineBasis(BSplineOrder(k), copy(ξs))
+    @testset "B-spline basis" test_bsplines(B)
+    ops = (Derivative(0), Derivative(1), Natural())
+    @testset "Recombined (op = $op)" for op ∈ ops
+        op == Natural() && isodd(k) && continue
+        R = RecombinedBSplineBasis(op, B)
+        test_bsplines(R)
+    end
 end
