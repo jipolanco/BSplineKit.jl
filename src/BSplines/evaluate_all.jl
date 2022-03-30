@@ -123,7 +123,7 @@ function _evaluate_all(
             # This is the same as in de Boor's BSPLVB routine.
             # In particular, this allows plotting the extension of a polynomial
             # piece outside of its knot interval (as in de Boor's Fig. 6, p. 114).
-            bs_1 = one(T)
+            bs_1 = (one(T),)
         end
         for q ∈ 2:k
             bp = Symbol(:bs_, q - 1)
