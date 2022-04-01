@@ -224,7 +224,8 @@ function galerkin_matrix!(
             ilast = n - ioff
             jlast = n - joff
             _, bis = evaluate_all(B1, x, deriv[1], T; ileft = ilast)
-            _, bjs = same_ij ? (ilast, bis) : evaluate_all(B2, x, deriv[2], T; ileft = jlast)
+            _, bjs = same_ij ?
+                (ilast, bis) : evaluate_all(B2, x, deriv[2], T; ileft = jlast)
             y = metric.α * w
             for (δj, bj) ∈ pairs(bjs), (δi, bi) ∈ pairs(bis)
                 i = ilast + 1 - δi

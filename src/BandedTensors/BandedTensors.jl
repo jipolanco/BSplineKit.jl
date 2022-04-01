@@ -1,5 +1,7 @@
 module BandedTensors
 
+using Base: @propagate_inbounds
+
 using StaticArrays
 
 using BandedMatrices
@@ -216,7 +218,7 @@ struct SubMatrix{T, N, M <: SMatrix{N,N,T},
     inds :: Indices
 end
 
-@inline function SubMatrix(A::BandedTensor3D, k)
+@propagate_inbounds function SubMatrix(A::BandedTensor3D, k)
     @boundscheck checkbounds(A.data, k)
     dims = size(A, 1), size(A, 2)
     inds = band_indices(A, k)
@@ -229,7 +231,9 @@ indices(s::SubMatrix) = (s.inds, s.inds)
 Base.parent(Asub::SubMatrix) = Asub.data
 Base.size(S::SubMatrix) = S.dims
 
-@inline function Base.getindex(S::SubMatrix{T}, i::Integer, j::Integer) where {T}
+@propagate_inbounds function Base.getindex(
+        S::SubMatrix{T}, i::Integer, j::Integer,
+    ) where {T}
     ri, rj = indices(S)
     (i ∈ ri) && (j ∈ rj) || return zero(T)
     ii = i - first(ri) + 1
@@ -301,25 +305,31 @@ Set submatrix `A[:, :, k]` to the matrix `Ak`.
 The `Ak` matrix must have dimensions `(r, r)`, where `r = 2b + 1` is the total
 number of bands of `A`.
 """
-function Base.setindex!(A::BandedTensor3D, Ak::AbstractMatrix,
-                        ::Colon, ::Colon, k)
+@propagate_inbounds function Base.setindex!(
+        A::BandedTensor3D, Ak::AbstractMatrix, ::Colon, ::Colon, k,
+    )
     @boundscheck checkbounds(A, :, :, k)
     @boundscheck size(Ak) === (size(A, 1), size(A, 2))
     @inbounds A.data[k] = Ak
 end
 
-function Base.setindex!(A::BandedTensor3D, Asub::SubMatrix, ::Colon, ::Colon, k)
+@propagate_inbounds function Base.setindex!(
+        A::BandedTensor3D, Asub::SubMatrix, ::Colon, ::Colon, k,
+    )
     @boundscheck checkbounds(A, :, :, k)
     @boundscheck k == Asub.k
     @inbounds A.data[k] = parent(Asub)
 end
 
 # Get submatrix A[:, :, k].
-Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = SubMatrix(A, k)
-Base.view(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) = A[:, :, k]
+@propagate_inbounds Base.getindex(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) =
+    SubMatrix(A, k)
+@propagate_inbounds Base.view(A::BandedTensor3D, ::Colon, ::Colon, k::Integer) =
+    A[:, :, k]
 
-function Base.getindex(A::BandedTensor3D{T,b}, ::Colon, ::Colon,
-                       ks::AbstractUnitRange) where {T,b}
+@propagate_inbounds function Base.getindex(
+        A::BandedTensor3D{T,b}, ::Colon, ::Colon, ks::AbstractUnitRange,
+    ) where {T,b}
     shift = bandshift(A) .+ (0, 0, first(ks) - 1)
     Nk = length(ks)
     dims = (size(A, 1), size(A, 2), Nk)
@@ -331,20 +341,21 @@ function Base.getindex(A::BandedTensor3D{T,b}, ::Colon, ::Colon,
     B
 end
 
-@inline function Base.getindex(A::BandedTensor3D,
-                               i::Integer, j::Integer, k::Integer)
+@propagate_inbounds function Base.getindex(
+        A::BandedTensor3D, i::Integer, j::Integer, k::Integer,
+    )
     @boundscheck checkbounds(A, i, j, k)
     @inbounds Asub = SubMatrix(A, k)
-    Asub[i, j]
+    @inbounds Asub[i, j]
 end
 
 function Base.fill!(A::BandedTensor3D, x)
     M = submatrix_type(A)
     T = eltype(M)
     L = length(M)
-    Ak = M(ntuple(_ -> T(x), L))
+    Ak = M(ntuple(_ -> T(x), Val(L)))
     for k in axes(A, 3)
-        A[:, :, k] = Ak
+        @inbounds A[:, :, k] = Ak
     end
     A
 end
@@ -365,7 +376,7 @@ As an (allocating) alternative, one can use `Y = A * b`, which returns `Y` as a
 function muladd!(
         Y::AbstractMatrix, A::BandedTensor3D, b::AbstractVector,
     )
-    for k in axes(A, 3)
+    @inbounds for k in axes(A, 3)
         sub = SubMatrix(A, k)
         is, js = indices(sub)
         C = parent(sub) * b[k]
