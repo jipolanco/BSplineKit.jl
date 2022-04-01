@@ -13,6 +13,7 @@ DifferentialOps
 ```@docs
 AbstractDifferentialOp
 Derivative
+DerivativeUnitRange
 ScaledDerivative
 DifferentialOpSum
 max_order

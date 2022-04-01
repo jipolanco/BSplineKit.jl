@@ -13,6 +13,11 @@ import ..BSplines:
 import ..Splines:
     coefficients, integral
 
+using ..Recombinations:
+    RecombinedBSplineBasis
+
+using ..BoundaryConditions
+
 import Interpolations:
     interpolate, interpolate!
 
@@ -116,7 +121,7 @@ function interpolate!(I::SplineInterpolation, y::AbstractVector)
 end
 
 """
-    interpolate(x, y, BSplineOrder(k))
+    interpolate(x, y, BSplineOrder(k), [bc = nothing])
 
 Interpolate values `y` at locations `x` using B-splines of order `k`.
 
@@ -124,6 +129,10 @@ Grid points `x` must be real-valued and are assumed to be in increasing order.
 
 Returns a [`SplineInterpolation`](@ref) which can be evaluated at any intermediate
 point.
+
+Optionally, one may pass one of the boundary conditions listed in the [Boundary
+conditions](@ref boundary-conditions-api) section.
+For now, only the [`Natural`](@ref) boundary condition is available.
 
 See also [`interpolate!`](@ref).
 
@@ -136,6 +145,7 @@ julia> ys = cospi.(xs);
 
 julia> itp = interpolate(xs, ys, BSplineOrder(4))
 SplineInterpolation containing the 21-element Spline{Float64}:
+ basis: 21-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3  …  0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.0, 1.0, 1.0]
  coefficients: [-1.0, -1.00111, -0.8975, -0.597515, -0.314147, 1.3265e-6, 0.314142, 0.597534, 0.822435, 0.96683  …  0.96683, 0.822435, 0.597534, 0.314142, 1.3265e-6, -0.314147, -0.597515, -0.8975, -1.00111, -1.0]
@@ -144,18 +154,51 @@ SplineInterpolation containing the 21-element Spline{Float64}:
 julia> itp(-1)
 -1.0
 
-julia> itp(0)
-1.0
+julia> (Derivative(1) * itp)(-1)
+-0.01663433622896893
 
-julia> itp(0.42)
-0.2486897676885842
+julia> (Derivative(2) * itp)(-1)
+10.527273287554962
+
+julia> Snat = interpolate(xs, ys, BSplineOrder(4), Natural())
+SplineInterpolation containing the 21-element Spline{Float64}:
+ basis: 21-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0], BCs {left => (D{2},), right => (D{2},)}
+ order: 4
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4  …  0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
+ coefficients: [-0.833333, -0.647516, -0.821244, -0.597853, -0.314057, -2.29076e-5, 0.314148, 0.597532, 0.822435, 0.96683  …  0.96683, 0.822435, 0.597532, 0.314148, -2.29076e-5, -0.314057, -0.597853, -0.821244, -0.647516, -0.833333]
+ interpolation points: -1.0:0.1:1.0
+
+julia> Snat(-1)
+-1.0
+
+julia> (Derivative(1) * Snat)(-1)
+0.28726186708894824
+
+julia> (Derivative(2) * Snat)(-1)
+0.0
+
 ```
 """
-function interpolate(x::AbstractVector, y::AbstractVector, k::BSplineOrder)
+function interpolate(
+        x::AbstractVector, y::AbstractVector, k::BSplineOrder,
+        ::Nothing = nothing,
+    )
     t = make_knots(x, order(k))
     B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
     T = float(eltype(y))
     itp = SplineInterpolation(undef, B, x, T)
+    interpolate!(itp, y)
+end
+
+function interpolate(
+        x::AbstractVector, y::AbstractVector, k::BSplineOrder, bc::Natural,
+    )
+    # For natural BCs, the number of required unique knots is equal to the
+    # number of data points, and therefore we just make them equal.
+    B = BSplineBasis(k, copy(x))  # note that this modifies x, so we create a copy...
+    R = RecombinedBSplineBasis(bc, B)
+    T = float(eltype(y))
+    itp = SplineInterpolation(undef, R, x, T)
     interpolate!(itp, y)
 end
 

@@ -19,6 +19,7 @@ Base.eltype(::Type{<:SplineWrapper{S}}) where {S} = eltype(S)
 
 (I::SplineWrapper)(x) = spline(I)(x)
 Base.diff(I::SplineWrapper, etc...) = diff(spline(I), etc...)
+Base.:*(op::Derivative, I::SplineWrapper) = op * spline(I)
 
 for f in (:basis, :order, :knots, :coefficients, :integral)
     @eval $f(I::SplineWrapper) = $f(spline(I))

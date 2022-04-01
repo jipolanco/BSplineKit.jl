@@ -1,4 +1,7 @@
 using BSplineKit.DifferentialOps
+using BSplineKit.DifferentialOps:
+    DerivativeUnitRange
+
 using LinearAlgebra: ⋅
 
 @testset "DifferentialOps" begin
@@ -6,6 +9,15 @@ using LinearAlgebra: ⋅
     D3 = Derivative(3)
     @test max_order(D2) == 2
     @test max_order(D3) == 3
+
+    @test D2^2 === Derivative(4)
+    @test D2^3 === Derivative(6)
+    @test Derivative() === Derivative(1)
+    @test Derivative()^3 === Derivative(3)
+
+    @inferred (() -> Derivative())()
+    @inferred (() -> Derivative()^3)()
+    @inferred (() -> Derivative(3))()
 
     S = D2 + 5 * D3
     S′ = 5 * D3 + D2
@@ -22,5 +34,14 @@ using LinearAlgebra: ⋅
 
         @test LeftNormal() ⋅ S == D2 - 5 * D3
         @test RightNormal() ⋅ S == D2 + 5 * D3
+    end
+
+    @testset "Ranges" begin
+        @inferred (() -> Derivative(2:5))()
+        @inferred (() -> Derivative(2):Derivative(5))()
+        r = Derivative(2:5)
+        @test typeof(r) === DerivativeUnitRange{2, 5}
+        @test repr(r) == "Derivative(2:5)"
+        @test r === Derivative(2):Derivative(5)
     end
 end
