@@ -171,7 +171,7 @@ function test_galerkin_recombined()
                     T″ = galerkin_tensor(R, Derivative.((0, 0, 2)))
                     T1 = galerkin_tensor(R, Derivative.((1, 0, 1)))
                     T2 = galerkin_tensor(R, Derivative.((0, 1, 1)))
-                    @test T2 == permutedims(T1, (2, 1, 3))
+                    @test T2 ≈ permutedims(T1, (2, 1, 3))
                     @test norm(T″ + T1 + T2, Inf) < norm(T1, Inf) * ε
                 end
             end

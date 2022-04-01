@@ -37,7 +37,7 @@ function test_airy_equation()
         Tc = @inferred galerkin_tensor((R, R, B), Derivative.((0, 0, 0)))
         Mc = @inferred Tc * cs
         @test Mc isa BandedMatrix
-        @test issymmetric(Mc)
+        @test Mc ≈ Mc'  # the matrix is practically symmetric
         Hermitian(Mc)
     end
 

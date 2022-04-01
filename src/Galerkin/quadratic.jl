@@ -119,8 +119,9 @@ function galerkin_tensor!(
 
             # We compute the submatrix A[:, :, l] for each `l`.
             for (δl, bl) in pairs(bls)
-                y₀ = metric.α * w * bl
+                iszero(bl) && continue  # can prevent problems at the borders
                 l = l₀ + δl
+                y₀ = metric.α * w * bl
                 @inbounds fill!(Al, 0)
                 inds = BandedTensors.band_indices(A, l)
                 # @assert inds == (l - k + 1:l + k - 1) .+ bandshift(A)[3]
