@@ -369,3 +369,39 @@ end
 
     ϕ::T
 end
+
+@propagate_inbounds function BSplines.evaluate_all(
+        R::RecombinedBSplineBasis, x::Real, op::AbstractDifferentialOp, ::Type{T};
+        ileft::Union{Int, Nothing} = nothing,
+    ) where {T}
+    B = parent(R)
+    k = order(B)
+    off = num_constraints(R)[1]
+    if !isnothing(ileft)
+        ileft += off
+    end
+    ilast, bs = evaluate_all(B, x, op, T; ileft)
+    jlast = ilast - off
+    A = recombination_matrix(R)
+    N = length(R)
+
+    ϕs = zero(MVector{k, eltype(bs)})
+    for δj = 1:k
+        j = jlast + 1 - δj  # recombined index ϕ_j
+        1 ≤ j ≤ N || continue
+        block = which_recombine_block(A, j)
+        if block == 2
+            @inbounds ϕs[δj] = bs[δj]  # no recombination needed (most common case)
+        else
+            # TODO can this be optimised? (and is it worth it?)
+            for δi = 1:k
+                i = ilast + 1 - δi
+                i ≤ 0 && continue  # fixes rare corner case in tests...
+                @inbounds ϕs[δj] += getindex(A, i, j; block) * bs[δi]
+            end
+        end
+    end
+
+    # We return the index of the last recombined basis function ϕ_j.
+    jlast, Tuple(ϕs)
+end

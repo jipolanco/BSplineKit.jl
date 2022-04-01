@@ -204,6 +204,9 @@ julia> S = Spline(B, rand(length(B)))
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  coefficients: [0.461501, 0.619799, 0.654451, 0.667213, 0.334672, 0.618022, 0.967496, 0.900014, 0.611195, 0.469467, 0.221618, 0.80084, 0.269533]
 
+julia> Derivative(0) * S === S
+true
+
 julia> Derivative(1) * S
 12-element Spline{Float64}:
  basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
@@ -231,6 +234,8 @@ Returns `N`-th derivative of spline `S` as a new spline.
 Base.diff(S::Spline, op = Derivative(1)) = op * S
 
 _diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
+
+_diff(::BSplineBasis, S::Spline, ::Derivative{0}) = S
 
 function _diff(
         ::BSplineBasis, S::Spline, ::Derivative{Ndiff} = Derivative(1),

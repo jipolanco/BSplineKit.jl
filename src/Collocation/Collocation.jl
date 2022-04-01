@@ -154,31 +154,33 @@ function collocation_matrix!(
         C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0);
         clip_threshold = eps(T)) where {T}
-    Nx, Nb = size(C)
-
-    if Nx != length(x) || Nb != length(B)
+    if axes(C, 1) != axes(x, 1) || size(C, 2) != length(B)
         throw(ArgumentError("wrong dimensions of collocation matrix"))
     end
 
     fill!(C, 0)
     b_lo, b_hi = max_bandwidths(C)
 
-    @inbounds for j = 1:Nb, i = 1:Nx
-        b = evaluate(B, j, x[i], deriv, T)
+    @inbounds for i ∈ axes(C, 1)
+        jlast, bs = evaluate_all(B, x[i], deriv, T)  # = (b_{jlast + 1 - k}(x), …, b_{jlast}(x))
 
-        # Skip very small values (and zeros).
-        # This is important for SparseMatrixCSC, which also stores explicit
-        # zeros.
-        abs(b) <= clip_threshold && continue
+        for (δj, bj) ∈ pairs(bs)
+            j = jlast + 1 - δj
 
-        if (i > j && i - j > b_lo) || (i < j && j - i > b_hi)
-            # This will cause problems if C is a BandedMatrix, and (i, j) is
-            # outside the allowed bands. This may be the case if the collocation
-            # points are not properly distributed.
-            @warn "Non-zero value outside of matrix bands: b[$j](x[$i]) = $b"
+            # Skip very small values (and zeros).
+            # This is important for SparseMatrixCSC, which also stores explicit
+            # zeros.
+            abs(bj) <= clip_threshold && continue
+
+            if (i > j && i - j > b_lo) || (i < j && j - i > b_hi)
+                # This will cause problems if C is a BandedMatrix, and (i, j) is
+                # outside the allowed bands. This may be the case if the collocation
+                # points are not properly distributed.
+                @warn "Non-zero value outside of matrix bands: b[$j](x[$i]) = $bj"
+            end
+
+            C[i, j] = bj
         end
-
-        C[i, j] = b
     end
 
     C

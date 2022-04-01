@@ -171,7 +171,7 @@ function test_galerkin_recombined()
                     T″ = galerkin_tensor(R, Derivative.((0, 0, 2)))
                     T1 = galerkin_tensor(R, Derivative.((1, 0, 1)))
                     T2 = galerkin_tensor(R, Derivative.((0, 1, 1)))
-                    @test T2 == permutedims(T1, (2, 1, 3))
+                    @test T2 ≈ permutedims(T1, (2, 1, 3))
                     @test norm(T″ + T1 + T2, Inf) < norm(T1, Inf) * ε
                 end
             end
@@ -184,7 +184,7 @@ function test_galerkin_recombined()
             @testset "3D tensor" begin
                 test_galerkin_tensor(R)
             end
-            @test M == galerkin_matrix((B, R))'
+            @test M ≈ galerkin_matrix((B, R))'
             let (δl, δr) = num_constraints(R)
                 n, m = size(M)
                 @test n + δl + δr == m
@@ -196,7 +196,7 @@ function test_galerkin_recombined()
                 # basis.
                 M_base = galerkin_matrix(B)
                 I = (δl + r + 1):(m - (δr + r))
-                @test view(M, (r + 1):(n - r), I) == view(M_base, I, I)
+                @test view(M, (r + 1):(n - r), I) ≈ view(M_base, I, I)
             end
         end
     end

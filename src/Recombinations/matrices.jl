@@ -263,19 +263,40 @@ end
 end
 @inline _natural_ops(::Val{1}) = ()
 
+# Case h = 1: return empty (0 × 2) matrix.
+_natural_eval_derivatives(B, x, js, ::Val{1}, ::Type{T}) where {T} =
+    zero(SMatrix{0, 2, T})
+
 # Evaluate derivatives 2:h of B-splines 1:(h + 1) at the boundaries.
-function _natural_eval_derivatives(B, x, js, ::Val{h}, ::Type{T}) where {h, T}
-    @assert length(js) == h + 1
-    M = MMatrix{h - 1, h + 1, T}(undef)
-    if h == 1
-        return SMatrix(M)
+@generated function _natural_eval_derivatives(
+        B, x, js, ::Val{h}, ::Type{T},
+    ) where {h, T}
+    @assert h ≥ 2
+    ex = quote
+        @assert length(js) == $h + 1
+        M = zero(MMatrix{$h - 1, $h + 1, $T})
     end
-    for k ∈ axes(M, 2)
-        j = js[k]
-        bs = B[j, T](x, Derivative(2:h))  # returns tuple (bⱼ⁽²⁾, bⱼ⁽³⁾, …, bⱼ⁽ʰ⁾)
-        M[:, k] = SVector(bs)
+    for i ∈ 1:(h - 1)
+        jlast = Symbol(:jlast_, i)
+        bs = Symbol(:bs_, i)
+        ileft = i == 1 ? :(nothing) : Symbol(:jlast_, i - 1)
+        ex = quote
+            $ex
+            $jlast, $bs = evaluate_all(B, x, Derivative($i + 1), $T; ileft = $ileft)
+            @assert length($bs) == order(B)
+            for n ∈ axes(M, 2)
+                j = js[n]
+                δj = $jlast + 1 - j
+                if δj ∈ eachindex($bs)
+                    @inbounds M[$i, n] = $bs[δj]
+                end
+            end
+        end
     end
-    SMatrix(M)
+    quote
+        $ex
+        SMatrix(M)
+    end
 end
 
 # On the left boundary, `i` is the index of the resulting recombined basis
@@ -451,21 +472,23 @@ end
 
 Returns the range of row indices `i` such that `A[i, col]` is non-zero.
 """
-@propagate_inbounds function nzrows(A::RecombineMatrix,
-                                    j::Integer) :: UnitRange{Int}
-    block = which_recombine_block(A, j)
+@propagate_inbounds function nzrows(
+        A::RecombineMatrix, j::Integer;
+        block = nothing,  # to avoid recomputing it if already known
+    )
+    blk = something(block, which_recombine_block(A, j))
     j += num_constraints(A)[1]
-    if block == 1
+    if blk == 1
         # We take advantage of the locality condition imposed when constructing
         # the recombination matrix.
         δ = A.allowed_nonzeros_per_column[1]
         (j - δ + 1):j
-    elseif block == 2
+    elseif blk == 2
         j:j  # shifted diagonal of ones
     else
         δ = A.allowed_nonzeros_per_column[2]
         j:(j + δ - 1)
-    end
+    end :: UnitRange{Int}
 end
 
 # Pretty-printing, adapted from BandedMatrices.jl code.
@@ -474,18 +497,21 @@ function Base.replace_in_print_matrix(
     iszero(A[i, j]) ? Base.replace_with_centered_mark(s) : s
 end
 
-@inline function Base.getindex(A::RecombineMatrix, i::Integer, j::Integer)
+@inline function Base.getindex(
+        A::RecombineMatrix, i::Integer, j::Integer;
+        block = nothing,
+    )
     @boundscheck checkbounds(A, i, j)
     T = eltype(A)
-    @inbounds block = which_recombine_block(A, j)
+    @inbounds blk = something(block, which_recombine_block(A, j))
 
     cl, cr = num_constraints(A)  # left/right constraints
 
-    if block == 2
+    if blk == 2
         return T(i == j + cl)  # δ_{i, j+c}
     end
 
-    if block == 1
+    if blk == 1
         C = A.ul
         if i <= size(C, 1)
             return @inbounds C[i, j] :: T

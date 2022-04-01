@@ -57,24 +57,3 @@ end
 # Apply metric to normalised coordinate (x ∈ [-1, 1]).
 Base.:*(M::QuadratureMetric, x::Real) = M.α * x + M.β
 Broadcast.broadcastable(M::QuadratureMetric) = Ref(M)
-
-# Evaluate elements of basis `B` (given by indices `is`) at points `xs`.
-# The length of `xs` is assumed static.
-# The length of `is` is generally equal to the B-spline order, but may me
-# smaller near the boundaries (this is not significant if knots are "augmented",
-# as is the default).
-# TODO implement evaluation of all B-splines at once (should be much faster...)
-function eval_basis_functions(B, is, xs, args...)
-    k = order(B)
-    @assert length(is) ≤ k
-    ntuple(Val(k)) do n
-        # In general, `is` will have length equal `k`.
-        # If its length is less than `k` (may happen near boundaries, if knots
-        # are not "augmented"), we repeat values for the first B-spline, just
-        # for type stability concerns. These values are never used.
-        i = n > length(is) ? is[1] : is[n]
-        map(xs) do x
-            B[i](x, args...)
-        end
-    end
-end

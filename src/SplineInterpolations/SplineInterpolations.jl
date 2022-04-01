@@ -158,7 +158,7 @@ julia> (Derivative(1) * itp)(-1)
 -0.01663433622896893
 
 julia> (Derivative(2) * itp)(-1)
-10.527273287554962
+10.52727328755495
 
 julia> Snat = interpolate(xs, ys, BSplineOrder(4), Natural())
 SplineInterpolation containing the 21-element Spline{Float64}:

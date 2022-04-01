@@ -26,6 +26,8 @@ length(::BSplineBasis)
 BasisFunction
 support
 common_support
+find_knot_interval
+evaluate_all
 evaluate
 evaluate!
 nonzero_in_segment

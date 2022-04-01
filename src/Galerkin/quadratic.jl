@@ -27,7 +27,7 @@ function galerkin_tensor(
     if length(Bs[1]) != length(Bs[2])
         throw(DimensionMismatch("the first two bases must have the same lengths"))
     end
-    δl, δr = num_constraints(Bs[3]) .- num_constraints(Bs[1])
+    δl = first(num_constraints(Bs[3])) - first(num_constraints(Bs[1]))
     A = BandedTensor3D{T}(undef, dims, Val(b), bandshift=(0, 0, δl))
     galerkin_tensor!(A, Bs, deriv)
 end
@@ -63,6 +63,10 @@ function galerkin_tensor!(
     Ni, Nj, Nl = Ns
     @assert Ni == Nj  # verified at construction of BandedTensor3D
 
+    ioff = first(num_constraints(Bi))
+    joff = first(num_constraints(Bj))
+    loff = first(num_constraints(Bl))
+
     # Orders and knots are assumed to be the same (see _check_bases).
     k = order(Bi)
     ts = knots(Bi)
@@ -86,7 +90,7 @@ function galerkin_tensor!(
 
     fill!(A, 0)
     T = eltype(A)
-    Al = @MMatrix zeros(T, 2k - 1, 2k - 1)
+    Al = zero(MMatrix{2k - 1, 2k - 1, T})
     nlast = last(eachindex(ts))
 
     @inbounds for n in eachindex(ts)
@@ -97,30 +101,46 @@ function galerkin_tensor!(
         metric = QuadratureMetric(tn, tn1)
         xs = metric .* quadx
 
-        is = nonzero_in_segment(Bi, n)
-        js = nonzero_in_segment(Bj, n)
-        ls = nonzero_in_segment(Bl, n)
+        ilast = n - ioff
+        jlast = n - joff
+        llast = n - loff
+        l₀ = llast - order(Bs[3])
 
-        bis = eval_basis_functions(Bi, is, xs, deriv[1])
-        bjs = same_12 ?
-            bis : eval_basis_functions(Bj, js, xs, deriv[2])
-        bls = same_13 ?
-            bis : same_23 ?
-            bjs : eval_basis_functions(Bl, ls, xs, deriv[3])
+        for (x, w) ∈ zip(xs, quadw)
+            _, bis = evaluate_all(Bi, x, deriv[1], T; ileft = ilast)
+            _, bjs = same_12 ?
+                (ilast, bis) : evaluate_all(Bj, x, deriv[2], T; ileft = jlast)
+            _, bls = same_13 ?
+                (ilast, bis) : same_23 ?
+                (jlast, bjs) : evaluate_all(Bl, x, deriv[3], T; ileft = llast)
 
-        # We compute the submatrix A[:, :, l] for each `l`.
-        for (nl, l) in enumerate(ls)
-            fill!(Al, 0)
-            inds = BandedTensors.band_indices(A, l)
-            # @assert is ⊆ inds && js ⊆ inds
-            # @assert size(Al, 1) == size(Al, 2) == length(inds)
-            δi = searchsortedlast(inds, is[1]) - 1
-            δj = searchsortedlast(inds, js[1]) - 1
-            for nj in eachindex(js), ni in eachindex(is)
-                Al[ni + δi, nj + δj] =
-                    metric.α * ((bis[ni] .* bjs[nj] .* bls[nl]) ⋅ quadw)
+            # Iterate in increasing order (not sure if it really helps performance)
+            bls = reverse(bls)
+
+            # We compute the submatrix A[:, :, l] for each `l`.
+            for (δl, bl) in pairs(bls)
+                iszero(bl) && continue  # can prevent problems at the borders
+                l = l₀ + δl
+                y₀ = metric.α * w * bl
+                @inbounds fill!(Al, 0)
+                inds = BandedTensors.band_indices(A, l)
+                # @assert inds == (l - k + 1:l + k - 1) .+ bandshift(A)[3]
+                # @assert (ilast - k + 1:ilast) ⊆ inds
+                # @assert (jlast - k + 1:jlast) ⊆ inds
+                Δi = first(inds) - 1
+                Δj = Δi
+                for (δj, bj) ∈ pairs(bjs)
+                    y₁ = y₀ * bj
+                    j = jlast + 1 - δj
+                    jj = j - Δj
+                    for (δi, bi) ∈ pairs(bis)
+                        i = ilast + 1 - δi  # actual index of basis function
+                        ii = i - Δi         # index in submatrix Al
+                        @inbounds Al[ii, jj] = y₁ * bi
+                    end
+                end
+                @inbounds A[:, :, l] += Al
             end
-            A[:, :, l] += Al
         end
     end
 
