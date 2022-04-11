@@ -239,6 +239,15 @@ function test_splines(::BSplineOrder{k}) where {k}
         @inferred (() -> BSplineBasis(k, copy(x)))()
         g = BSplineBasis(k, copy(x))
 
+        @testset "Type stability" begin
+            # The return type of evaluating a spline should be the element type
+            # of the coefficient vector.
+            coefs = randn(Float32, length(g))
+            S = @inferred Spline(g, coefs)
+            xeval = Float64(0.32)
+            @test @inferred(S(xeval)) isa Float32
+        end
+
         @testset "BSplineBasis equality" begin
             h = BSplineBasis(k, copy(x))
             @test g == h
