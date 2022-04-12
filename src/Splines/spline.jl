@@ -151,23 +151,23 @@ function spline_kernel(
     ) where {T,k}
     # Algorithm adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
     if @generated
+        ex = quote
+            @nexprs $k j -> d_j = @inbounds c[j + n - $k]
+        end
+        for r = 2:k, j = k:-1:r
+            d_j = Symbol(:d_, j)
+            d_p = Symbol(:d_, j - 1)
+            jk = j - k
+            jr = j - r
+            ex = quote
+                $ex
+                α = @inbounds (x - t[$jk + n]) / (t[$jr + n + 1] - t[$jk + n])
+                $d_j = $T((1 - α) * $d_p + α * $d_j)
+            end
+        end
         d_k = Symbol(:d_, k)
         quote
-            w_0 = zero(T)  # this is to make the compiler happy with w_{j - 1}
-            @nexprs $k j -> d_j = @inbounds c[j + n - $k]
-            for r = 2:$k
-                @nexprs $k j -> w_j = d_j  # copy coefficients
-                @nexprs(
-                    $k,
-                    j -> d_j = if j ≥ r
-                        α = @inbounds (x - t[j + n - k]) /
-                                      (t[j + n - r + 1] - t[j + n - k])
-                        T((1 - α) * w_{j - 1} + α * w_{j})
-                    else
-                        w_j
-                    end
-                )
-            end
+            $ex
             return $d_k
         end
     else
