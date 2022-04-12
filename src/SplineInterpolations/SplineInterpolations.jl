@@ -185,7 +185,11 @@ function interpolate(
     )
     t = make_knots(x, order(k))
     B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
+
+    # If input data is integer, convert the spline element type to float.
+    # This also does the right thing when eltype(y) <: StaticArray.
     T = float(eltype(y))
+
     itp = SplineInterpolation(undef, B, x, T)
     interpolate!(itp, y)
 end
