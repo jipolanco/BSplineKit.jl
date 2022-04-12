@@ -232,12 +232,12 @@ function test_splines(::BSplineOrder{k}) where {k}
         -1:0.05:1,
         gauss_lobatto_points(10 + k),
     )
-    for x in breaks
-        @inferred BSplineBasis(BSplineOrder(k), copy(x))
-        @inferred BSplineBasis(BSplineOrder(k), copy(x), augment=Val(false))
-        @inferred BSplineBasis(BSplineOrder(k), copy(x), augment=Val(true))
-        @inferred (() -> BSplineBasis(k, copy(x)))()
-        g = BSplineBasis(k, copy(x))
+    for xs in breaks
+        @inferred BSplineBasis(BSplineOrder(k), copy(xs))
+        @inferred BSplineBasis(BSplineOrder(k), copy(xs), augment=Val(false))
+        @inferred BSplineBasis(BSplineOrder(k), copy(xs), augment=Val(true))
+        @inferred (() -> BSplineBasis(k, copy(xs)))()
+        g = BSplineBasis(k, copy(xs))
 
         @testset "Type stability" begin
             # The return type of evaluating a spline should be the element type
@@ -248,19 +248,30 @@ function test_splines(::BSplineOrder{k}) where {k}
             @test @inferred(S(xeval)) isa Float32
         end
 
+        @testset "Evaluate spline" begin
+            coefs = randn(length(g))
+            S = @inferred Spline(g, coefs)
+            xeval = 0.32
+            n = Splines.knot_interval(knots(g), xeval)
+            # Test alternative (non-@generated) evaluation kernel.
+            @test S(xeval) ≈ Splines.spline_kernel_alt(
+                coefficients(S), knots(g), n, xeval, BSplineOrder(k),
+            )
+        end
+
         @testset "BSplineBasis equality" begin
-            h = BSplineBasis(k, copy(x))
+            h = BSplineBasis(k, copy(xs))
             @test g == h
 
-            h = BSplineBasis(BSplineOrder(k + 1), copy(x))
+            h = BSplineBasis(BSplineOrder(k + 1), copy(xs))
             @test g != h
 
-            h = BSplineBasis(k, x .+ 1)
+            h = BSplineBasis(k, xs .+ 1)
             @test g != h
         end
 
         @test order(g) == k
-        test_splines(g, x)
+        test_splines(g, xs)
     end
     nothing
 end
