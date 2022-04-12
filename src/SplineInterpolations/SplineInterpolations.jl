@@ -61,13 +61,13 @@ struct SplineInterpolation{
 
     function SplineInterpolation(
             B::AbstractBSplineBasis, C::Factorization, x::AbstractVector,
-        )
+            ::Type{T},
+        ) where {T}
         N = length(B)
         size(C) == (N, N) ||
             throw(DimensionMismatch("collocation matrix has wrong dimensions"))
         length(x) == N ||
             throw(DimensionMismatch("wrong number of collocation points"))
-        T = eltype(C)
         s = Spline(undef, B, T)  # uninitialised spline
         new{typeof(s), typeof(C), typeof(x)}(s, C, x)
     end
@@ -75,16 +75,16 @@ end
 
 # Construct SplineInterpolation from basis and collocation points.
 function SplineInterpolation(
-        ::UndefInitializer, B, x::AbstractVector, ::Type{T},
-    ) where {T}
+        ::UndefInitializer, B, x::AbstractVector{Tx}, ::Type{T},
+    ) where {Tx <: Real, T}
     # Here we construct the collocation matrix and its LU factorisation.
     N = length(B)
     if length(x) != N
         throw(DimensionMismatch(
             "incompatible lengths of B-spline basis and collocation points"))
     end
-    C = collocation_matrix(B, x, CollocationMatrix{T})
-    SplineInterpolation(B, lu!(C), x)
+    C = collocation_matrix(B, x, CollocationMatrix{Tx})
+    SplineInterpolation(B, lu!(C), x, T)
 end
 
 interpolation_points(S::SplineInterpolation) = S.x
@@ -185,7 +185,11 @@ function interpolate(
     )
     t = make_knots(x, order(k))
     B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
+
+    # If input data is integer, convert the spline element type to float.
+    # This also does the right thing when eltype(y) <: StaticArray.
     T = float(eltype(y))
+
     itp = SplineInterpolation(undef, B, x, T)
     interpolate!(itp, y)
 end
