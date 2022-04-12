@@ -176,7 +176,7 @@ function spline_kernel(
             d = ntuple(Val(k)) do j
                 if j ≥ r
                     α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
-                    (1 - α) * w[j - 1] + α * w[j]
+                    T((1 - α) * w[j - 1] + α * w[j])
                 else
                     w[j]
                 end
@@ -263,7 +263,7 @@ function _diff(
             # In this case, the B-spline that this coefficient is
             # multiplying is zero everywhere, so we can set this to zero.
             # From de Boor (2001, p. 117): "anything times zero is zero".
-            du[i] = 0
+            du[i] = zero(eltype(du))
         else
             du[i] = (k - m) * (du[i] - du[i - 1]) / dt
         end
@@ -310,11 +310,11 @@ function _integral(::BSplineBasis, S::Spline)
     t_int[end] = t_int[end - 1]
 
     β = similar(u, N + 1)
-    β[1] = 0
+    β[1] = zero(eltype(β))
 
     @inbounds for i in eachindex(u)
         m = i + 1
-        β[m] = 0
+        β[m] = zero(eltype(β))
         for j = 1:i
             β[m] += u[j] * (t[j + k] - t[j]) / k
         end
