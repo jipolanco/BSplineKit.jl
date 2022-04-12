@@ -1,3 +1,5 @@
+using StaticArrays: MVector
+
 """
     Spline{T}
 
@@ -169,21 +171,25 @@ function spline_kernel(
             return $d_k
         end
     else
-        # Similar using tuples (slower than @generated version).
-        d = @inbounds ntuple(j -> c[j + n - k], Val(k))
-        @inbounds for r = 2:k
-            w = d
-            d = ntuple(Val(k)) do j
-                if j ≥ r
-                    α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
-                    T((1 - α) * w[j - 1] + α * w[j])
-                else
-                    w[j]
-                end
-            end
-        end
-        @inbounds d[k]
+        # Similar using MVector (a bit slower than @generated version).
+        spline_kernel_alt(c, t, n, x, BSplineOrder(k))
     end
+end
+
+function spline_kernel_alt(
+        c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
+    ) where {T, k}
+    d = MVector(ntuple(j -> @inbounds(c[j + n - k]), Val(k)))
+    @inbounds for r = 2:k
+        dprev = d[r - 1]
+        for j = r:k
+            α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
+            dtmp = dprev
+            dprev = d[j]
+            d[j] = (1 - α) * dtmp + α * dprev
+        end
+    end
+    @inbounds d[k]
 end
 
 """
