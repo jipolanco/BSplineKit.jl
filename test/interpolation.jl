@@ -11,7 +11,7 @@ function test_interpolation(ord::BSplineOrder, ::Type{Ty} = Float64) where {Ty}
     Tdata = eltype(Ty)
 
     ys = if Tdata <: Integer
-        [rand(rng, Ty) .% Ty(16) for _ = 1:ndata]  # values in -16:16
+        [rand(rng, Ty) .% Ty(16) for _ = 1:ndata]  # values in -15:15
     else
         randn(rng, Ty, ndata)
     end
