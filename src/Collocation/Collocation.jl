@@ -153,7 +153,8 @@ See [`collocation_matrix`](@ref) for details.
 function collocation_matrix!(
         C::AbstractMatrix{T}, B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0);
-        clip_threshold = eps(T)) where {T}
+        clip_threshold = eps(T),
+    ) where {T <: AbstractFloat}
     if axes(C, 1) != axes(x, 1) || size(C, 2) != length(B)
         throw(ArgumentError("wrong dimensions of collocation matrix"))
     end
