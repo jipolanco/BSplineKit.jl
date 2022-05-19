@@ -83,7 +83,8 @@ function SplineInterpolation(
         throw(DimensionMismatch(
             "incompatible lengths of B-spline basis and collocation points"))
     end
-    C = collocation_matrix(B, x, CollocationMatrix{Tx})
+    Tc = float(Tx)
+    C = collocation_matrix(B, x, CollocationMatrix{Tc})
     SplineInterpolation(B, lu!(C), x, T)
 end
 

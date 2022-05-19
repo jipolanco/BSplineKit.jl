@@ -58,4 +58,10 @@ end
     @testset "T = $T" for T ∈ types
         test_interpolation(BSplineOrder(4), T)
     end
+    @testset "Integer xdata" begin
+        xdata = (0:10).^2
+        ydata = rand(length(xdata))
+        itp = interpolate(xdata, ydata, BSplineOrder(4))
+        @test itp.(xdata) ≈ ydata
+    end
 end
