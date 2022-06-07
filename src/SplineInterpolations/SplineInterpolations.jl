@@ -68,7 +68,7 @@ struct SplineInterpolation{
             throw(DimensionMismatch("collocation matrix has wrong dimensions"))
         length(x) == N ||
             throw(DimensionMismatch("wrong number of collocation points"))
-        s = Spline(undef, B, T)  # uninitialised spline
+        s = Spline{T}(undef, B)  # uninitialised spline
         new{typeof(s), typeof(C), typeof(x)}(s, C, x)
     end
 end

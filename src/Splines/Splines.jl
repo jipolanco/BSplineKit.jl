@@ -18,6 +18,8 @@ using ..DifferentialOps
 import ..BSplines: basis, knots, order
 
 include("spline.jl")
+include("spline_1d.jl")
+include("spline_nd.jl")
 include("wrapper.jl")
 
 end

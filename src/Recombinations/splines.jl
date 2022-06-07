@@ -38,7 +38,7 @@ end
 
 # Returns spline written in the parent basis (usually a regular BSplineBasis).
 # Those splines can be evaluated, differentiated, etc... using known algorithms.
-function Splines.parent_spline(R::RecombinedBSplineBasis, S::Spline)
+function Splines.parent_spline(R::RecombinedBSplineBasis, S::Spline1D)
     @assert basis(S) === R
     B = parent(R)
     coefs = parent_coefficients(R, coefficients(S))
