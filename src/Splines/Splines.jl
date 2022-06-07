@@ -2,6 +2,7 @@ module Splines
 
 export
     Spline,
+    Spline1D,
     coefficients,
     integral
 
