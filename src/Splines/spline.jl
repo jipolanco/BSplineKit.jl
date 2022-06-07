@@ -23,7 +23,7 @@ The spline can be then evaluated at any point `x` within the domain.
 
 ## 1D splines
 
-```jldoctest; filter = r"coefficients: \\[.*\\]"
+```jldoctest; setup = Random.seed!(42)
 julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
 
 julia> coefs = rand(length(B));
@@ -33,24 +33,25 @@ julia> S = Spline(B, coefs)
  basis: 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
- coefficients: [0.815921, 0.076499, 0.433472, 0.672844, 0.468371, 0.348423, 0.868621, 0.0831675, 0.369734, 0.401199, 0.990734, 0.565907, 0.984855]
+ coefficients: [0.173575, 0.321662, 0.258585, 0.166439, 0.527015, 0.483022, 0.390663, 0.802763, 0.721983, 0.372347, 0.0301856, 0.0793339, 0.663758]
 
 julia> S(0.42)  # evaluate spline
-0.7039651871881707
+0.6543543311366747
 
 julia> S′ = Derivative(1) * S  # spline derivative
-12-element Spline{1, Float64}:
+12-element Spline{Float64, 1}:
  basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
- coefficients: [1.48161, 0.775234, -1.48726, 0.280723, 0.792347, 1.97356, -3.15552, 4.37379, -1.88468, -1.91048, 2.7976, 4.1116]
+ coefficients: [2.22131
+, -0.473071, -0.460734, 1.80288, -0.219964, -0.461794, 2.0605, -0.403899, -1.74818, -1.71081, 0.368613, 8.76636]
 
 julia> Sint = integral(S)  # spline integral
-14-element Spline{Float64}:
+14-element Spline{Float64, 1}:
  basis: 14-element BSplineBasis of order 5, domain [-1.0, 1.0]
  order: 5
  knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0, 1.0]
- coefficients: [0.0, 0.00680366, 0.0302884, 0.0810201, 0.0891722, 0.108553, 0.159628, 0.289645, 0.293442, 0.47219, 0.575551, 0.595757, 0.64653, 0.685621]
+ coefficients: [0.0, 0.00867873, 0.0408449, 0.0796327, 0.11292, 0.218323, 0.314928, 0.393061, 0.553613, 0.69801, 0.772479, 0.777007, 0.78494, 0.818128]
 ```
 
 ## Multidimensional (tensor-product) splines
