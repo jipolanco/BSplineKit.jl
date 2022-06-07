@@ -198,6 +198,17 @@ Base.eltype(::Type{<:Spline{T}}) where {T} = T
 Base.ndims(::Type{<:Spline{T, N}}) where {T, N} = N
 Base.ndims(S::Spline) = ndims(typeof(S))
 
+"""
+    bases(S::Spline) -> (B₁, B₂, …)
+
+Returns the B-spline bases associated to the spline.
+
+The number of bases is equal to the dimensionality of the spline.
+In particular, for 1D splines, this returns a one-element tuple.
+
+See also [`basis(::Spline1D)`](@ref).
+"""
 bases(S::Spline) = S.bases
+
 knots(S::Spline) = map(knots, bases(S))
 orders(S::Spline) = map(order, bases(S))
