@@ -23,7 +23,7 @@ The spline can be then evaluated at any point `x` within the domain.
 
 ## 1D splines
 
-```jldoctest; setup = Random.seed!(42)
+```jldoctest; setup = :( Random.seed!(42) )
 julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
 
 julia> coefs = rand(length(B));
@@ -43,8 +43,7 @@ julia> S′ = Derivative(1) * S  # spline derivative
  basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
- coefficients: [2.22131
-, -0.473071, -0.460734, 1.80288, -0.219964, -0.461794, 2.0605, -0.403899, -1.74818, -1.71081, 0.368613, 8.76636]
+ coefficients: [2.22131, -0.473071, -0.460734, 1.80288, -0.219964, -0.461794, 2.0605, -0.403899, -1.74818, -1.71081, 0.368613, 8.76636]
 
 julia> Sint = integral(S)  # spline integral
 14-element Spline{Float64, 1}:
@@ -56,7 +55,7 @@ julia> Sint = integral(S)  # spline integral
 
 ## Multidimensional (tensor-product) splines
 
-```jldoctest; setup = Random.seed!(42)
+```jldoctest; setup = :( Random.seed!(42) )
 julia> Bx = BSplineBasis(BSplineOrder(4), -1:0.2:1)
 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
