@@ -11,7 +11,7 @@ const Spline1D = Spline{<:Any, 1}
 Returns the B-spline basis associated to the spline.
 """
 basis(S::Spline1D) = first(bases(S))
-
+knots(S::Spline1D) = knots(basis(S))
 order(S::Spline1D) = first(orders(S))
 
 parent_spline(S::Spline1D) = parent_spline(basis(S), S)

@@ -126,7 +126,7 @@ function Base.show(io::IO, S::Spline)
         summary(io, first(bases(S)))
         println(io, "\n order: ", first(orders(S)))
         let io = IOContext(io, :compact => true, :limit => true)
-            println(io, " knots: ", first(knots(S)))
+            println(io, " knots: ", knots(S))
             print(io, " coefficients: ", coefficients(S))
         end
     else
@@ -138,7 +138,7 @@ function Base.show(io::IO, S::Spline)
         end
         let io = IOContext(io, :compact => true, :limit => true)
             print(io, " knots:\n")
-            for (n, ts) ∈ enumerate(knots(S))
+            for (n, ts) ∈ enumerate(allknots(S))
                 print(io, "   ($n) ", ts, '\n')
             end
             print(io, " coefficients: ", coefficients(S))
@@ -213,5 +213,5 @@ See also [`basis(::Spline1D)`](@ref).
 """
 bases(S::Spline) = S.bases
 
-knots(S::Spline) = map(knots, bases(S))
+allknots(S::Spline) = map(knots, bases(S))
 orders(S::Spline) = map(order, bases(S))
