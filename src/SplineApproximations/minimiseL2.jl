@@ -54,7 +54,7 @@ struct MinimiseL2Error <: AbstractApproxMethod end
 
 function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
     T = typeof(f(first(knots(B))))
-    S = Spline{T}(undef, B)
+    S = Spline(undef, B, T)
     M = galerkin_matrix(B)  # by default it's a BandedMatrix
 
     # We annotate the return type to avoid inference issue in ArrayLayouts...

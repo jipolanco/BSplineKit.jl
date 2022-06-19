@@ -77,7 +77,7 @@ struct SplineInterpolation{
             length(x) == M ||
                 throw(DimensionMismatch("wrong number of collocation points"))
         end
-        s = Spline{N, T}(undef, Bs...)  # uninitialised spline
+        s = Spline(undef, Bs, T)  # uninitialised spline
         new{N, typeof(s), typeof(Cs), typeof(xs)}(s, Cs, xs)
     end
 end
@@ -232,7 +232,7 @@ julia> xs = -1:0.1:1;
 julia> ys = cospi.(xs);
 
 julia> itp = interpolate(xs, ys, BSplineOrder(4))
-SplineInterpolation containing the 21-element Spline{Float64, 1}:
+SplineInterpolation containing the 21-element Spline{1, Float64}:
  basis: 21-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3  …  0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.0, 1.0, 1.0]
@@ -249,7 +249,7 @@ julia> (Derivative(2) * itp)(-1)
 10.52727328755495
 
 julia> Snat = interpolate(xs, ys, BSplineOrder(4), Natural())
-SplineInterpolation containing the 21-element Spline{Float64, 1}:
+SplineInterpolation containing the 21-element Spline{1, Float64}:
  basis: 21-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0], BCs {left => (D{2},), right => (D{2},)}
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4  …  0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]

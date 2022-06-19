@@ -27,7 +27,7 @@ struct VariationDiminishing <: AbstractApproxMethod end
 
 function approximate(f, B::AbstractBSplineBasis, m::VariationDiminishing)
     T = typeof(f(first(knots(B))))
-    S = Spline{T}(undef, B)
+    S = Spline(undef, B, T)
     A = SplineApproximation(m, S, nothing)
     approximate!(f, A)
 end

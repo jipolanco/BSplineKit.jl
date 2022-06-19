@@ -82,12 +82,15 @@ julia> S(-0.32, 0.54)
 
 ---
 
-    Spline{T = Float64}(undef, B::AbstractBSplineBasis)
-    Spline{T = Float64}(undef, Bx, By, …)
+    Spline(undef, B::AbstractBSplineBasis, [T = Float64])
+    Spline(undef, (Bx, By, …), [T = Float64])
 
 Construct a spline with uninitialised vector of coefficients.
 
 In the second case, a tensor-product multidimensional spline is constructed.
+
+The optional parameter `T` corresponds to the returned type when the spline is
+evaluated.
 """
 struct Spline{
         N,  # spline dimension
@@ -154,17 +157,15 @@ Base.isapprox(P::Spline, Q::Spline; kwargs...) =
     bases(P) == bases(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
-function Spline{N, T}(init, Bs::Vararg{AbstractBSplineBasis, N}) where {N, T}
+function Spline(init, Bs::Tuple{Vararg{AbstractBSplineBasis}}, ::Type{T}) where {T}
     coefs = Array{T}(init, map(length, Bs))
     Spline(Bs, coefs)
 end
 
-Spline(init, B::AbstractBSplineBasis) = Spline{Float64}(init, B)
+Spline(init, Bs::Tuple{Vararg{AbstractBSplineBasis}}) = Spline(init, Bs, Float64)
 
-@deprecate(
-    Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T},
-    Spline{1, T}(init, B),
-)
+# For 1D splines
+Spline(init, B::AbstractBSplineBasis, args...) = Spline(init, (B,), args...)
 
 """
     coefficients(S::Spline{N,T}) -> AbstractArray{T,N}
