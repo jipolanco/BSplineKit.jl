@@ -52,7 +52,7 @@ to yield a very good approximation of the integral, and thus of the optimal coef
 """
 struct MinimiseL2Error <: AbstractApproxMethod end
 
-function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
+function approximate(f::F, B::AbstractBSplineBasis, m::MinimiseL2Error) where {F}
     T = typeof(f(first(knots(B))))
     S = Spline(undef, B, T)
     M = galerkin_matrix(B)  # by default it's a BandedMatrix
@@ -66,7 +66,7 @@ function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
     approximate!(f, A)
 end
 
-function _approximate!(f, A, m::MinimiseL2Error)
+function _approximate!(f::F, A, m::MinimiseL2Error) where {F}
     @assert method(A) === m
     S = spline(A)
     cs = coefficients(S)

@@ -25,14 +25,14 @@ For details, see e.g. de Boor 2001, chapter XI.
 """
 struct VariationDiminishing <: AbstractApproxMethod end
 
-function approximate(f, B::AbstractBSplineBasis, m::VariationDiminishing)
+function approximate(f::F, B::AbstractBSplineBasis, m::VariationDiminishing) where {F}
     T = typeof(f(first(knots(B))))
     S = Spline(undef, B, T)
     A = SplineApproximation(m, S, nothing)
     approximate!(f, A)
 end
 
-function _approximate!(f, A, m::VariationDiminishing)
+function _approximate!(f::F, A, m::VariationDiminishing) where {F}
     @assert method(A) === m
     B = basis(A)
     S = spline(A)
