@@ -5,17 +5,17 @@ using BandedMatrices
 using LinearAlgebra
 using Test
 
-eval_poly(x::Number, P) = @evalpoly(x, P...)
-
 # Test a polynomial of degree k - 1.
 # The splines should approximate the polynomial (and its derivatives) perfectly.
 # This is also used to test the SplineInterpolations module.
 function test_polynomial(x, ::BSplineOrder{k}) where {k}
     # Coefficients of polynomial of degree k - 1 (see ?evalpoly).
     # P(x) = -1 + 2x - 3x^2 + 4x^3 - ...
-    P = ntuple(d -> (-d)^d, Val(k))
+    P = ntuple(d -> d * sign((-1)^d), Val(k))
     P′ = ntuple(d -> d * P[d + 1], Val(k - 1))    # derivative
     Pint = (0, ntuple(d -> P[d] / d, Val(k))...)  # antiderivative
+
+    eval_poly(x::Number, P) = @evalpoly(x, P...)
 
     # Interpolate polynomial at `x` locations.
     y = eval_poly.(x, Ref(P))
