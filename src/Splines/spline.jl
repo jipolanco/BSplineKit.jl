@@ -3,7 +3,7 @@ using StaticArrays: MVector
 const BasisTuple{N} = Tuple{Vararg{AbstractBSplineBasis, N}} where {N}
 
 """
-    Spline{T, N}
+    Spline{N, T}
 
 Represents an ``N``-dimensional spline function which returns values of type `T`.
 
@@ -29,7 +29,7 @@ julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
 julia> coefs = rand(length(B));
 
 julia> S = Spline(B, coefs)
-13-element Spline{Float64, 1}:
+13-element Spline{1, Float64}:
  basis: 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
@@ -39,14 +39,14 @@ julia> S(0.42)  # evaluate spline
 0.6543543311366747
 
 julia> S′ = Derivative(1) * S  # spline derivative
-12-element Spline{Float64, 1}:
+12-element Spline{1, Float64}:
  basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
  coefficients: [2.22131, -0.473071, -0.460734, 1.80288, -0.219964, -0.461794, 2.0605, -0.403899, -1.74818, -1.71081, 0.368613, 8.76636]
 
 julia> Sint = integral(S)  # spline integral
-14-element Spline{Float64, 1}:
+14-element Spline{1, Float64}:
  basis: 14-element BSplineBasis of order 5, domain [-1.0, 1.0]
  order: 5
  knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0, 1.0]
@@ -67,7 +67,7 @@ julia> By = BSplineBasis(BSplineOrder(6), 0:0.05:1)
 julia> coefs = rand(length(Bx), length(By));
 
 julia> S = Spline((Bx, By), coefs)
-13×25 Spline{Float64, 2}:
+13×25 Spline{2, Float64}:
  bases:
    (1) 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
    (2) 25-element BSplineBasis of order 6, domain [0.0, 1.0]
@@ -90,8 +90,8 @@ Construct a spline with uninitialised vector of coefficients.
 In the second case, a tensor-product multidimensional spline is constructed.
 """
 struct Spline{
-        T,  # type of coefficient (e.g. Float64, ComplexF64)
         N,  # spline dimension
+        T,  # type of coefficient (e.g. Float64, ComplexF64)
         Bases <: BasisTuple{N},
         CoefArray <: AbstractArray{T, N},
     }
@@ -107,7 +107,7 @@ struct Spline{
         Bases = typeof(Bs)
         CoefArray = typeof(coefs)
         @assert all(B -> order(B) ≥ 1, Bs)
-        new{T, N, Bases, CoefArray}(Bs, coefs)
+        new{N, T, Bases, CoefArray}(Bs, coefs)
     end
 end
 
@@ -120,7 +120,7 @@ Base.copy(S::Spline) = Spline(bases(S), copy(coefficients(S)))
 function Base.show(io::IO, S::Spline)
     T = eltype(S)
     N = ndims(S)
-    println(io, Base.dims2string(size(S)), ' ', nameof(typeof(S)), "{$T, $N}", ':')
+    println(io, Base.dims2string(size(S)), ' ', nameof(typeof(S)), "{$N, $T}", ':')
     if N == 1
         print(io, " basis: ")
         summary(io, first(bases(S)))
@@ -154,7 +154,7 @@ Base.isapprox(P::Spline, Q::Spline; kwargs...) =
     bases(P) == bases(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
-function Spline{T}(init, Bs::Vararg{AbstractBSplineBasis}) where {T}
+function Spline{N, T}(init, Bs::Vararg{AbstractBSplineBasis, N}) where {N, T}
     coefs = Array{T}(init, map(length, Bs))
     Spline(Bs, coefs)
 end
@@ -163,11 +163,11 @@ Spline(init, B::AbstractBSplineBasis) = Spline{Float64}(init, B)
 
 @deprecate(
     Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T},
-    Spline{T}(init, B),
+    Spline{1, T}(init, B),
 )
 
 """
-    coefficients(S::Spline{T,N}) -> AbstractArray{T,N}
+    coefficients(S::Spline{N,T}) -> AbstractArray{T,N}
 
 Returns the array of B-spline coefficients of the spline.
 """
@@ -196,9 +196,9 @@ Base.size(S::Spline) = size(coefficients(S))
 
 Returns type of element returned when evaluating the [`Spline`](@ref).
 """
-Base.eltype(::Type{<:Spline{T}}) where {T} = T
+Base.eltype(::Type{<:Spline{N, T}}) where {N, T} = T
 
-Base.ndims(::Type{<:Spline{T, N}}) where {T, N} = N
+Base.ndims(::Type{<:Spline{N}}) where {N} = N
 Base.ndims(S::Spline) = ndims(typeof(S))
 
 """

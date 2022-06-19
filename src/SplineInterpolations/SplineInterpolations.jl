@@ -6,6 +6,7 @@ using ..Splines
 
 using BandedMatrices
 using LinearAlgebra
+using Base.Cartesian: @ntuple
 
 import ..BSplines:
     order, knots, basis
@@ -23,6 +24,9 @@ import Interpolations:
 
 export
     SplineInterpolation, spline, interpolate, interpolate!
+
+const BasisTuple{N} = Tuple{Vararg{AbstractBSplineBasis, N}} where {N}
+const CollocationPointTuple{N} = Tuple{Vararg{AbstractVector, N}} where {N}
 
 """
     SplineInterpolation
@@ -50,59 +54,83 @@ Use [`interpolate!`](@ref) to actually interpolate data known on the `x`
 locations.
 """
 struct SplineInterpolation{
-        S <: Spline,
-        F <: Factorization,
-        Points <: AbstractVector,
+        N,
+        S <: Spline{N},
+        Facts <: Tuple{Vararg{Factorization, N}},
+        Points <: Tuple{Vararg{AbstractVector, N}},
     } <: SplineWrapper{S}
 
     spline :: S
-    C :: F  # factorisation of collocation matrix
-    x :: Points
+    Cs :: Facts   # factorisation of collocation matrices
+    xs :: Points  # collocation points associated to each basis
 
     function SplineInterpolation(
-            B::AbstractBSplineBasis, C::Factorization, x::AbstractVector,
+            Bs::Tuple{Vararg{AbstractBSplineBasis, N}},
+            Cs::Tuple{Vararg{Factorization, N}},
+            xs::Tuple{Vararg{AbstractVector, N}},
             ::Type{T},
-        ) where {T}
-        N = length(B)
-        size(C) == (N, N) ||
-            throw(DimensionMismatch("collocation matrix has wrong dimensions"))
-        length(x) == N ||
-            throw(DimensionMismatch("wrong number of collocation points"))
-        s = Spline{T}(undef, B)  # uninitialised spline
-        new{typeof(s), typeof(C), typeof(x)}(s, C, x)
+        ) where {N, T}
+        foreach(Bs, Cs, xs) do B, C, x
+            M = length(B)
+            size(C) == (M, M) ||
+                throw(DimensionMismatch("collocation matrix has wrong dimensions"))
+            length(x) == M ||
+                throw(DimensionMismatch("wrong number of collocation points"))
+        end
+        s = Spline{N, T}(undef, Bs...)  # uninitialised spline
+        new{N, typeof(s), typeof(Cs), typeof(xs)}(s, Cs, xs)
     end
 end
 
-# Construct SplineInterpolation from basis and collocation points.
+# Construct SplineInterpolation from bases and collocation points.
 function SplineInterpolation(
-        ::UndefInitializer, B, x::AbstractVector{Tx}, ::Type{T},
-    ) where {Tx <: Real, T}
-    # Here we construct the collocation matrix and its LU factorisation.
-    N = length(B)
-    if length(x) != N
-        throw(DimensionMismatch(
-            "incompatible lengths of B-spline basis and collocation points"))
+        ::UndefInitializer, Bs::BasisTuple{N},
+        xs::CollocationPointTuple{N}, ::Type{T},
+    ) where {N, T}
+    Cs = map(Bs, xs) do B, x
+        if length(x) != length(B)
+            throw(DimensionMismatch(
+                "incompatible lengths of B-spline basis and collocation points"))
+        end
+        Tx = eltype(x)
+        Tc = float(Tx)
+        # Construct collocation matrix and its LU factorisation.
+        C = collocation_matrix(B, x, CollocationMatrix{Tc})
+        lu!(C)
     end
-    Tc = float(Tx)
-    C = collocation_matrix(B, x, CollocationMatrix{Tc})
-    SplineInterpolation(B, lu!(C), x, T)
+    SplineInterpolation(Bs, Cs, xs, T)
 end
 
-interpolation_points(S::SplineInterpolation) = S.x
+# For 1D interpolations
+function SplineInterpolation(
+        init, B::AbstractBSplineBasis, x::AbstractVector, ::Type{T},
+    ) where {T}
+    SplineInterpolation(init, (B,), (x,), T)
+end
 
-SplineInterpolation(init, B, x::AbstractVector) =
+interpolation_points(S::SplineInterpolation) = S.xs
+
+SplineInterpolation(init, B, x) =
     SplineInterpolation(init, B, x, eltype(x))
 
 function Base.show(io::IO, I::SplineInterpolation)
     println(io, nameof(typeof(I)), " containing the ", spline(I))
+    xs = interpolation_points(I)
     let io = IOContext(io, :compact => true, :limit => true)
-        println(io, " interpolation points: ", interpolation_points(I))
+        if length(xs) == 1
+            println(io, " interpolation points: ", xs[1])
+        else
+            println(io, " interpolation points:")
+            for (i, x) ∈ enumerate(xs)
+                println(io, "  ($i) ", x)
+            end
+        end
     end
     nothing
 end
 
 """
-    interpolate!(I::SplineInterpolation, y::AbstractVector)
+    interpolate!(I::SplineInterpolation{N}, y::AbstractArray{T,N})
 
 Update spline interpolation with new data.
 
@@ -112,13 +140,72 @@ previous call to [`interpolate`](@ref), using new data on the same locations
 
 See [`interpolate`](@ref) for details.
 """
-function interpolate!(I::SplineInterpolation, y::AbstractVector)
-    s = spline(I)
-    if length(y) != length(s)
-        throw(DimensionMismatch("input data has incorrect length"))
+function interpolate!(I::SplineInterpolation{N}, y::AbstractArray{T,N}) where {T,N}
+    if size(y) != size(I)
+        throw(DimensionMismatch("input data has incorrect dimensions"))
     end
-    ldiv!(coefficients(s), I.C, y)  # determine B-spline coefficients
+    _interpolate!(I, y)
+end
+
+# 1D case
+function _interpolate!(I::SplineInterpolation{1}, y::AbstractArray{T,1} where T)
+    s = spline(I)
+    C, = I.Cs  # this is a length-1 tuple
+    ldiv!(coefficients(s), C, y)  # determine B-spline coefficients
     I
+end
+
+# General ND case
+function _interpolate!(I::SplineInterpolation{N}, y::AbstractArray{T,N}) where {T,N}
+    @assert N > 1
+    s = spline(I)
+    Cs = I.Cs
+    coefs = coefficients(s)
+    _interpolate!(coefs, Cs, y)
+    I
+end
+
+@generated function _interpolate!(
+        coefs::AbstractArray{T, N},  # output coefficients
+        Cs::Tuple{Vararg{Factorization, N}},  # factorised collocation matrices
+        fdata::AbstractArray{T, N},  # input data
+    ) where {T, N}
+    @assert N ≥ 2
+
+    # Interpolate over first dimension
+    ex = quote
+        # Solve A * Y = B over dimension 1 (for each index j, k, …).
+        let Nx = size(coefs, 1)
+            A = first(Cs)
+            Y = reshape(coefs, Nx, :)
+            B = reshape(fdata, Nx, :)
+            ldiv!(Y, A, B)
+            # This is equivalent:
+            # for j ∈ axes(Y, 2)
+            #     @views ldiv!(Y[:, j], A, B[:, j])
+            # end
+        end
+    end
+
+    # Interpolate over other dimensions
+    for j = 2:N
+        ex = quote
+            $ex
+            let A = Cs[$j]
+                inds = axes(coefs)
+                inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))      # dims 1:(j - 1)
+                inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + j]))  # dims (j + 1):N
+                for J ∈ inds_r, I ∈ inds_l
+                    @views ldiv!(A, coefs[I, :, J])
+                end
+            end
+        end
+    end
+
+    quote
+        $ex
+        coefs
+    end
 end
 
 """
@@ -181,30 +268,46 @@ julia> (Derivative(2) * Snat)(-1)
 ```
 """
 function interpolate(
-        x::AbstractVector, y::AbstractVector, k::BSplineOrder,
+        xs::Tuple{Vararg{AbstractVector, N}},
+        y::AbstractArray{Ty, N},
+        k::BSplineOrder,
         ::Nothing = nothing,
-    )
-    t = make_knots(x, order(k))
-    B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
+    ) where {Ty, N}
+    Bs = map(xs) do x
+        t = make_knots(x, order(k))
+        BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
+    end
 
     # If input data is integer, convert the spline element type to float.
     # This also does the right thing when eltype(y) <: StaticArray.
-    T = float(eltype(y))
+    T = float(Ty)
 
-    itp = SplineInterpolation(undef, B, x, T)
+    itp = SplineInterpolation(undef, Bs, xs, T)
     interpolate!(itp, y)
 end
 
 function interpolate(
-        x::AbstractVector, y::AbstractVector, k::BSplineOrder, bc::Natural,
-    )
+        xs::Tuple{Vararg{AbstractVector, N}},
+        y::AbstractArray{Ty, N},
+        k::BSplineOrder,
+        bc::Natural,
+    ) where {Ty, N}
     # For natural BCs, the number of required unique knots is equal to the
     # number of data points, and therefore we just make them equal.
-    B = BSplineBasis(k, copy(x))  # note that this modifies x, so we create a copy...
-    R = RecombinedBSplineBasis(bc, B)
-    T = float(eltype(y))
-    itp = SplineInterpolation(undef, R, x, T)
+    Rs = map(xs) do x
+        B = BSplineBasis(k, copy(x))  # note that this modifies x, so we create a copy...
+        RecombinedBSplineBasis(bc, B)
+    end
+    T = float(Ty)
+    itp = SplineInterpolation(undef, Rs, xs, T)
     interpolate!(itp, y)
+end
+
+# For 1D interpolations
+function interpolate(
+        x::AbstractVector, y::AbstractVector, k::BSplineOrder, args...,
+    )
+    interpolate((x,), y, k, args...)
 end
 
 # Define B-spline knots from collocation points and B-spline order.

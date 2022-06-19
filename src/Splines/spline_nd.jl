@@ -6,8 +6,8 @@
 # Note that the evaluation of B-splines is by far the most expensive, so I'm not
 # sure we can do much better.
 function _evaluate_tensor_product(
-        Bs::BasisTuple{N}, S::Spline{T, N}, xs::Tuple{Vararg{Any,N}},
-    ) where {T, N}
+        Bs::BasisTuple{N}, S::Spline{N, T}, xs::Tuple{Vararg{Any,N}},
+    ) where {N, T}
     @assert N ≥ 2  # there's a separate function for the case N = 1
     @assert Bs === bases(S)
     coefs = coefficients(S)

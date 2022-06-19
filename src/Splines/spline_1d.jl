@@ -1,9 +1,9 @@
 """
     Spline1D
 
-Alias for `Spline{T, 1}`, representing a one-dimensional spline.
+Alias for `Spline{1}`, representing a one-dimensional spline.
 """
-const Spline1D = Spline{<:Any, 1}
+const Spline1D = Spline{1}
 
 """
     basis(S::Spline1D)
@@ -108,7 +108,7 @@ See also [`diff`](@ref).
 julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
 
 julia> S = Spline(B, rand(length(B)))
-13-element Spline{Float64, 1}:
+13-element Spline{1, Float64}:
  basis: 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
@@ -118,14 +118,14 @@ julia> Derivative(0) * S === S
 true
 
 julia> Derivative(1) * S
-12-element Spline{Float64, 1}:
+12-element Spline{1, Float64}:
  basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
  coefficients: [2.22131, -0.473071, -0.460734, 1.80288, -0.219964, -0.461794, 2.0605, -0.403899, -1.74818, -1.71081, 0.368613, 8.76636]
 
 julia> Derivative(2) * S
-11-element Spline{Float64, 1}:
+11-element Spline{1, Float64}:
  basis: 11-element BSplineBasis of order 2, domain [-1.0, 1.0]
  order: 2
  knots: [-1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0]
