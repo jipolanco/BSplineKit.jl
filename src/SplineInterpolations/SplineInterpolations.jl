@@ -101,17 +101,22 @@ function SplineInterpolation(
     SplineInterpolation(Bs, Cs, xs, T)
 end
 
+function SplineInterpolation(
+        init, Bs::Tuple{Vararg{AbstractBSplineBasis}},
+        xs::Tuple{Vararg{AbstractVector}},
+    )
+    T = promote_type(map(eltype, xs)...)
+    SplineInterpolation(init, Bs, xs, T)
+end
+
 # For 1D interpolations
 function SplineInterpolation(
-        init, B::AbstractBSplineBasis, x::AbstractVector, ::Type{T},
-    ) where {T}
-    SplineInterpolation(init, (B,), (x,), T)
+        init, B::AbstractBSplineBasis, x::AbstractVector, args...,
+    )
+    SplineInterpolation(init, (B,), (x,), args...)
 end
 
 interpolation_points(S::SplineInterpolation) = S.xs
-
-SplineInterpolation(init, B, x) =
-    SplineInterpolation(init, B, x, eltype(x))
 
 function Base.show(io::IO, I::SplineInterpolation)
     println(io, nameof(typeof(I)), " containing the ", spline(I))

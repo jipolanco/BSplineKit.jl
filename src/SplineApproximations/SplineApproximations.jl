@@ -120,8 +120,11 @@ julia> x = 0.34; exp(x), S_opt(x), S_interp(x), S_fast(x)
 (1.4049475905635938, 1.4044530324752076, 1.4044149581073813, 1.4328668494041878)
 ```
 """
-approximate(f, B::AbstractBSplineBasis) =
-    approximate(f, B, ApproxByInterpolation(B))
+approximate(f::F, Bs::Tuple{Vararg{AbstractBSplineBasis}}) where {F} =
+    approximate(f, Bs, ApproxByInterpolation(Bs))
+
+approximate(f::F, B::AbstractBSplineBasis, args...) where {F} =
+    approximate(f, (B,), args...)
 
 """
     approximate!(f, A::SplineApproximation)
@@ -131,7 +134,7 @@ basis.
 
 See [`approximate`](@ref) for details.
 """
-approximate!(f, A::SplineApproximation) = _approximate!(f, A, method(A))
+approximate!(f::F, A::SplineApproximation) where {F} = _approximate!(f, A, method(A))
 
 include("variation_diminishing.jl")
 include("by_interpolation.jl")
