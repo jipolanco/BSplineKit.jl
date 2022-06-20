@@ -95,7 +95,7 @@ function _approximate_L2!(
     ) where {F}
     galerkin_projection!(f, cs, Bs)  # computes rhs onto cs
     ldiv!(first(Ms), cs)  # now cs = M \ rhs
-    nothing
+    cs
 end
 
 # N-D case

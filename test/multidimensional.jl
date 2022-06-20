@@ -62,17 +62,29 @@ function test_polynomial_multidim(::Val{N}, ord::BSplineOrder) where {N}
             MinimiseL2Error(),
         )
 
-        # The approximation must exactly match the original polynomial (up to
-        # roundoff error).
+        # With the interpolation and the minimisation methods, the approximation
+        # must exactly match the original polynomial (up to roundoff error).
         @testset "$(nameof(typeof(m)))" for m ∈ methods
-            g = approximate(f, Bs, m)
+            g = @inferred approximate(f, Bs, m)
             rng = MersenneTwister(43)
             @test all(1:100) do _  # evaluate at 100 random points
                 xs = randpoint(rng, limits)
                 f(xs...) ≈ g(xs...)
             end
         end
+
+        # Test variation diminishing approximation method.
+        # From de Boor (chapter XI, p. 141), one of the properties of this
+        # method is that it preserves positivity of the function (as well as
+        # things like convexity and "monotonicity").
+        # We try to approximate the non-negative function |f(x)|.
+        @testset "VariationDiminishing" begin
+            g = @inferred approximate(abs ∘ f, Bs, VariationDiminishing())
+            @test all(≥(0), coefficients(g))  # this implies that the spline is non-negative
+        end
     end
+
+    nothing
 end
 
 @testset "Tensor-product splines ($N-D)" for N ∈ (2, 3)
