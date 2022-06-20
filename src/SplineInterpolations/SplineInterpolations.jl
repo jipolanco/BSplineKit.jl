@@ -198,8 +198,8 @@ end
             $ex
             let A = Cs[$j]
                 inds = axes(coefs)
-                inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))      # dims 1:(j - 1)
-                inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + j]))  # dims (j + 1):N
+                inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))       # dims 1:(j - 1)
+                inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + $j]))  # dims (j + 1):N
                 for J ∈ inds_r, I ∈ inds_l
                     @views ldiv!(A, coefs[I, :, J])
                 end
