@@ -50,9 +50,7 @@ function galerkin_projection!(
         f::F, φ::AbstractVector, B::AbstractBSplineBasis, deriv = Derivative(0),
     ) where {F}
     N = length(B)
-    if length(φ) != N
-        throw(DimensionMismatch("incorrect length of output vector φ"))
-    end
+    length(φ) == N || throw(DimensionMismatch("incorrect length of output vector φ"))
     Base.require_one_based_indexing(φ)
 
     k = order(B)
@@ -104,9 +102,7 @@ function galerkin_projection!(
         derivs::Tuple{Vararg{Derivative, N}} = ntuple(_ -> Derivative(0), Val(N)),
     ) where {F, T, N}
     dims = map(length, Bs)
-    if size(φ) ≠ dims
-        throw(DimensionMismatch("incorrect length of output vector φ"))
-    end
+    size(φ) == dims || throw(DimensionMismatch("incorrect length of output vector φ"))
     Base.require_one_based_indexing(φ)
 
     ks_all = map(order, Bs)

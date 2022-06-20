@@ -66,6 +66,8 @@ function test_polynomial_multidim(::Val{N}, ord::BSplineOrder) where {N}
         # must exactly match the original polynomial (up to roundoff error).
         @testset "$(nameof(typeof(m)))" for m ∈ methods
             g = @inferred approximate(f, Bs, m)
+            @test ndims(g) == N
+            @test startswith(repr(g), "SplineApproximation containing")
             rng = MersenneTwister(43)
             @test all(1:100) do _  # evaluate at 100 random points
                 xs = randpoint(rng, limits)
