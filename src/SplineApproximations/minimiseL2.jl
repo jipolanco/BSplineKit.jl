@@ -8,6 +8,8 @@ using LinearAlgebra:
     Cholesky,
     ldiv!
 
+using Base.Cartesian: @ntuple
+
 @doc raw"""
     MinimiseL2Error <: AbstractApproxMethod
 
@@ -52,16 +54,27 @@ to yield a very good approximation of the integral, and thus of the optimal coef
 """
 struct MinimiseL2Error <: AbstractApproxMethod end
 
-function approximate(f::F, B::AbstractBSplineBasis, m::MinimiseL2Error) where {F}
-    T = typeof(f(first(knots(B))))
-    S = Spline(undef, B, T)
-    M = galerkin_matrix(B)  # by default it's a BandedMatrix
+function approximate(
+        f::F, Bs::Tuple{Vararg{AbstractBSplineBasis}},
+        m::MinimiseL2Error,
+    ) where {F}
+    xtest = map(B -> first(knots(B)), Bs)  # test coordinate for determining types
+    T = typeof(f(xtest...))
+    S = Spline(undef, Bs, T)
 
-    # We annotate the return type to avoid inference issue in ArrayLayouts...
-    # https://github.com/JuliaMatrices/ArrayLayouts.jl/issues/66
-    Mfact = cholesky!(M) :: Cholesky{eltype(M), typeof(parent(M))}
+    Mfact = map(Bs) do B
+        M = galerkin_matrix(B)  # by default this is a BandedMatrix
+        cholesky!(M)
+    end
 
-    data = (; M = Mfact)
+    if length(Bs) ≥ 2
+        coefs = coefficients(S)
+        buf = similar(coefs, max(size(S)...))  # temporary buffer for linear systems
+    else
+        buf = nothing
+    end
+
+    data = (; Ms = Mfact, buf)
     A = SplineApproximation(m, S, data)
     approximate!(f, A)
 end
@@ -70,7 +83,80 @@ function _approximate!(f::F, A, m::MinimiseL2Error) where {F}
     @assert method(A) === m
     S = spline(A)
     cs = coefficients(S)
-    galerkin_projection!(f, cs, basis(S))  # computes rhs onto cs
-    ldiv!(data(A).M, cs)  # now cs = M \ rhs
+    Bs = Splines.bases(S)
+    _approximate_L2!(f, cs, Bs, data(A).Ms, data(A).buf)
     A
+end
+
+# 1D case
+function _approximate_L2!(
+        f::F, cs::AbstractVector, Bs::NTuple{1}, Ms::NTuple{1},
+        ::Nothing,
+    ) where {F}
+    galerkin_projection!(f, cs, Bs)  # computes rhs onto cs
+    ldiv!(first(Ms), cs)  # now cs = M \ rhs
+    nothing
+end
+
+# N-D case
+@generated function _approximate_L2!(
+        f::F, coefs::AbstractArray{T, N},
+        Bs::Tuple{Vararg{AbstractBSplineBasis, N}},
+        Ms::Tuple{Vararg{Cholesky, N}},
+        buf::AbstractVector{T},
+    ) where {F, T, N}
+    @assert N ≥ 2
+
+    # The idea is similar to multidimensional interpolations
+    ex = quote
+        # We first project the function `f` onto the tensor-product B-spline basis.
+        galerkin_projection!(f, coefs, Bs)  # computes rhs onto coefs
+
+        # Approximate over first dimension
+        # Solve A * Y = B over dimension 1 (for each index j, k, …), overwriting `coefs`.
+        let Nx = size(coefs, 1)
+            A = first(Ms)
+            Y = reshape(coefs, Nx, :)
+            ldiv!(A, Y)
+            # This is equivalent:
+            # for j ∈ axes(Y, 2)
+            #     @views ldiv!(A, Y[:, j])
+            # end
+        end
+    end
+
+    # Approximate over other dimensions
+    for j = 2:N
+        ex = quote
+            $ex
+            @inbounds let A = Ms[$j]
+                inds = axes(coefs)
+                inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))       # dims 1:(j - 1)
+                inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + $j]))  # dims (j + 1):N
+                Base.require_one_based_indexing(buf)
+                @assert length(buf) ≥ length(inds[$j])
+                utmp = view(buf, inds[$j])
+
+                for J ∈ inds_r, I ∈ inds_l
+                    # NOTE: the following line gives a wrong result when A is a
+                    # Cholesky decomposition of a BandedMatrix. The problem
+                    # seems to be that BandedMatrices.jl wrongly calls a LAPACK
+                    # function which assumes that the output is contiguous,
+                    # which is not the case here.
+                    # @views ldiv!(A, coefs[I, :, J])
+
+                    # The alternative is to copy to a contiguous buffer...
+                    coefs_ij = @view coefs[I, :, J]
+                    copy!(utmp, coefs_ij)
+                    ldiv!(A, utmp)
+                    copy!(coefs_ij, utmp)
+                end
+            end
+        end
+    end
+
+    quote
+        $ex
+        coefs
+    end
 end
