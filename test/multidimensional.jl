@@ -59,7 +59,7 @@ function test_polynomial_multidim(::Val{N}, ord::BSplineOrder) where {N}
 
         methods = (
             ApproxByInterpolation(Bs),
-            # MinimiseL2Error(),
+            MinimiseL2Error(),
         )
 
         # The approximation must exactly match the original polynomial (up to
