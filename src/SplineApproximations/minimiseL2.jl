@@ -117,11 +117,9 @@ end
         let Nx = size(coefs, 1)
             A = first(Ms)
             Y = reshape(coefs, Nx, :)
-            ldiv!(A, Y)
-            # This is equivalent:
-            # for j ∈ axes(Y, 2)
-            #     @views ldiv!(A, Y[:, j])
-            # end
+            for j ∈ axes(Y, 2)
+                @views ldiv!(A, Y[:, j])
+            end
         end
     end
 

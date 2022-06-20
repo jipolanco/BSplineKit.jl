@@ -184,11 +184,9 @@ end
             A = first(Cs)
             Y = reshape(coefs, Nx, :)
             B = reshape(fdata, Nx, :)
-            ldiv!(Y, A, B)
-            # This is equivalent:
-            # for j ∈ axes(Y, 2)
-            #     @views ldiv!(Y[:, j], A, B[:, j])
-            # end
+            for j ∈ axes(Y, 2)
+                @views ldiv!(Y[:, j], A, B[:, j])
+            end
         end
     end
 
@@ -201,7 +199,8 @@ end
                 inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))       # dims 1:(j - 1)
                 inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + $j]))  # dims (j + 1):N
                 for J ∈ inds_r, I ∈ inds_l
-                    @views ldiv!(A, coefs[I, :, J])
+                    coefs_ij = @view coefs[I, :, J]
+                    ldiv!(A, coefs_ij)
                 end
             end
         end
