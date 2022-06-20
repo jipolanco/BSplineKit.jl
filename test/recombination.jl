@@ -5,13 +5,26 @@ function test_nzrows(A::RecombineMatrix)
         S = sparse(A)
         rows = rowvals(S)
         vals = nonzeros(S)
-        for j in axes(A, 2)
+
+        @test all(axes(A, 2)) do j
             ra = nzrows(A, j)
             rs = nzrange(S, j)
-            @test length(ra) == length(rs)  # same number of non-zero rows
-            for (ia, is) in zip(ra, rs)
-                @test ia == rows[is]        # same non-zero rows
-                @test A[ia, j] == vals[is]  # same values
+            length(ra) == length(rs)  # same number of non-zero rows
+        end
+
+        @test all(axes(A, 2)) do j
+            ra = nzrows(A, j)
+            rs = nzrange(S, j)
+            all(zip(ra, rs)) do (ia, is)
+                ia == rows[is]        # same non-zero rows
+            end
+        end
+
+        @test all(axes(A, 2)) do j
+            ra = nzrows(A, j)
+            rs = nzrange(S, j)
+            all(zip(ra, rs)) do (ia, is)
+                A[ia, j] == vals[is]  # same values
             end
         end
     end
@@ -248,8 +261,6 @@ function test_basis_recombination()
 
         let
             N = length(R)
-            a, b = boundaries(R)
-            cl, cr = constraints(R)
             for f ∈ (repr, summary)
                 @test startswith(
                     f(R), "$N-element RecombinedBSplineBasis of order $k",
