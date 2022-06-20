@@ -47,8 +47,8 @@ end
 
 # 1D case
 function _approximate_VD!(
-        f::F, cs::AbstractVector, Bs::NTuple{1},
-    ) where {F}
+        f::F, cs::AbstractArray{T, 1}, Bs::Tuple{AbstractBSplineBasis},
+    ) where {F, T}
     B = first(Bs)
     for (i, x) in zip(eachindex(cs), GrevilleSiteIterator(B))
         @inbounds cs[i] = f(x)
