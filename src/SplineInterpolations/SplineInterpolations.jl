@@ -170,47 +170,34 @@ function _interpolate!(I::SplineInterpolation{N}, y::AbstractArray{T,N}) where {
     I
 end
 
-@generated function _interpolate!(
+@inline function _interpolate!(
         coefs::AbstractArray{T, N},  # output coefficients
         Cs::Tuple{Vararg{Factorization, N}},  # factorised collocation matrices
         fdata::AbstractArray{T, N},  # input data
     ) where {T, N}
     @assert N ≥ 2
-
-    # Interpolate over first dimension
-    ex = quote
-        # Solve A * Y = B over dimension 1 (for each index j, k, …).
-        let Nx = size(coefs, 1)
-            A = first(Cs)
-            Y = reshape(coefs, Nx, :)
-            B = reshape(fdata, Nx, :)
-            for j ∈ axes(Y, 2)
-                @views ldiv!(Y[:, j], A, B[:, j])
-            end
-        end
-    end
-
-    # Interpolate over other dimensions
-    for j = 2:N
-        ex = quote
-            $ex
-            let A = Cs[$j]
-                inds = axes(coefs)
-                inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))       # dims 1:(j - 1)
-                inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + $j]))  # dims (j + 1):N
-                for J ∈ inds_r, I ∈ inds_l
-                    coefs_ij = @view coefs[I, :, J]
-                    ldiv!(A, coefs_ij)
-                end
-            end
-        end
-    end
-
-    quote
-        $ex
-        coefs
-    end
+    _interpolate_dim!(coefs, fdata, Cs...)
 end
+
+# Interpolate over dimension j
+# Note that coefs and rhs may be aliased (point to the same data).
+@inline function _interpolate_dim!(coefs, rhs, Cj, Cnext...)
+    N = ndims(coefs)
+    R = length(Cnext)
+    j = N - R
+    L = j - 1
+    inds = axes(coefs)
+    inds_l = CartesianIndices(ntuple(d -> @inbounds(inds[d]), Val(L)))
+    inds_r = CartesianIndices(ntuple(d -> @inbounds(inds[j + d]), Val(R)))
+    @inbounds for J ∈ inds_r, I ∈ inds_l
+        coefs_ij = @view coefs[I, :, J]
+        rhs_ij = @view rhs[I, :, J]
+        ldiv!(coefs_ij, Cj, rhs_ij)
+    end
+    _interpolate_dim!(coefs, coefs, Cnext...)
+end
+
+@inline _interpolate_dim!(coefs, rhs) = coefs
 
 """
     interpolate(x, y, BSplineOrder(k), [bc = nothing])
