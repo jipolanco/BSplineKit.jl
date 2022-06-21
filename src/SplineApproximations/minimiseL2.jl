@@ -99,7 +99,7 @@ function _approximate_L2!(
 end
 
 # N-D case
-@generated function _approximate_L2!(
+@inline function _approximate_L2!(
         f::F, coefs::AbstractArray{T, N},
         Bs::Tuple{Vararg{AbstractBSplineBasis, N}},
         Ms::Tuple{Vararg{Cholesky, N}},
@@ -107,54 +107,45 @@ end
     ) where {F, T, N}
     @assert N ≥ 2
 
-    # The idea is similar to multidimensional interpolations
-    ex = quote
-        # We first project the function `f` onto the tensor-product B-spline basis.
-        galerkin_projection!(f, coefs, Bs)  # computes rhs onto coefs
+    # We first project the function `f` onto the tensor-product B-spline basis.
+    galerkin_projection!(f, coefs, Bs)  # computes rhs onto coefs
 
-        # Approximate over first dimension
-        # Solve A * Y = B over dimension 1 (for each index j, k, …), overwriting `coefs`.
-        let Nx = size(coefs, 1)
-            A = first(Ms)
-            Y = reshape(coefs, Nx, :)
-            for j ∈ axes(Y, 2)
-                @views ldiv!(A, Y[:, j])
-            end
-        end
-    end
-
-    # Approximate over other dimensions
-    for j = 2:N
-        ex = quote
-            $ex
-            @inbounds let A = Ms[$j]
-                inds = axes(coefs)
-                inds_l = CartesianIndices(@ntuple($(j - 1), d -> inds[d]))       # dims 1:(j - 1)
-                inds_r = CartesianIndices(@ntuple($(N - j), d -> inds[d + $j]))  # dims (j + 1):N
-                Base.require_one_based_indexing(buf)
-                @assert length(buf) ≥ length(inds[$j])
-                utmp = view(buf, inds[$j])
-
-                for J ∈ inds_r, I ∈ inds_l
-                    # NOTE: the following line gives a wrong result when A is a
-                    # Cholesky decomposition of a BandedMatrix. The problem
-                    # seems to be that BandedMatrices.jl wrongly calls a LAPACK
-                    # function which assumes that the output is contiguous,
-                    # which is not the case here.
-                    # @views ldiv!(A, coefs[I, :, J])
-
-                    # The alternative is to copy to a contiguous buffer...
-                    coefs_ij = @view coefs[I, :, J]
-                    copy!(utmp, coefs_ij)
-                    ldiv!(A, utmp)
-                    copy!(coefs_ij, utmp)
-                end
-            end
-        end
-    end
-
-    quote
-        $ex
-        coefs
-    end
+    # The rest is quite similar to multidimensional interpolations.
+    _approximate_L2_dim!(coefs, buf, Ms...)
 end
+
+# This is really similar to `_interpolate_dim!`.
+# There are small differences due to Cj being the Cholesky factorisation of a
+# BandedMatrix (and thus we need a contiguous buffer).
+@inline function _approximate_L2_dim!(coefs, buf, Cj, Cnext...)
+    N = ndims(coefs)
+    R = length(Cnext)
+    j = N - R
+    L = j - 1
+    inds = axes(coefs)
+    inds_l = CartesianIndices(ntuple(d -> @inbounds(inds[d]), Val(L)))
+    inds_r = CartesianIndices(ntuple(d -> @inbounds(inds[j + d]), Val(R)))
+
+    Base.require_one_based_indexing(buf)
+    @assert length(buf) ≥ length(inds[j])
+    utmp = view(buf, inds[j])
+
+    @inbounds for J ∈ inds_r, I ∈ inds_l
+        # NOTE: the following line gives a wrong result when A is a Cholesky
+        # decomposition of a BandedMatrix. The problem seems to be that
+        # BandedMatrices.jl wrongly calls a LAPACK function which assumes that
+        # the output is contiguous, which is not the case here.
+        #
+        # @views ldiv!(A, coefs[I, :, J])
+
+        # The alternative is to copy to a contiguous buffer...
+        coefs_ij = @view coefs[I, :, J]
+        copy!(utmp, coefs_ij)
+        ldiv!(Cj, utmp)
+        copy!(coefs_ij, utmp)
+    end
+
+    _approximate_L2_dim!(coefs, buf, Cnext...)
+end
+
+@inline _approximate_L2_dim!(coefs, buf) = coefs
