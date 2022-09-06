@@ -132,7 +132,7 @@ julia> Derivative(2) * S
  coefficients: [-26.9438, 0.0616849, 11.3181, -10.1142, -1.20915, 12.6114, -12.322, -6.72141, 0.186876, 10.3971, 83.9775]
 ```
 """
-Base.:*(op::Derivative, S::Spline1D) = _diff(basis(S), S, op)
+Base.:*(op::Derivative, S::Spline1D) = _derivative(basis(S), S, op)
 
 """
     diff(S::Spline1D, [op::Derivative = Derivative(1)]) -> Spline1D
@@ -143,11 +143,11 @@ Returns `N`-th derivative of spline `S` as a new spline.
 """
 Base.diff(S::Spline, op = Derivative(1)) = op * S
 
-_diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
+_derivative(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
 
-_diff(::BSplineBasis, S::Spline1D, ::Derivative{0}) = S
+_derivative(::BSplineBasis, S::Spline1D, ::Derivative{0}) = S
 
-function _diff(
+function _derivative(
         B::BSplineBasis, S::Spline1D, ::Derivative{Ndiff} = Derivative(1),
     ) where {Ndiff}
     Ndiff :: Integer
