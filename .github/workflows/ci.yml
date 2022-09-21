@@ -73,7 +73,13 @@ jobs:
             using Documenter: doctest, DocMeta
             using BSplineKit
             DocMeta.setdocmeta!(
-                BSplineKit, :DocTestSetup, :(using BSplineKit); recursive=true,
+                BSplineKit, :DocTestSetup,
+                quote
+                    using BSplineKit
+                    using Random
+                    Random.seed!(42)
+                end;
+                recursive=true,
             )
             DocMeta.setdocmeta!(
                 BSplineKit.BandedTensors, :DocTestSetup,

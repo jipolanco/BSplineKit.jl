@@ -174,7 +174,7 @@ end
 
 """
     knots(g::BSplineBasis)
-    knots(g::Spline)
+    knots(g::Spline1D)
 
 Returns the knots of the B-spline basis.
 """

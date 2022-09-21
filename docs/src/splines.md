@@ -8,10 +8,14 @@ CurrentModule = BSplineKit.Splines
 
 ```@docs
 Spline
+Spline1D
 coefficients
 eltype(::Spline)
 length(::Spline)
-basis(::Spline)
+size(::Spline)
+ndims(::Spline)
+bases(::Spline)
+basis(::Spline1D)
 ```
 
 ## Derivatives and integrals

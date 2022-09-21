@@ -26,8 +26,9 @@ function test_interpolation(ord::BSplineOrder, ::Type{Ty} = Float64) where {Ty}
     if iseven(k)
         @testset "Natural BCs" begin
             S = @inferred interpolate(xs, ys, ord, Natural())
+            B = basis(S)
             @test S.(xs) ≈ ys
-            ts = @inferred knots(S)
+            ts = @inferred knots(B)
             Nt = length(ts)
             ts_unique = view(ts, k:(Nt - k + 1))
             @test allunique(ts_unique)

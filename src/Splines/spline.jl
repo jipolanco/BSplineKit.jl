@@ -1,104 +1,176 @@
 using StaticArrays: MVector
 
-"""
-    Spline{T}
+const BasisTuple{N} = Tuple{Vararg{AbstractBSplineBasis, N}} where {N}
 
-Represents a spline function.
+"""
+    Spline{N, T}
+
+Represents an ``N``-dimensional spline function which returns values of type `T`.
+
+For ``N ≥ 2``, this is a tensor-product spline.
+That is, the spline space is given by the tensor product of ``N``
+one-dimensional spline spaces.
 
 ---
 
     Spline(B::AbstractBSplineBasis, coefs::AbstractVector)
 
-Construct a spline from a B-spline basis and a vector of B-spline coefficients.
+Construct a 1D spline from a B-spline basis and a vector of B-spline coefficients.
+
+The spline can be then evaluated at any point `x` within the domain.
 
 # Examples
 
-```jldoctest; filter = r"coefficients: \\[.*\\]"
+## 1D splines
+
+```jldoctest; setup = :( Random.seed!(42) )
 julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
 
 julia> coefs = rand(length(B));
 
 julia> S = Spline(B, coefs)
-13-element Spline{Float64}:
+13-element Spline{1, Float64}:
  basis: 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
- coefficients: [0.815921, 0.076499, 0.433472, 0.672844, 0.468371, 0.348423, 0.868621, 0.0831675, 0.369734, 0.401199, 0.990734, 0.565907, 0.984855]
+ coefficients: [0.173575, 0.321662, 0.258585, 0.166439, 0.527015, 0.483022, 0.390663, 0.802763, 0.721983, 0.372347, 0.0301856, 0.0793339, 0.663758]
+
+julia> S(0.42)  # evaluate spline
+0.6543543311366747
+
+julia> S′ = Derivative(1) * S  # spline derivative
+12-element Spline{1, Float64}:
+ basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
+ order: 3
+ knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
+ coefficients: [2.22131, -0.473071, -0.460734, 1.80288, -0.219964, -0.461794, 2.0605, -0.403899, -1.74818, -1.71081, 0.368613, 8.76636]
+
+julia> Sint = integral(S)  # spline integral
+14-element Spline{1, Float64}:
+ basis: 14-element BSplineBasis of order 5, domain [-1.0, 1.0]
+ order: 5
+ knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0, 1.0]
+ coefficients: [0.0, 0.00867873, 0.0408449, 0.0796327, 0.11292, 0.218323, 0.314928, 0.393061, 0.553613, 0.69801, 0.772479, 0.777007, 0.78494, 0.818128]
+```
+
+## Multidimensional (tensor-product) splines
+
+```jldoctest; setup = :( Random.seed!(42) )
+julia> Bx = BSplineBasis(BSplineOrder(4), -1:0.2:1)
+13-element BSplineBasis of order 4, domain [-1.0, 1.0]
+ knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+
+julia> By = BSplineBasis(BSplineOrder(6), 0:0.05:1)
+25-element BSplineBasis of order 6, domain [0.0, 1.0]
+ knots: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.1, 0.15, 0.2  …  0.8, 0.85, 0.9, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+julia> coefs = rand(length(Bx), length(By));
+
+julia> S = Spline((Bx, By), coefs)
+13×25 Spline{2, Float64}:
+ bases:
+   (1) 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
+   (2) 25-element BSplineBasis of order 6, domain [0.0, 1.0]
+ knots:
+   (1) [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+   (2) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.1, 0.15, 0.2  …  0.8, 0.85, 0.9, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+ coefficients: [0.173575 0.183429 … 0.00993008 0.320248; 0.321662 0.347508 … 0.251083 0.346025; … ; 0.433914 0.895838 … 0.483176 0.0793339; 0.211228 0.580212 … 0.425628 0.663758]
+
+julia> S(-0.32, 0.54)
+0.38520723534067336
 ```
 
 ---
 
-    Spline{T = Float64}(undef, B::AbstractBSplineBasis)
+    Spline(undef, B::AbstractBSplineBasis, [T = Float64])
+    Spline(undef, (Bx, By, …), [T = Float64])
 
 Construct a spline with uninitialised vector of coefficients.
 
----
+In the second case, a tensor-product multidimensional spline is constructed.
 
-    (S::Spline)(x)
-
-Evaluate spline at coordinate `x`.
+The optional parameter `T` corresponds to the returned type when the spline is
+evaluated.
 """
 struct Spline{
+        N,  # spline dimension
         T,  # type of coefficient (e.g. Float64, ComplexF64)
-        Basis <: AbstractBSplineBasis,
-        CoefVector <: AbstractVector{T},
+        Bases <: BasisTuple{N},
+        CoefArray <: AbstractArray{T, N},
     }
-    basis :: Basis
-    coefs :: CoefVector
+    bases :: Bases
+    coefs :: CoefArray
 
-    function Spline(B::AbstractBSplineBasis, coefs::AbstractVector)
-        length(coefs) == length(B) ||
+    function Spline(
+            Bs::BasisTuple{N},
+            coefs::AbstractArray{T, N},
+        ) where {T, N}
+        size(coefs) == length.(Bs) ||
             throw(ArgumentError("wrong number of coefficients"))
-        Basis = typeof(B)
-        T = eltype(coefs)
-        CoefVector = typeof(coefs)
-        k = order(B)
-        @assert k >= 1
-        new{T, Basis, CoefVector}(B, coefs)
+        Bases = typeof(Bs)
+        CoefArray = typeof(coefs)
+        @assert all(B -> order(B) ≥ 1, Bs)
+        new{N, T, Bases, CoefArray}(Bs, coefs)
     end
 end
 
+Spline(B::AbstractBSplineBasis, args...) = Spline((B,), args...)
+
 Broadcast.broadcastable(S::Spline) = Ref(S)
 
-Base.copy(S::Spline) = Spline(basis(S), copy(coefficients(S)))
+Base.copy(S::Spline) = Spline(bases(S), copy(coefficients(S)))
 
 function Base.show(io::IO, S::Spline)
-    println(io, length(S), "-element ", nameof(typeof(S)), '{', eltype(S), '}', ':')
-    print(io, " basis: ")
-    summary(io, basis(S))
-    println(io, "\n order: ", order(S))
-    let io = IOContext(io, :compact => true, :limit => true)
-        println(io, " knots: ", knots(S))
-        print(io, " coefficients: ", coefficients(S))
+    T = eltype(S)
+    N = ndims(S)
+    println(io, Base.dims2string(size(S)), ' ', nameof(typeof(S)), "{$N, $T}", ':')
+    if N == 1
+        print(io, " basis: ")
+        summary(io, first(bases(S)))
+        println(io, "\n order: ", first(orders(S)))
+        let io = IOContext(io, :compact => true, :limit => true)
+            println(io, " knots: ", knots(S))
+            print(io, " coefficients: ", coefficients(S))
+        end
+    else
+        print(io, " bases:\n")
+        for (n, B) ∈ enumerate(bases(S))
+            print(io, "   ($n) ")
+            summary(io, B)
+            print(io, '\n')
+        end
+        let io = IOContext(io, :compact => true, :limit => true)
+            print(io, " knots:\n")
+            for (n, ts) ∈ enumerate(allknots(S))
+                print(io, "   ($n) ", ts, '\n')
+            end
+            print(io, " coefficients: ", coefficients(S))
+        end
     end
     nothing
 end
 
 Base.:(==)(P::Spline, Q::Spline) =
-    basis(P) == basis(Q) && coefficients(P) == coefficients(Q)
+    bases(P) == bases(Q) && coefficients(P) == coefficients(Q)
 
 Base.isapprox(P::Spline, Q::Spline; kwargs...) =
-    basis(P) == basis(Q) &&
+    bases(P) == bases(Q) &&
     isapprox(coefficients(P), coefficients(Q); kwargs...)
 
-function Spline{T}(init, B::AbstractBSplineBasis) where {T}
-    coefs = Vector{T}(init, length(B))
-    Spline(B, coefs)
+function Spline(init, Bs::Tuple{Vararg{AbstractBSplineBasis}}, ::Type{T}) where {T}
+    coefs = Array{T}(init, map(length, Bs))
+    Spline(Bs, coefs)
 end
 
-Spline(init, B::AbstractBSplineBasis) = Spline{Float64}(init, B)
+Spline(init, Bs::Tuple{Vararg{AbstractBSplineBasis}}) = Spline(init, Bs, Float64)
 
-# TODO deprecate?
-Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T} =
-    Spline{T}(init, B)
-
-parent_spline(S::Spline) = parent_spline(basis(S), S)
-parent_spline(::BSplineBasis, S::Spline) = S
+# For 1D splines
+Spline(init, B::AbstractBSplineBasis, args...) = Spline(init, (B,), args...)
 
 """
-    coefficients(S::Spline)
+    coefficients(S::Spline{N,T}) -> AbstractArray{T,N}
 
-Get B-spline coefficients of the spline.
+Returns the array of B-spline coefficients of the spline.
 """
 coefficients(S::Spline) = S.coefs
 
@@ -107,9 +179,17 @@ coefficients(S::Spline) = S.coefs
 
 Returns the number of coefficients in the spline.
 
-Note that this is equal to the number of basis functions, `length(basis(S))`.
+For 1D splines, this is equal to the number of basis functions,
+`length(first(bases(S)))`.
 """
 Base.length(S::Spline) = length(coefficients(S))
+
+"""
+    size(S::Spline)
+
+Same as `size(coefficients(S))`.
+"""
+Base.size(S::Spline) = size(coefficients(S))
 
 """
     eltype(::Type{<:Spline})
@@ -117,233 +197,29 @@ Base.length(S::Spline) = length(coefficients(S))
 
 Returns type of element returned when evaluating the [`Spline`](@ref).
 """
-Base.eltype(::Type{<:Spline{T}}) where {T} = T
+Base.eltype(S::Spline) = eltype(typeof(S))
+Base.eltype(::Type{<:Spline{N, T}}) where {N, T} = T
 
 """
-    basis(S::Spline) -> AbstractBSplineBasis
+    ndims(::Type{<:Spline})
+    ndims(S::Spline)
 
-Returns the associated B-spline basis.
+Returns the dimensionality of the spline.
 """
-basis(S::Spline) = S.basis
-
-knots(S::Spline) = knots(basis(S))
-order(::Type{<:Spline{T,Basis}}) where {T,Basis} = order(Basis)
-order(S::Spline) = order(typeof(S))
-
-# TODO allow evaluating derivatives at point `x` (should be much cheaper than
-# constructing a new Spline for the derivative)
-(S::Spline)(x) = _evaluate(basis(S), S, x)
-
-function _evaluate(::BSplineBasis, S::Spline, x)
-    T = eltype(S)
-    t = knots(S)
-    n = knot_interval(t, x)
-    n === nothing && return zero(T)  # x is outside of knot domain
-    k = order(S)
-    spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
-end
-
-# Fallback, if the basis is not a regular BSplineBasis
-_evaluate(::AbstractBSplineBasis, S::Spline, x) = parent_spline(S)(x)
-
-function spline_kernel(
-        c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
-    ) where {T,k}
-    # Algorithm adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
-    if @generated
-        ex = quote
-            @nexprs $k j -> d_j = @inbounds c[j + n - $k]
-        end
-        for r = 2:k, j = k:-1:r
-            d_j = Symbol(:d_, j)
-            d_p = Symbol(:d_, j - 1)
-            jk = j - k
-            jr = j - r
-            ex = quote
-                $ex
-                α = @inbounds (x - t[$jk + n]) / (t[$jr + n + 1] - t[$jk + n])
-                $d_j = $T((1 - α) * $d_p + α * $d_j)
-            end
-        end
-        d_k = Symbol(:d_, k)
-        quote
-            $ex
-            return $d_k
-        end
-    else
-        # Similar using MVector (a bit slower than @generated version).
-        spline_kernel_alt(c, t, n, x, BSplineOrder(k))
-    end
-end
-
-function spline_kernel_alt(
-        c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
-    ) where {T, k}
-    d = MVector(ntuple(j -> @inbounds(c[j + n - k]), Val(k)))
-    @inbounds for r = 2:k
-        dprev = d[r - 1]
-        for j = r:k
-            α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
-            dtmp = dprev
-            dprev = d[j]
-            d[j] = (1 - α) * dtmp + α * dprev
-        end
-    end
-    @inbounds d[k]
-end
+Base.ndims(S::Spline) = ndims(typeof(S))
+Base.ndims(::Type{<:Spline{N}}) where {N} = N
 
 """
-    *(op::Derivative, S::Spline) -> Spline
+    bases(S::Spline) -> (B₁, B₂, …)
 
-Returns `N`-th derivative of spline `S` as a new spline.
+Returns the B-spline bases associated to the spline.
 
-See also [`diff`](@ref).
+The number of bases is equal to the dimensionality of the spline.
+In particular, for 1D splines, this returns a one-element tuple.
 
-# Examples
-
-```jldoctest; filter = r"coefficients: \\[.*\\]"
-julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1);
-
-julia> S = Spline(B, rand(length(B)))
-13-element Spline{Float64}:
- basis: 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
- order: 4
- knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
- coefficients: [0.461501, 0.619799, 0.654451, 0.667213, 0.334672, 0.618022, 0.967496, 0.900014, 0.611195, 0.469467, 0.221618, 0.80084, 0.269533]
-
-julia> Derivative(0) * S === S
-true
-
-julia> Derivative(1) * S
-12-element Spline{Float64}:
- basis: 12-element BSplineBasis of order 3, domain [-1.0, 1.0]
- order: 3
- knots: [-1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0]
- coefficients: [2.37448, 0.259885, 0.0638088, -1.6627, 1.41675, 1.74737, -0.33741, -1.44409, -0.708643, -1.23925, 4.34416, -7.9696]
-
-julia> Derivative(2) * S
-11-element Spline{Float64}:
- basis: 11-element BSplineBasis of order 2, domain [-1.0, 1.0]
- order: 2
- knots: [-1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0]
- coefficients: [-21.146, -0.98038, -8.63255, 15.3972, 1.65313, -10.4239, -5.53341, 3.67724, -2.65301, 27.917, -123.138]
-```
+See also [`basis(::Spline1D)`](@ref).
 """
-Base.:*(op::Derivative, S::Spline) = _diff(basis(S), S, op)
+bases(S::Spline) = S.bases
 
-"""
-    diff(S::Spline, [op::Derivative = Derivative(1)]) -> Spline
-
-Same as `op * S`.
-
-Returns `N`-th derivative of spline `S` as a new spline.
-"""
-Base.diff(S::Spline, op = Derivative(1)) = op * S
-
-_diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
-
-_diff(::BSplineBasis, S::Spline, ::Derivative{0}) = S
-
-function _diff(
-        ::BSplineBasis, S::Spline, ::Derivative{Ndiff} = Derivative(1),
-    ) where {Ndiff}
-    Ndiff :: Integer
-    @assert Ndiff >= 1
-
-    u = coefficients(S)
-    t = knots(S)
-    k = order(S)
-
-    if Ndiff >= k
-        throw(ArgumentError(
-            "cannot differentiate order $k spline $Ndiff times!"))
-    end
-
-    Base.require_one_based_indexing(u)
-    du = similar(u)
-    copy!(du, u)
-
-    @inbounds for m = 1:Ndiff, i in Iterators.Reverse(eachindex(du))
-        dt = t[i + k - m] - t[i]
-        if iszero(dt) || i == 1
-            # In this case, the B-spline that this coefficient is
-            # multiplying is zero everywhere, so we can set this to zero.
-            # From de Boor (2001, p. 117): "anything times zero is zero".
-            du[i] = zero(eltype(du))
-        else
-            du[i] = (k - m) * (du[i] - du[i - 1]) / dt
-        end
-    end
-
-    # Finally, create lower-order spline with the given coefficients.
-    # Note that the spline has `2 * Ndiff` fewer knots, and `Ndiff` fewer
-    # B-splines.
-    N = length(u)
-    Nt = length(t)
-    t_new = view(t, (1 + Ndiff):(Nt - Ndiff))
-    B = BSplineBasis(BSplineOrder(k - Ndiff), t_new; augment = Val(false))
-
-    Spline(B, view(du, (1 + Ndiff):N))
-end
-
-# Zeroth derivative: return S itself.
-Base.diff(S::Spline, ::Derivative{0}) = S
-
-"""
-    integral(S::Spline)
-
-Returns an antiderivative of the given spline as a new spline.
-
-The algorithm is described in de Boor 2001, p. 127.
-"""
-integral(S::Spline) = _integral(basis(S), S)
-
-_integral(::AbstractBSplineBasis, S, etc...) = integral(parent_spline(S), etc...)
-
-function _integral(::BSplineBasis, S::Spline)
-    u = coefficients(S)
-    t = knots(S)
-    k = order(S)
-    Base.require_one_based_indexing(u)
-
-    Nt = length(t)
-    N = length(u)
-
-    # Note that the new spline has 2 more knots and 1 more B-spline.
-    t_int = similar(t, Nt + 2)
-    t_int[2:(end - 1)] .= t
-    t_int[1] = t_int[2]
-    t_int[end] = t_int[end - 1]
-
-    β = similar(u, N + 1)
-    β[1] = zero(eltype(β))
-
-    @inbounds for i in eachindex(u)
-        m = i + 1
-        β[m] = zero(eltype(β))
-        for j = 1:i
-            β[m] += u[j] * (t[j + k] - t[j]) / k
-        end
-    end
-
-    B = BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
-    Spline(B, β)
-end
-
-function knot_interval(t::AbstractVector, x)
-    n = searchsortedlast(t, x)  # t[n] <= x < t[n + 1]
-    n == 0 && return nothing    # x < t[1]
-
-    Nt = length(t)
-
-    if n == Nt  # i.e. if x >= t[end]
-        t_last = t[n]
-        x > t_last && return nothing
-        # If x is exactly on the last knot, decrease the index as necessary.
-        while t[n] == t_last
-            n -= one(n)
-        end
-    end
-
-    n
-end
+allknots(S::Spline) = map(knots, bases(S))
+orders(S::Spline) = map(order, bases(S))

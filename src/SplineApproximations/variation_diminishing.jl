@@ -25,20 +25,47 @@ For details, see e.g. de Boor 2001, chapter XI.
 """
 struct VariationDiminishing <: AbstractApproxMethod end
 
-function approximate(f, B::AbstractBSplineBasis, m::VariationDiminishing)
-    T = typeof(f(first(knots(B))))
-    S = Spline{T}(undef, B)
+function approximate(
+        f::F, Bs::Tuple{Vararg{AbstractBSplineBasis}},
+        m::VariationDiminishing,
+    ) where {F}
+    xtest = map(B -> first(knots(B)), Bs)  # test coordinate for determining types
+    T = typeof(f(xtest...))
+    S = Spline(undef, Bs, T)
     A = SplineApproximation(m, S, nothing)
     approximate!(f, A)
 end
 
-function _approximate!(f, A, m::VariationDiminishing)
+function _approximate!(f::F, A, m::VariationDiminishing) where {F}
     @assert method(A) === m
-    B = basis(A)
+    Bs = Splines.bases(A)
     S = spline(A)
     cs = coefficients(S)
+    _approximate_VD!(f, cs, Bs)
+    A
+end
+
+# 1D case
+function _approximate_VD!(
+        f::F, cs::AbstractArray{T, 1}, Bs::Tuple{AbstractBSplineBasis},
+    ) where {F, T}
+    B = first(Bs)
     for (i, x) in zip(eachindex(cs), GrevilleSiteIterator(B))
         @inbounds cs[i] = f(x)
     end
-    A
+    cs
+end
+
+# N-D case
+function _approximate_VD!(
+        f::F, cs::AbstractArray{T, N},
+        Bs::Tuple{Vararg{AbstractBSplineBasis, N}},
+    ) where {F, T, N}
+    @assert N ≥ 2
+    iter = Iterators.product(map(GrevilleSiteIterator, Bs)...)
+    @assert axes(iter) == axes(cs)
+    @inbounds for (n, xs) ∈ zip(eachindex(cs), iter)
+        cs[n] = f(xs...)
+    end
+    cs
 end

@@ -28,10 +28,10 @@ See also [`galerkin_projection!`](@ref) for the in-place operation, and
 [`galerkin_matrix`](@ref) for more details.
 """
 function galerkin_projection(
-        f, B::AbstractBSplineBasis,
+        f::F, B::AbstractBSplineBasis,
         deriv = Derivative(0),
         ::Type{V} = Vector{Float64},
-    ) where {V <: AbstractVector}
+    ) where {F, V <: AbstractVector}
     N = length(B)
     φ = V(undef, N)
     galerkin_projection!(f, φ, B, deriv)
@@ -47,12 +47,10 @@ Compute Galerkin projection ``φ_i = ⟨ b_i, f ⟩``.
 See [`galerkin_projection`](@ref) for details.
 """
 function galerkin_projection!(
-        f, φ::AbstractVector, B::AbstractBSplineBasis, deriv = Derivative(0),
-    )
+        f::F, φ::AbstractVector, B::AbstractBSplineBasis, deriv = Derivative(0),
+    ) where {F}
     N = length(B)
-    if length(φ) != N
-        throw(DimensionMismatch("incorrect length of output vector φ"))
-    end
+    length(φ) == N || throw(DimensionMismatch("incorrect length of output vector φ"))
     Base.require_one_based_indexing(φ)
 
     k = order(B)
@@ -96,4 +94,91 @@ function galerkin_projection!(
     end
 
     φ
+end
+
+function galerkin_projection!(
+        f::F, φ::AbstractArray{T, N},
+        Bs::Tuple{Vararg{AbstractBSplineBasis, N}},
+        derivs::Tuple{Vararg{Derivative, N}} = ntuple(_ -> Derivative(0), Val(N)),
+    ) where {F, T, N}
+    dims = map(length, Bs)
+    size(φ) == dims || throw(DimensionMismatch("incorrect length of output vector φ"))
+    Base.require_one_based_indexing(φ)
+
+    ks_all = map(order, Bs)
+    ts_all = map(knots, Bs)
+
+    quads = map(ks_all) do k
+        nodes, weights = _quadrature_prod(Val(2k - 2))
+        @assert length(nodes) == k
+        (; nodes, weights)
+    end
+
+    fill!(φ, 0)
+    inds = CartesianIndices(map(ts -> axes(ts, 1)[begin:end-1], ts_all))
+    Ioff = CartesianIndex(map(B -> first(num_constraints(B)), Bs))
+
+    # We loop over all knot segments Ω[I] = t₁[I₁:I₁+1] × t₂[I₂:I₂+1] × …
+    @inbounds for I ∈ inds
+        knot_intervals = map(ts_all, Tuple(I)) do ts, n
+            ts[n], ts[n + 1]
+        end
+
+        if any(interv -> ==(interv...), knot_intervals)  # interval has zero "volume"
+            continue
+        end
+
+        metrics = map(interv -> QuadratureMetric(interv...), knot_intervals)
+
+        # Unnormalise quadrature nodes, such that xs ∈ [tn, tn1]
+        nodes = map(metrics, quads) do m, q
+            m .* q.nodes
+        end
+        weights = map(metrics, quads) do m, q
+            m.α * q.weights
+        end
+
+        Ilast = I - Ioff
+
+        # Map over all dimensions (1:N)
+        bs_at_nodes = map(Bs, nodes, derivs, Tuple(Ilast)) do B, xs, deriv, ileft
+            # Map over all quadrature nodes in the current dimension (1:k)
+            map(xs) do x
+                _, bs = evaluate_all(B, x, deriv, T; ileft = ileft)
+                bs
+            end
+        end
+
+        _projection_kernel!(f, φ, nodes, weights, bs_at_nodes, Ilast)
+    end
+
+    φ
+end
+
+# This is used in N-dimensional projections
+@inline function _projection_kernel!(
+        f::F, φ::AbstractArray{<:Any, N},
+        nodes::Tuple{Vararg{Any, N}},
+        weights::Tuple{Vararg{Any, N}},
+        bs_at_nodes::Tuple{Vararg{Any, N}},
+        Ilast::CartesianIndex{N},
+    ) where {F, N}
+    # Loop over all nodes (x, y, …) within the knot interval
+    node_inds = CartesianIndices(map(eachindex, nodes))
+    @inbounds for K ∈ node_inds
+        node = getindex.(nodes, Tuple(K))  # quadrature node (x, y, …)
+        ws = getindex.(weights, Tuple(K))
+        bs_all = getindex.(bs_at_nodes, Tuple(K))  # all B-splines evaluated at node (x, y, …)
+        fval = prod(ws) * f(node...)
+        subinds = CartesianIndices(map(eachindex, bs_all))
+        for δJ ∈ subinds
+            bs = getindex.(bs_all, Tuple(δJ))
+            J = Ilast + oneunit(Ilast) - δJ
+            if !checkbounds(Bool, φ, J)  # this can be the case for recombined bases
+                continue
+            end
+            φ[J] += fval * prod(bs)
+        end
+    end
+    nothing
 end

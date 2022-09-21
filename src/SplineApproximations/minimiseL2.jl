@@ -8,6 +8,8 @@ using LinearAlgebra:
     Cholesky,
     ldiv!
 
+using Base.Cartesian: @ntuple
+
 @doc raw"""
     MinimiseL2Error <: AbstractApproxMethod
 
@@ -52,25 +54,98 @@ to yield a very good approximation of the integral, and thus of the optimal coef
 """
 struct MinimiseL2Error <: AbstractApproxMethod end
 
-function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
-    T = typeof(f(first(knots(B))))
-    S = Spline{T}(undef, B)
-    M = galerkin_matrix(B)  # by default it's a BandedMatrix
+function approximate(
+        f::F, Bs::Tuple{Vararg{AbstractBSplineBasis}},
+        m::MinimiseL2Error,
+    ) where {F}
+    xtest = map(B -> first(knots(B)), Bs)  # test coordinate for determining types
+    T = typeof(f(xtest...))
+    S = Spline(undef, Bs, T)
 
-    # We annotate the return type to avoid inference issue in ArrayLayouts...
-    # https://github.com/JuliaMatrices/ArrayLayouts.jl/issues/66
-    Mfact = cholesky!(M) :: Cholesky{eltype(M), typeof(parent(M))}
+    Mfact = map(Bs) do B
+        M = galerkin_matrix(B)  # by default this is a BandedMatrix
+        cholesky!(M)
+    end
 
-    data = (; M = Mfact)
+    if length(Bs) ≥ 2
+        coefs = coefficients(S)
+        buf = similar(coefs, max(size(S)...))  # temporary buffer for linear systems
+    else
+        buf = nothing
+    end
+
+    data = (; Ms = Mfact, buf)
     A = SplineApproximation(m, S, data)
     approximate!(f, A)
 end
 
-function _approximate!(f, A, m::MinimiseL2Error)
+function _approximate!(f::F, A, m::MinimiseL2Error) where {F}
     @assert method(A) === m
     S = spline(A)
     cs = coefficients(S)
-    galerkin_projection!(f, cs, basis(S))  # computes rhs onto cs
-    ldiv!(data(A).M, cs)  # now cs = M \ rhs
+    Bs = Splines.bases(S)
+    _approximate_L2!(f, cs, Bs, data(A).Ms, data(A).buf)
     A
 end
+
+# 1D case
+function _approximate_L2!(
+        f::F, cs::AbstractVector, Bs::NTuple{1}, Ms::NTuple{1},
+        ::Nothing,
+    ) where {F}
+    galerkin_projection!(f, cs, Bs)  # computes rhs onto cs
+    ldiv!(first(Ms), cs)  # now cs = M \ rhs
+    cs
+end
+
+# N-D case
+@inline function _approximate_L2!(
+        f::F, coefs::AbstractArray{T, N},
+        Bs::Tuple{Vararg{AbstractBSplineBasis, N}},
+        Ms::Tuple{Vararg{Cholesky, N}},
+        buf::AbstractVector{T},
+    ) where {F, T, N}
+    @assert N ≥ 2
+
+    # We first project the function `f` onto the tensor-product B-spline basis.
+    galerkin_projection!(f, coefs, Bs)  # computes rhs onto coefs
+
+    # The rest is quite similar to multidimensional interpolations.
+    _approximate_L2_dim!(coefs, buf, Ms...)
+end
+
+# This is really similar to `_interpolate_dim!`.
+# There are small differences due to Cj being the Cholesky factorisation of a
+# BandedMatrix (and thus we need a contiguous buffer).
+@inline function _approximate_L2_dim!(coefs, buf, Cj, Cnext...)
+    N = ndims(coefs)
+    R = length(Cnext)
+    j = N - R
+    L = j - 1
+    inds = axes(coefs)
+    inds_l = CartesianIndices(ntuple(d -> @inbounds(inds[d]), Val(L)))
+    inds_r = CartesianIndices(ntuple(d -> @inbounds(inds[j + d]), Val(R)))
+
+    Base.require_one_based_indexing(buf)
+    @assert length(buf) ≥ length(inds[j])
+    utmp = view(buf, inds[j])
+
+    @inbounds for J ∈ inds_r, I ∈ inds_l
+        # NOTE: the following line gives a wrong result when A is a Cholesky
+        # decomposition of a BandedMatrix. The problem seems to be that
+        # BandedMatrices.jl wrongly calls a LAPACK function which assumes that
+        # the output is contiguous, which is not the case here.
+        #
+        # @views ldiv!(A, coefs[I, :, J])
+
+        # The alternative is to copy to a contiguous buffer...
+        coefs_ij = @view coefs[I, :, J]
+        copy!(utmp, coefs_ij)
+        ldiv!(Cj, utmp)
+        copy!(coefs_ij, utmp)
+    end
+
+    _approximate_L2_dim!(coefs, buf, Cnext...)
+end
+
+@inline _approximate_L2_dim!(coefs, buf) = coefs

@@ -79,7 +79,7 @@ julia> B = BSplineBasis(BSplineOrder(3), -1:0.4:1);
 
 
 julia> S_interp = approximate(sin, B)
-SplineApproximation containing the 7-element Spline{Float64}:
+SplineApproximation containing the 7-element Spline{1, Float64}:
  basis: 7-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
@@ -90,7 +90,7 @@ julia> sin(0.3), S_interp(0.3)
 (0.29552020666133955, 0.2959895327282942)
 
 julia> approximate!(exp, S_interp)
-SplineApproximation containing the 7-element Spline{Float64}:
+SplineApproximation containing the 7-element Spline{1, Float64}:
  basis: 7-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
@@ -101,7 +101,7 @@ julia> exp(0.3), S_interp(0.3)
 (1.3498588075760032, 1.3491015490105396)
 
 julia> S_fast = approximate(exp, B, VariationDiminishing())
-SplineApproximation containing the 7-element Spline{Float64}:
+SplineApproximation containing the 7-element Spline{1, Float64}:
  basis: 7-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
@@ -109,7 +109,7 @@ SplineApproximation containing the 7-element Spline{Float64}:
  approximation method: VariationDiminishing()
 
 julia> S_opt = approximate(exp, B, MinimiseL2Error())
-SplineApproximation containing the 7-element Spline{Float64}:
+SplineApproximation containing the 7-element Spline{1, Float64}:
  basis: 7-element BSplineBasis of order 3, domain [-1.0, 1.0]
  order: 3
  knots: [-1.0, -1.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.0, 1.0]
@@ -120,8 +120,11 @@ julia> x = 0.34; exp(x), S_opt(x), S_interp(x), S_fast(x)
 (1.4049475905635938, 1.4044530324752076, 1.4044149581073813, 1.4328668494041878)
 ```
 """
-approximate(f, B::AbstractBSplineBasis) =
-    approximate(f, B, ApproxByInterpolation(B))
+approximate(f::F, Bs::Tuple{Vararg{AbstractBSplineBasis}}) where {F} =
+    approximate(f, Bs, ApproxByInterpolation(Bs))
+
+approximate(f::F, B::AbstractBSplineBasis, args...) where {F} =
+    approximate(f, (B,), args...)
 
 """
     approximate!(f, A::SplineApproximation)
@@ -131,7 +134,7 @@ basis.
 
 See [`approximate`](@ref) for details.
 """
-approximate!(f, A::SplineApproximation) = _approximate!(f, A, method(A))
+approximate!(f::F, A::SplineApproximation) where {F} = _approximate!(f, A, method(A))
 
 include("variation_diminishing.jl")
 include("by_interpolation.jl")

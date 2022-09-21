@@ -17,10 +17,15 @@ spline(w::SplineWrapper) = w.spline
 
 Base.eltype(::Type{<:SplineWrapper{S}}) where {S} = eltype(S)
 
-(I::SplineWrapper)(x) = spline(I)(x)
+(I::SplineWrapper)(xs...) = spline(I)(xs...)
 Base.diff(I::SplineWrapper, etc...) = diff(spline(I), etc...)
 Base.:*(op::Derivative, I::SplineWrapper) = op * spline(I)
+Base.ndims(I::SplineWrapper) = ndims(spline(I))
+Base.size(I::SplineWrapper) = size(spline(I))
 
-for f in (:basis, :order, :knots, :coefficients, :integral)
+for f in (
+        :basis, :bases, :order, :orders, :knots,
+        :allknots, :coefficients, :integral,
+    )
     @eval $f(I::SplineWrapper) = $f(spline(I))
 end
