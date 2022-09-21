@@ -52,6 +52,7 @@ period(ts::PeriodicKnots) = ts.period
 Base.size(ts::PeriodicKnots) = size(parent(ts))
 Base.axes(ts::PeriodicKnots) = axes(parent(ts))
 Base.length(ts::PeriodicKnots) = ts.N
+Base.checkbounds(::Type{Bool}, ts::PeriodicKnots, i) = true  # all indices are accepted
 
 _knot_zone(::PeriodicKnots, x) = 0
 
