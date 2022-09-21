@@ -122,7 +122,7 @@ julia> ts = range(-1, 1; length = 21)[1:20]
 
 julia> B = PeriodicBSplineBasis(BSplineOrder(4), ts, L)
 20-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
- knots: -1.0:0.1:0.9
+ knots: [-1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 julia> period(B)
 2.0
