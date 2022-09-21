@@ -7,7 +7,7 @@ using StaticArrays: MVector
 
 """
     evaluate_all(
-        B::BSplineBasis, x::Real,
+        B::AbstractBSplineBasis, x::Real,
         [op = Derivative(0)], [T = float(typeof(x))];
         [ileft = nothing],
     ) -> i, bs
@@ -47,6 +47,8 @@ of the actual B-spline values.
 See [`AbstractBSplineBasis`](@ref) for some examples using the alternative
 evaluation syntax `B(x, [op], [T]; [ileft])`, which calls this function.
 """
+function evaluate_all end
+
 @propagate_inbounds function evaluate_all(
         B::BSplineBasis, x::Real, op::Derivative, ::Type{T}; kws...,
     ) where {T <: Number}
@@ -60,10 +62,12 @@ end
 @propagate_inbounds evaluate_all(B, x, ::Type{T}; kws...) where {T <: Number} =
     evaluate_all(B, x, Derivative(0), T; kws...)
 
-@propagate_inbounds function _knotdiff(x, ts, i, n)
-    @boundscheck checkbounds(ts, i:(i + n))
+@propagate_inbounds function _knotdiff(x::Real, ts::AbstractVector, i, n)
+    j = i + n
+    @boundscheck checkbounds(ts, i)
+    @boundscheck checkbounds(ts, j)
     @inbounds ti = ts[i]
-    @inbounds tj = ts[i + n]
+    @inbounds tj = ts[j]
     # @assert ti ≠ tj
     (x - ti) / (tj - ti)
 end
@@ -249,12 +253,14 @@ function _evaluate_all_alt(
     i, Tuple(bq)
 end
 
-function _find_knot_interval(ts, x, ileft)
+_knot_zone(ts::AbstractVector, x) = (x < first(ts)) ? -1 : (x > last(ts)) ? 1 : 0
+
+function _find_knot_interval(ts::AbstractVector, x, ileft)
     if isnothing(ileft)
         i, zone = find_knot_interval(ts, x)
     else
         i = ileft
-        zone = (x < first(ts)) ? -1 : (x > last(ts)) ? 1 : 0
+        zone = _knot_zone(ts, x)
     end
     i, zone
 end

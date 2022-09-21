@@ -5,12 +5,13 @@ Contains some boundary condition definitions.
 """
 module BoundaryConditions
 
-export Natural
+export Natural,
+       Periodic
 
 abstract type BoundaryCondition end
 
 """
-    Natural
+    Natural <: BoundaryCondition
 
 Generalised natural boundary condition.
 
@@ -32,5 +33,20 @@ basis-recombination-api).
 Note that, for symmetry reasons, only even-order splines are supported by this BC.
 """
 struct Natural <: BoundaryCondition end
+
+"""
+    Periodic <: BoundaryCondition
+
+Represents periodic boundary conditions with a given period `L`.
+
+---
+
+    Periodic(L::Real)
+
+Constructs periodic boundary conditions with period `L`.
+"""
+struct Periodic{T <: Real} <: BoundaryCondition
+    period :: T
+end
 
 end

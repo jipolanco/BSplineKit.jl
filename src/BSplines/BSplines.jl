@@ -90,4 +90,6 @@ include("basis_function.jl")
 include("knots.jl")
 include("evaluate_all.jl")
 
+include("periodic.jl")
+
 end
