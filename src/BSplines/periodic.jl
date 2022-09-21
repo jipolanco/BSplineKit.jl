@@ -109,11 +109,6 @@ The knot vector `ts` must be in non-decreasing order, and must satisfy
 `(ts[end] - ts[begin]) < L`.
 In other words, it must *not* include the endpoint `ts[begin] + L`.
 
-Note that B-splines and splines associated to a periodic basis *must* be
-evaluated at locations ``x ∈ [a, b)`` where ``a`` is the first knot (`a = ts[begin]`)
-and ``b = a + L``.
-Evaluating outside of this "main" interval may fail or just give wrong results.
-
 # Examples
 
 Create B-spline basis on periodic domain with period ``L = 2``.
@@ -131,10 +126,18 @@ julia> B = PeriodicBSplineBasis(BSplineOrder(4), ts, L)
 julia> period(B)
 2.0
 
+julia> length(B)
+20
+
 julia> boundaries(B)
 (-1.0, 1.0)
-```
 
+julia> B(-0.42)
+(6, (0.08533333333333341, 0.6306666666666667, 0.28266666666666657, 0.0013333333333333263))
+
+julia> B(-0.42 + 2)
+(26, (0.08533333333333351, 0.6306666666666669, 0.28266666666666623, 0.0013333333333333346))
+```
 """
 struct PeriodicBSplineBasis{
         k, T, Knots <: PeriodicKnots{T},
