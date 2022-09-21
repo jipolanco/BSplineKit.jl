@@ -85,3 +85,56 @@ current_figure()  # hide
 
 # Clearly, the spurious oscillations are strongly suppressed near the
 # boundaries.
+
+# ## Multidimensional interpolations
+#
+# Multidimensional interpolations are supported for data defined on
+# rectilinear grids.
+# This is done using
+# [tensor-product](https://en.wikipedia.org/wiki/Tensor_product) splines.
+# This means that the returned $N$-dimensional spline belongs to the space
+# spanned by the tensor product of $N$ one-dimensional spline bases.
+#
+# In other words, if we consider the two-dimensional case for simplicity, the
+# returned interpolator is of the form
+#
+# ```math
+# f(x, y) = ∑_{i = 1}^{N_x} ∑_{j = 1}^{N_y}
+#       c_{ij} \, b_{i}^X(x) \, b_{j}^Y(y),
+# ```
+#
+# where the ``b_{i}^X`` and ``b_{j}^Y`` are the B-splines spanning two
+# (generally different) spline bases ``B^X`` and ``B^Y``.
+# Note that the two bases are completely independent.
+# In principle, they can have different orders, knot definitions and boundary
+# conditions.
+#
+# All of the above also applies to (arbitrary) higher dimensions ``N``.
+# See [`interpolate`](@ref) for more details.
+#
+# Let's finish with a simple example in 2D:
+
+## Define non-uniform 2D grid
+Nx, Ny = 20, 30
+rng = MersenneTwister(42)
+
+xs = range(0, 1; length = Nx) .+ 0.01 .* randn(rng, Nx)
+xs[begin] = 0
+xs[end] = 1
+
+ys = range(0, 2π; length = Ny) .+ 0.02 .* randn(rng, Ny)
+ys[begin] = 0
+ys[end] = 2π
+
+## Generate some 2D data and interpolate
+data = [exp(-x) * cos(y) + 0.01 * randn(rng) for x ∈ xs, y ∈ ys]
+
+S = interpolate((xs, ys), data, BSplineOrder(4), Natural())
+
+## Finally, let's plot the result on a finer grid
+xplot = range(0, 1; length = 4Nx)
+yplot = range(0, 2π; length = 4Ny)
+Sdata = S.(xplot, yplot')
+
+contourf(xplot, yplot, Sdata)
+current_figure()  # hide

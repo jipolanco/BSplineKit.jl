@@ -4,7 +4,8 @@ export
     Spline,
     Spline1D,
     coefficients,
-    integral
+    integral,
+    bases
 
 export
     SplineWrapper,

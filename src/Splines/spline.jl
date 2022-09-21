@@ -197,8 +197,8 @@ Base.size(S::Spline) = size(coefficients(S))
 
 Returns type of element returned when evaluating the [`Spline`](@ref).
 """
-Base.eltype(::Type{<:Spline{N, T}}) where {N, T} = T
 Base.eltype(S::Spline) = eltype(typeof(S))
+Base.eltype(::Type{<:Spline{N, T}}) where {N, T} = T
 
 """
     ndims(::Type{<:Spline})

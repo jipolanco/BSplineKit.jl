@@ -215,7 +215,26 @@ For now, only the [`Natural`](@ref) boundary condition is available.
 
 See also [`interpolate!`](@ref).
 
+# Multidimensional interpolations
+
+Multidimensional (tensor-product) interpolations are supported on arbitrary
+dimensions `N`.
+For that, the following syntax should be used:
+
+    interpolate(xs, y, BSplineOrder(k), [bc = nothing])
+
+where `xs = (x1, x2, …, xN)` is a tuple of vectors containing the grid points
+along each direction, and `y` is an `N`-dimensional array containing the data to
+be interpolated.
+See further below for some examples.
+
+For now, the B-spline order and the boundary conditions are the same along all
+dimensions.
+This constraint may be generalised in the future.
+
 # Examples
+
+## One-dimensional interpolations
 
 ```jldoctest
 julia> xs = -1:0.1:1;
@@ -255,6 +274,34 @@ julia> (Derivative(1) * Snat)(-1)
 
 julia> (Derivative(2) * Snat)(-1)
 0.0
+
+```
+
+## Two-dimensional interpolations
+
+```jldoctest
+julia> x₁ = -1:0.2:1; x₂ = 0:0.1:0.8;
+
+julia> ydata = @. cospi(x₁) * sinpi(x₂');
+
+julia> summary(ydata)
+"11×9 Matrix{Float64}"
+
+julia> itp = interpolate((x₁, x₂), ydata, BSplineOrder(4), Natural())
+SplineInterpolation containing the 11×9 Spline{2, Float64}:
+ bases:
+   (1) 11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0], BCs {left => (D{2},), right => (D{2},)}
+   (2) 9-element RecombinedBSplineBasis of order 4, domain [0.0, 0.8], BCs {left => (D{2},), right => (D{2},)}
+ knots:
+   (1) [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
+   (2) [0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.8, 0.8, 0.8]
+ coefficients: [0.0 -0.174524 … -0.458359 -0.408184; 0.0 -0.123177 … -0.323506 -0.288093; … ; 0.0 -0.123177 … -0.323506 -0.288093; 0.0 -0.174524 … -0.458359 -0.408184]
+ interpolation points:
+  (1) -1.0:0.2:1.0
+  (2) 0.0:0.1:0.8
+
+julia> itp(0.12, 0.4242)
+0.9032397652177311
 
 ```
 """
