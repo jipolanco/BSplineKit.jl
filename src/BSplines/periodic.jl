@@ -36,7 +36,7 @@ struct PeriodicKnots{T, Knots <: AbstractVector{T}} <: AbstractVector{T}
         L = convert(T, period)
         a = first(ts)
         if last(ts) - a ≥ L
-            error("the knot extent (t[end] - t[begin]) must be *strictly* smaller than the period L")
+            throw(ArgumentError("the knot extent (t[end] - t[begin]) must be *strictly* smaller than the period L"))
         end
         boundaries = (a, a + L)
         Knots = typeof(ts)
@@ -49,7 +49,6 @@ Base.parent(ts::PeriodicKnots) = ts.data
 boundaries(ts::PeriodicKnots) = ts.boundaries
 period(ts::PeriodicKnots) = ts.period
 
-Base.size(ts::PeriodicKnots) = size(parent(ts))
 Base.axes(ts::PeriodicKnots) = axes(parent(ts))
 Base.length(ts::PeriodicKnots) = ts.N
 Base.checkbounds(::Type{Bool}, ts::PeriodicKnots, i) = true  # all indices are accepted
