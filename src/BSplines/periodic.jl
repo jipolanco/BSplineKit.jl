@@ -35,7 +35,7 @@ In other words, the last point must be such that `ξs[end] < ξs[begin] + L`.
 Note that the indices of the returned knots `ts` are offset with respect to the
 input `ξs` according to `ts[i] = ξs[i + offset]`.
 """
-struct PeriodicKnots{T, IndexOffset, Knots <: AbstractVector{T}} <: AbstractVector{T}
+struct PeriodicKnots{T, k, Knots <: AbstractVector{T}} <: AbstractVector{T}
     # Knots in a single period (length = N).
     # The knot vector is such that data[end] - data[begin] < period.
     data       :: Knots
@@ -46,9 +46,9 @@ struct PeriodicKnots{T, IndexOffset, Knots <: AbstractVector{T}} <: AbstractVect
 
     function PeriodicKnots(
             breaks::AbstractVector{T}, period::Real,
-            ::Val{Offset},
-        ) where {T, Offset}
-        Offset :: Int
+            ::BSplineOrder{k},
+        ) where {T, k}
+        k :: Int
         L = convert(T, period)
         a = first(breaks)
         if last(breaks) - a ≥ L
@@ -57,17 +57,25 @@ struct PeriodicKnots{T, IndexOffset, Knots <: AbstractVector{T}} <: AbstractVect
         boundaries = (a, a + L)
         Knots = typeof(breaks)
         N = length(breaks)
-        new{T, Offset, Knots}(breaks, N, L, boundaries)
+        new{T, k, Knots}(breaks, N, L, boundaries)
     end
 end
 
 Base.parent(ts::PeriodicKnots) = ts.data
 boundaries(ts::PeriodicKnots) = ts.boundaries
 period(ts::PeriodicKnots) = ts.period
-index_offset(::PeriodicKnots{T,I}) where {T,I} = I
+order(::PeriodicKnots{T,k}) where {T,k} = k
 
-Base.axes(ts::PeriodicKnots) = axes(parent(ts))
-Base.length(ts::PeriodicKnots) = ts.N
+# This offset is to make sure collocation matrices are diagonally-dominant.
+index_offset(ts::PeriodicKnots) = order(ts) ÷ 2
+
+# This is such that ts[i] and ts[i + N] correspond to the same position due to
+# periodicity.
+period_length(ts::PeriodicKnots) = ts.N
+
+# For consistency with regular B-spline bases, the length of the knot vector is N + k.
+Base.length(ts::PeriodicKnots) = period_length(ts) + order(ts)
+Base.size(ts::PeriodicKnots) = (length(ts),)
 Base.checkbounds(::Type{Bool}, ts::PeriodicKnots, i) = true  # all indices are accepted
 
 # Modify `show` to make it clear that this is an "infinite" vector.
@@ -84,11 +92,11 @@ _knot_zone(::PeriodicKnots, x) = 0
     i = index_offset(ts)
     while x < a
         x += period(ts)
-        i -= length(ts)
+        i -= period_length(ts)
     end
     while x ≥ b
         x -= period(ts)
-        i += length(ts)
+        i += period_length(ts)
     end
     i += searchsortedlast(data, x)
     zone = 0
@@ -100,12 +108,12 @@ end
     x = zero(eltype(ts))
     i -= index_offset(ts)
     while i < firstindex(data)
-        i += length(ts)
         x -= period(ts)
+        i += period_length(ts)
     end
     while i > lastindex(data)
-        i -= length(ts)
         x += period(ts)
+        i -= period_length(ts)
     end
     @inbounds x + data[i]
 end
@@ -138,27 +146,27 @@ Create B-spline basis on periodic domain with period ``L = 2``.
 ```jldoctest
 julia> L = 2;
 
-julia> ts = range(-1, 1; length = 21)[1:20]
--1.0:0.1:0.9
+julia> ts = range(-1, 1; length = 11)[1:10]
+-1.0:0.2:0.8
 
 julia> B = PeriodicBSplineBasis(BSplineOrder(4), ts, L)
-20-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
- knots: [..., -1.3, -1.2, -1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, ...]
+10-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
+ knots: [..., -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, ...]
 
 julia> period(B)
 2.0
 
 julia> length(B)
-20
+10
 
 julia> boundaries(B)
 (-1.0, 1.0)
 
 julia> B(-0.42)
-(9, (0.08533333333333341, 0.6306666666666667, 0.28266666666666657, 0.0013333333333333263))
+(5, (0.12150000000000002, 0.6571666666666667, 0.22116666666666668, 0.00016666666666666563))
 
 julia> B(-0.42 + 2)
-(29, (0.08533333333333351, 0.6306666666666669, 0.28266666666666623, 0.0013333333333333346))
+(15, (0.12150000000000015, 0.6571666666666667, 0.22116666666666657, 0.00016666666666666674))
 ```
 """
 struct PeriodicBSplineBasis{
@@ -168,15 +176,14 @@ struct PeriodicBSplineBasis{
     t :: Knots
 
     function PeriodicBSplineBasis(
-            ::BSplineOrder{k}, ts::AbstractVector{T},
+            ord::BSplineOrder{k}, ts::AbstractVector{T},
             period::Real,
         ) where {k, T}
         k :: Integer
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        offset = k - 1
-        ts_per = PeriodicKnots(ts, period, Val(offset))
+        ts_per = PeriodicKnots(ts, period, ord)
         Knots = typeof(ts_per)
         N = length(parent(ts_per))
         new{k, T, Knots}(N, ts_per)
@@ -185,6 +192,8 @@ end
 
 @inline PeriodicBSplineBasis(k::Integer, args...; kwargs...) =
     PeriodicBSplineBasis(BSplineOrder(k), args...; kwargs...)
+
+Base.parent(B::PeriodicBSplineBasis) = B
 
 Base.length(B::PeriodicBSplineBasis) = B.N
 knots(B::PeriodicBSplineBasis) = B.t

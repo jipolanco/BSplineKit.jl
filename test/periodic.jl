@@ -45,10 +45,15 @@ using Test
         end
     end
 
-    # Far from the boundaries, the result should match a regular BSplineBasis.
-    # Note that the knot indices also match!
+    # TODO
+    # - test splines
+    # - test collocation and Galerkin
+    # - test interpolations
+
+    # Far from the boundaries, the result should match a regular BSplineBasis
+    # (except for the knot index, which can be different).
     let Bn = BSplineBasis(BSplineOrder(k), ts)
         x = (2 * ts[k + 1] + ts[k + 2]) / 3
-        @test Bn(x) == B(x)
+        @test Bn(x)[2] == B(x)[2]
     end
 end
