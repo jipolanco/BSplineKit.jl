@@ -252,7 +252,8 @@ function test_splines(::BSplineOrder{k}) where {k}
             coefs = randn(length(g))
             S = @inferred Spline(g, coefs)
             xeval = 0.32
-            n = Splines.knot_interval(knots(g), xeval)
+            n, zone = @inferred BSplines.find_knot_interval(knots(g), xeval)
+            @test zone == 0
             # Test alternative (non-@generated) evaluation kernel.
             @test S(xeval) ≈ Splines.spline_kernel_alt(
                 coefficients(S), knots(g), n, xeval, BSplineOrder(k),
