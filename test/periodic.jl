@@ -2,18 +2,21 @@ using BSplineKit
 using Test
 
 @testset "Periodic splines" begin
-    ts = 0:0.1:0.9
+    breaks = 0:0.1:0.9
     L = 1  # period
     k = 4
-    B = @inferred PeriodicBSplineBasis(BSplineOrder(k), ts, L)
+    B = @inferred PeriodicBSplineBasis(BSplineOrder(k), breaks, L)
     N = length(B)
 
-    @test N == length(ts)
+    ts = @inferred knots(B)
+    @test length(ts) == N + k  # consistency with the regular BSplineBasis
+
+    @test N == length(breaks)
     @test @inferred(period(B)) == L
-    @test typeof(period(B)) === eltype(ts)
+    @test typeof(period(B)) === eltype(breaks)
     @test @inferred(boundaries(B)) == (0, 1)
     @test B == B
-    let B′ = PeriodicBSplineBasis(BSplineOrder(3), ts, L)
+    let B′ = PeriodicBSplineBasis(BSplineOrder(3), breaks, L)
         @test B ≠ B′
     end
 
@@ -22,13 +25,13 @@ using Test
         "10-element PeriodicBSplineBasis of order $k, domain [0.0, 1.0), period 1.0"
     )
 
-    # The last knot must be strictly less than `first(ts) + period`
-    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(k), ts, last(ts))
+    # The last knot must be strictly less than `first(breaks) + period`
+    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(k), breaks, last(breaks))
 
     # Order must be ≥ 1
-    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(0), ts, L)
+    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(0), breaks, L)
 
-    @test PeriodicBSplineBasis(k, ts, L) == B
+    @test PeriodicBSplineBasis(k, breaks, L) == B
 
     @testset "Evaluate x = $x" for x ∈ (0.02, 0.42, 0.89)
         ilast, bs = @inferred B(x)
@@ -52,8 +55,8 @@ using Test
 
     # Far from the boundaries, the result should match a regular BSplineBasis
     # (except for the knot index, which can be different).
-    let Bn = BSplineBasis(BSplineOrder(k), ts)
-        x = (2 * ts[k + 1] + ts[k + 2]) / 3
+    let Bn = BSplineBasis(BSplineOrder(k), breaks)
+        x = (2 * breaks[k + 1] + breaks[k + 2]) / 3
         @test Bn(x)[2] == B(x)[2]
     end
 end
