@@ -21,8 +21,21 @@ Describes an infinite vector of knots with periodicity `L`.
 
 Note that the vector has an effective length `N` associated to a single period,
 but it is possible to index it outside of this "main" interval.
+
+---
+
+    PeriodicKnots(ξs::AbstractVector{T}, L::Real, ::Val{offset})
+
+Construct a periodic knot sequence with period `L` from breakpoints `ξs`.
+
+The breakpoints should be in non-decreasing order.
+They represent a single period, and must *not* include the endpoint.
+In other words, the last point must be such that `ξs[end] < ξs[begin] + L`.
+
+Note that the indices of the returned knots `ts` are offset with respect to the
+input `ξs` according to `ts[i] = ξs[i + offset]`.
 """
-struct PeriodicKnots{T, Knots <: AbstractVector{T}} <: AbstractVector{T}
+struct PeriodicKnots{T, IndexOffset, Knots <: AbstractVector{T}} <: AbstractVector{T}
     # Knots in a single period (length = N).
     # The knot vector is such that data[end] - data[begin] < period.
     data       :: Knots
@@ -32,23 +45,26 @@ struct PeriodicKnots{T, Knots <: AbstractVector{T}} <: AbstractVector{T}
     boundaries :: NTuple{2, T}
 
     function PeriodicKnots(
-            ts::AbstractVector{T}, period::Real,
-        ) where {T}
+            breaks::AbstractVector{T}, period::Real,
+            ::Val{Offset},
+        ) where {T, Offset}
+        Offset :: Int
         L = convert(T, period)
-        a = first(ts)
-        if last(ts) - a ≥ L
+        a = first(breaks)
+        if last(breaks) - a ≥ L
             throw(ArgumentError("the knot extent (t[end] - t[begin]) must be *strictly* smaller than the period L"))
         end
         boundaries = (a, a + L)
-        Knots = typeof(ts)
-        N = length(ts)
-        new{T, Knots}(ts, N, L, boundaries)
+        Knots = typeof(breaks)
+        N = length(breaks)
+        new{T, Offset, Knots}(breaks, N, L, boundaries)
     end
 end
 
 Base.parent(ts::PeriodicKnots) = ts.data
 boundaries(ts::PeriodicKnots) = ts.boundaries
 period(ts::PeriodicKnots) = ts.period
+index_offset(::PeriodicKnots{T,I}) where {T,I} = I
 
 Base.axes(ts::PeriodicKnots) = axes(parent(ts))
 Base.length(ts::PeriodicKnots) = ts.N
@@ -61,7 +77,7 @@ _knot_zone(::PeriodicKnots, x) = 0
 @inline function find_knot_interval(ts::PeriodicKnots, x::Real, ::Nothing)
     data = parent(ts)
     a, b = boundaries(ts)
-    i = 0
+    i = index_offset(ts)
     while x < a
         x += period(ts)
         i -= length(ts)
@@ -78,6 +94,7 @@ end
 @inline function Base.getindex(ts::PeriodicKnots, i::Int)
     data = parent(ts)
     x = zero(eltype(ts))
+    i -= index_offset(ts)
     while i < firstindex(data)
         i += length(ts)
         x -= period(ts)
@@ -154,7 +171,8 @@ struct PeriodicBSplineBasis{
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        ts_per = PeriodicKnots(ts, period)
+        offset = k - 1
+        ts_per = PeriodicKnots(ts, period, Val(offset))
         Knots = typeof(ts_per)
         N = length(parent(ts_per))
         new{k, T, Knots}(N, ts_per)
