@@ -165,7 +165,9 @@ function spline_kernel(
             jr = j - r
             ex = quote
                 $ex
-                α = @inbounds (x - t[$jk + n]) / (t[$jr + n + 1] - t[$jk + n])
+                @inbounds ti = t[$jk + n]
+                @inbounds tj = t[$jr + n + 1]
+                α = (x - ti) / (tj - ti)
                 $d_j = $T((1 - α) * $d_p + α * $d_j)
             end
         end
@@ -187,7 +189,10 @@ function spline_kernel_alt(
     @inbounds for r = 2:k
         dprev = d[r - 1]
         for j = r:k
-            α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
+            jn = j + n
+            ti = t[jn - k]
+            tj = t[jn - r + 1]
+            α = (x - ti) / (tj - ti)
             dtmp = dprev
             dprev = d[j]
             d[j] = (1 - α) * dtmp + α * dprev
