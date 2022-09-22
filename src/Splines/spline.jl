@@ -93,7 +93,7 @@ Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T} =
     Spline{T}(init, B)
 
 parent_spline(S::Spline) = parent_spline(basis(S), S)
-parent_spline(::BSplineBasis, S::Spline) = S
+parent_spline(::AbstractBSplineBasis, S::Spline) = S
 
 """
     coefficients(S::Spline)
@@ -132,19 +132,23 @@ order(S::Spline) = order(typeof(S))
 
 # TODO allow evaluating derivatives at point `x` (should be much cheaper than
 # constructing a new Spline for the derivative)
-(S::Spline)(x) = _evaluate(basis(S), S, x)
+@inline function (S::Spline)(x)
+    B = basis(S)
+    if has_parent_basis(B)
+        parent_spline(S)(x)
+    else
+        _evaluate(S, x)
+    end
+end
 
-function _evaluate(::BSplineBasis, S::Spline, x)
+function _evaluate(S::Spline, x)
     T = eltype(S)
     t = knots(S)
-    n = knot_interval(t, x)
-    n === nothing && return zero(T)  # x is outside of knot domain
+    n, zone = find_knot_interval(t, x)
+    iszero(zone) || return zero(T)  # x is outside of knot domain
     k = order(S)
     spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
 end
-
-# Fallback, if the basis is not a regular BSplineBasis
-_evaluate(::AbstractBSplineBasis, S::Spline, x) = parent_spline(S)(x)
 
 function spline_kernel(
         c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
@@ -328,22 +332,4 @@ function _integral(::BSplineBasis, S::Spline)
 
     B = BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
     Spline(B, β)
-end
-
-function knot_interval(t::AbstractVector, x)
-    n = searchsortedlast(t, x)  # t[n] <= x < t[n + 1]
-    n == 0 && return nothing    # x < t[1]
-
-    Nt = length(t)
-
-    if n == Nt  # i.e. if x >= t[end]
-        t_last = t[n]
-        x > t_last && return nothing
-        # If x is exactly on the last knot, decrease the index as necessary.
-        while t[n] == t_last
-            n -= one(n)
-        end
-    end
-
-    n
 end

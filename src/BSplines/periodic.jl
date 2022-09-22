@@ -17,7 +17,7 @@ function period end
 """
     PeriodicKnots{T} <: AbstractVector{T}
 
-Describes an infinite vector of knots with some periodicity `L`.
+Describes an infinite vector of knots with periodicity `L`.
 
 Note that the vector has an effective length `N` associated to a single period,
 but it is possible to index it outside of this "main" interval.
@@ -58,7 +58,7 @@ _knot_zone(::PeriodicKnots, x) = 0
 
 # Note that the returned zone is always 0 for periodic knots, meaning that any
 # location `x` is a valid location where (B-)splines can be evaluated.
-@inline function find_knot_interval(ts::PeriodicKnots, x::Real)
+@inline function find_knot_interval(ts::PeriodicKnots, x::Real, ::Nothing)
     data = parent(ts)
     a, b = boundaries(ts)
     i = 0

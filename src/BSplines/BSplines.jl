@@ -18,6 +18,8 @@ export
     evaluate!,
     evaluate_all,
     nonzero_in_segment,
+    has_parent_basis,
+    find_knot_interval,
     support
 
 using ..DifferentialOps
@@ -84,6 +86,20 @@ Specifies the B-spline order `k`.
 struct BSplineOrder{k} end
 
 @inline BSplineOrder(k::Integer) = BSplineOrder{Int(k)}()
+
+"""
+    has_parent_basis(::Type{<:AbstractBSplineBasis}) -> Bool
+    has_parent_basis(::AbstractBSplineBasis) -> Bool
+
+Trait determining whether a basis has a parent B-spline basis.
+
+This is notably the case for [`RecombinedBSplineBasis`](@ref), which are derived
+from regular B-spline bases.
+"""
+function has_parent_basis end
+
+has_parent_basis(::Type{<:AbstractBSplineBasis}) = false
+has_parent_basis(B::AbstractBSplineBasis) = has_parent_basis(typeof(B))
 
 include("basis.jl")
 include("basis_function.jl")

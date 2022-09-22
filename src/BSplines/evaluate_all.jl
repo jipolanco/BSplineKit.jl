@@ -72,10 +72,8 @@ end
     (x - ti) / (tj - ti)
 end
 
-# TODO
-# - this is redundant with Splines.knot_interval...
 """
-    find_knot_interval(ts::AbstractVector, x::Real) -> (i, zone)
+    find_knot_interval(ts::AbstractVector, x::Real, [ileft = nothing]) -> (i, zone)
 
 Finds the index ``i`` corresponding to the knot interval ``[t_i, t_{i + 1}]``
 that should be used to evaluate B-splines at location ``x``.
@@ -90,8 +88,14 @@ It also returns a `zone` integer, which is:
 
 This function is functionally equivalent to de Boor's `INTERV` routine (de Boor
 2001, p. 74).
+
+If one already knows the location `i` associated to the knot interval, then one
+can pass it as the optional `ileft` argument, in which case only the zone needs
+to be computed.
 """
-function find_knot_interval(ts::AbstractVector, x::Real)
+function find_knot_interval end
+
+function find_knot_interval(ts::AbstractVector, x::Real, ::Nothing = nothing)
     if x < first(ts)
         return firstindex(ts), -1
     end
@@ -110,6 +114,13 @@ function find_knot_interval(ts::AbstractVector, x::Real)
     end
 end
 
+function find_knot_interval(ts::AbstractVector, x::Real, ileft::Integer)
+    zone = _knot_zone(ts, x)
+    ileft, zone
+end
+
+_knot_zone(ts::AbstractVector, x) = (x < first(ts)) ? -1 : (x > last(ts)) ? 1 : 0
+
 function _evaluate_all(
         ts::AbstractVector, x::Real, ::BSplineOrder{k},
         op::Derivative{0}, ::Type{T};
@@ -118,7 +129,7 @@ function _evaluate_all(
     if @generated
         @assert k ≥ 1
         ex = quote
-            i, zone = _find_knot_interval(ts, x, ileft)
+            i, zone = find_knot_interval(ts, x, ileft)
             if zone ≠ 0
                 return (i, @ntuple($k, j -> zero($T)))
             end
@@ -195,7 +206,7 @@ end
         ileft = nothing,
     ) where {k, T}
     @assert k ≥ 1
-    i, zone = _find_knot_interval(ts, x, ileft)
+    i, zone = find_knot_interval(ts, x, ileft)
     if zone ≠ 0
         return (i, ntuple(j -> zero(T), Val(k)))
     end
@@ -251,18 +262,6 @@ function _evaluate_all_alt(
         @inbounds bq[q] = -p * us[p]
     end
     i, Tuple(bq)
-end
-
-_knot_zone(ts::AbstractVector, x) = (x < first(ts)) ? -1 : (x > last(ts)) ? 1 : 0
-
-function _find_knot_interval(ts::AbstractVector, x, ileft)
-    if isnothing(ileft)
-        i, zone = find_knot_interval(ts, x)
-    else
-        i = ileft
-        zone = _knot_zone(ts, x)
-    end
-    i, zone
 end
 
 @inline @generated function _evaluate_step(Δs, bp, ::BSplineOrder{k}) where {k}

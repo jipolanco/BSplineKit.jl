@@ -4,7 +4,8 @@ using Test
 @testset "Periodic splines" begin
     ts = 0:0.1:0.9
     L = 1  # period
-    B = @inferred PeriodicBSplineBasis(BSplineOrder(4), ts, L)
+    k = 4
+    B = @inferred PeriodicBSplineBasis(BSplineOrder(k), ts, L)
     N = length(B)
 
     @test N == length(ts)
@@ -18,16 +19,16 @@ using Test
 
     @test startswith(
         repr(B),
-        "10-element PeriodicBSplineBasis of order 4, domain [0.0, 1.0), period 1.0"
+        "10-element PeriodicBSplineBasis of order $k, domain [0.0, 1.0), period 1.0"
     )
 
     # The last knot must be strictly less than `first(ts) + period`
-    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(4), ts, last(ts))
+    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(k), ts, last(ts))
 
     # Order must be ≥ 1
     @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(0), ts, L)
 
-    @test PeriodicBSplineBasis(4, ts, L) == B
+    @test PeriodicBSplineBasis(k, ts, L) == B
 
     @testset "Evaluate x = $x" for x ∈ (0.02, 0.42, 0.89)
         ilast, bs = @inferred B(x)
@@ -42,5 +43,12 @@ using Test
             @test ilast′ == ilast + n * N
             @test all(bs .≈ bs′)
         end
+    end
+
+    # Far from the boundaries, the result should match a regular BSplineBasis.
+    # Note that the knot indices also match!
+    let Bn = BSplineBasis(BSplineOrder(k), ts)
+        x = (2 * ts[k + 1] + ts[k + 2]) / 3
+        @test Bn(x) == B(x)
     end
 end
