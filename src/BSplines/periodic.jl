@@ -70,6 +70,10 @@ Base.axes(ts::PeriodicKnots) = axes(parent(ts))
 Base.length(ts::PeriodicKnots) = ts.N
 Base.checkbounds(::Type{Bool}, ts::PeriodicKnots, i) = true  # all indices are accepted
 
+# Modify `show` to make it clear that this is an "infinite" vector.
+Base.show(io::IO, ts::PeriodicKnots) =
+    Base.show_vector(io, ts, "[..., ", ", ...]")
+
 _knot_zone(::PeriodicKnots, x) = 0
 
 # Note that the returned zone is always 0 for periodic knots, meaning that any
