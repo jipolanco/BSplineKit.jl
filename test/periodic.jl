@@ -2,11 +2,11 @@ using BSplineKit
 using Random
 using Test
 
-@testset "Periodic splines" begin
-    breaks = 0:0.1:0.9
+function test_periodic_splines(ord::BSplineOrder)
+    k = order(ord)
     L = 1  # period
-    k = 4
-    B = @inferred PeriodicBSplineBasis(BSplineOrder(k), breaks, L)
+    breaks = range(0, L; step = 0.05)[begin:end-1]
+    B = @inferred PeriodicBSplineBasis(ord, breaks, L)
     N = length(B)
 
     ts = @inferred knots(B)
@@ -17,17 +17,17 @@ using Test
     @test typeof(period(B)) === eltype(breaks)
     @test @inferred(boundaries(B)) == (0, 1)
     @test B == B
-    let B′ = PeriodicBSplineBasis(BSplineOrder(3), breaks, L)
+    let B′ = PeriodicBSplineBasis(BSplineOrder(k - 1), breaks, L)
         @test B ≠ B′
     end
 
     @test startswith(
         repr(B),
-        "10-element PeriodicBSplineBasis of order $k, domain [0.0, 1.0), period 1.0"
+        "$N-element PeriodicBSplineBasis of order $k, domain [0.0, 1.0), period 1.0"
     )
 
     # The last knot must be strictly less than `first(breaks) + period`
-    @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(k), breaks, last(breaks))
+    @test_throws ArgumentError PeriodicBSplineBasis(ord, breaks, last(breaks))
 
     # Order must be ≥ 1
     @test_throws ArgumentError PeriodicBSplineBasis(BSplineOrder(0), breaks, L)
@@ -77,11 +77,31 @@ using Test
     # - test interpolations
 
     # Far from the boundaries, the result should match a regular BSplineBasis
-    # (except for the knot index, which can be different).
-    let Bn = BSplineBasis(BSplineOrder(k), breaks)
-        x = (2 * breaks[k + 1] + breaks[k + 2]) / 3
+    # (except for the knot index, which is shifted).
+    @testset "Compare to regular" begin
+        Bn = BSplineBasis(ord, breaks)
+        x = (2 * breaks[k + 2] + breaks[k + 3]) / 3
 
-        # Compare B-spline evaluation
-        @test Bn(x)[2] == B(x)[2]
+        # Index offset for matching regular to periodic basis
+        δ = (order(B) - 1) - BSplines.index_offset(knots(B))
+
+        @testset "B-spline evaluation" begin
+            iₙ, bsₙ = Bn(x)  # B-splines from regular ("normal") basis
+            iₚ, bsₚ = B(x)   # B-splines from periodic basis
+            @test iₙ == iₚ + δ  # knot indices are shifted
+            @test bsₙ == bsₚ    # b-spline values are the same
+        end
+
+        @testset "Spline evaluation" begin
+            coefs = randn(rng, length(Bn))
+            Sn = Spline(Bn, coefs)
+            Sp = Spline{Float64}(undef, B)
+            coefficients(Sp) .= @view coefs[(δ + 1):(δ + length(Sp))]
+            @test Sn(x) == Sp(x)
+        end
     end
+end
+
+@testset "Periodic splines (k = $k)" for k ∈ (3, 4, 6)
+    test_periodic_splines(BSplineOrder(k))
 end
