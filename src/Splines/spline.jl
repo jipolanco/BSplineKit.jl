@@ -46,7 +46,8 @@ struct Spline{
     basis :: Basis
     coefs :: CoefVector
 
-    function Spline(B::AbstractBSplineBasis, coefs::AbstractVector)
+    function Spline(B::AbstractBSplineBasis, cs::AbstractVector)
+        coefs = wrap_coefficients(B, cs)  # used for periodic bases
         length(coefs) == length(B) ||
             throw(ArgumentError("wrong number of coefficients"))
         Basis = typeof(B)
@@ -57,6 +58,9 @@ struct Spline{
         new{T, Basis, CoefVector}(B, coefs)
     end
 end
+
+# By default coefficients are not wrapped.
+wrap_coefficients(::AbstractBSplineBasis, cs::AbstractVector) = cs
 
 Broadcast.broadcastable(S::Spline) = Ref(S)
 

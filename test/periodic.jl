@@ -1,4 +1,5 @@
 using BSplineKit
+using Random
 using Test
 
 @testset "Periodic splines" begin
@@ -33,12 +34,34 @@ using Test
 
     @test PeriodicBSplineBasis(k, breaks, L) == B
 
+    rng = MersenneTwister(42)
+    S = @inferred Spline(B, randn(rng, length(B)))
+
+    # This is mainly to check that the coefficients are not re-wrapped in a
+    # PeriodicVector.
+    let Salt = @inferred Spline(B, coefficients(S))
+        @test S == Salt
+        @test typeof(S) === typeof(Salt)
+    end
+
     @testset "Evaluate x = $x" for x ∈ (0.02, 0.42, 0.89)
         ilast, bs = @inferred B(x)
         @test (ilast, bs) == @inferred B(x; ileft = ilast)
-        @test 0 == @allocated B(x)  # no allocations!
         @test all(>(0), bs)
         @test sum(bs) ≈ 1  # partition of unity
+
+        # Check for zero allocations
+        eval_alloc(B, x) = (B(x); @allocated(B(x)))
+        @test 0 == eval_alloc(B, x)
+
+        # Check spline evaluation
+        coefs = coefficients(S)
+        Sx = sum(enumerate(bs)) do (δi, bi)
+            i = mod1(ilast + 1 - δi, length(coefs))
+            coefs[i] * bi
+        end
+        @test Sx ≈ S(x)
+        @test 0 == eval_alloc(S, x)
 
         # Check periodicity
         for n ∈ (-2, 1)
@@ -57,6 +80,8 @@ using Test
     # (except for the knot index, which can be different).
     let Bn = BSplineBasis(BSplineOrder(k), breaks)
         x = (2 * breaks[k + 1] + breaks[k + 2]) / 3
+
+        # Compare B-spline evaluation
         @test Bn(x)[2] == B(x)[2]
     end
 end

@@ -14,17 +14,23 @@ function period end
 ## PeriodicKnots                                                              ##
 ## ========================================================================== ##
 
+abstract type AbstractPeriodicVector{T} <: AbstractVector{T} end
+
+Base.parent(ts::AbstractPeriodicVector) = ts.data
+Base.checkbounds(::Type{Bool}, ts::AbstractPeriodicVector, i) = true  # all indices are accepted
+
+# Modify `show` to make it clear that this is an "infinite" vector.
+Base.show(io::IO, ts::AbstractPeriodicVector) =
+    Base.show_vector(io, ts, "[..., ", ", ...]")
+
 """
     PeriodicKnots{T} <: AbstractVector{T}
 
 Describes an infinite vector of knots with periodicity `L`.
 
-Note that the vector has an effective length `N` associated to a single period,
-but it is possible to index it outside of this "main" interval.
-
 ---
 
-    PeriodicKnots(ξs::AbstractVector{T}, L::Real, ::Val{offset})
+    PeriodicKnots(ξs::AbstractVector{T}, L::Real, ::BSplineOrder{k})
 
 Construct a periodic knot sequence with period `L` from breakpoints `ξs`.
 
@@ -33,9 +39,11 @@ They represent a single period, and must *not* include the endpoint.
 In other words, the last point must be such that `ξs[end] < ξs[begin] + L`.
 
 Note that the indices of the returned knots `ts` are offset with respect to the
-input `ξs` according to `ts[i] = ξs[i + offset]`.
+input `ξs` according to `ts[i] = ξs[i + offset]` where `offset = k ÷ 2`.
 """
-struct PeriodicKnots{T, k, Knots <: AbstractVector{T}} <: AbstractVector{T}
+struct PeriodicKnots{
+        T, k, Knots <: AbstractVector{T},
+    } <: AbstractPeriodicVector{T}
     # Knots in a single period (length = N).
     # The knot vector is such that data[end] - data[begin] < period.
     data       :: Knots
@@ -61,7 +69,6 @@ struct PeriodicKnots{T, k, Knots <: AbstractVector{T}} <: AbstractVector{T}
     end
 end
 
-Base.parent(ts::PeriodicKnots) = ts.data
 boundaries(ts::PeriodicKnots) = ts.boundaries
 period(ts::PeriodicKnots) = ts.period
 order(::PeriodicKnots{T,k}) where {T,k} = k
@@ -69,18 +76,13 @@ order(::PeriodicKnots{T,k}) where {T,k} = k
 # This offset is to make sure collocation matrices are diagonally-dominant.
 index_offset(ts::PeriodicKnots) = order(ts) ÷ 2
 
-# This is such that ts[i] and ts[i + N] correspond to the same position due to
-# periodicity.
-period_length(ts::PeriodicKnots) = ts.N
-
 # For consistency with regular B-spline bases, the length of the knot vector is N + k.
 Base.length(ts::PeriodicKnots) = period_length(ts) + order(ts)
 Base.size(ts::PeriodicKnots) = (length(ts),)
-Base.checkbounds(::Type{Bool}, ts::PeriodicKnots, i) = true  # all indices are accepted
 
-# Modify `show` to make it clear that this is an "infinite" vector.
-Base.show(io::IO, ts::PeriodicKnots) =
-    Base.show_vector(io, ts, "[..., ", ", ...]")
+# This is such that ts[i] and ts[i + N] correspond to the same position due to
+# periodicity.
+period_length(ts::PeriodicKnots) = ts.N
 
 _knot_zone(::PeriodicKnots, x) = 0
 
