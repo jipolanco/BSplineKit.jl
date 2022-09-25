@@ -168,6 +168,9 @@ function collocation_matrix!(
         for (δj, bj) ∈ pairs(bs)
             j = jlast + 1 - δj
 
+            # This is relevant for periodic bases.
+            j = basis_to_array_index(B, axes(C, 2), j)
+
             # Skip very small values (and zeros).
             # This is important for SparseMatrixCSC, which also stores explicit
             # zeros.

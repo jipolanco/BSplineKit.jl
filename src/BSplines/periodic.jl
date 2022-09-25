@@ -220,3 +220,13 @@ Base.:(==)(A::PeriodicBSplineBasis, B::PeriodicBSplineBasis) =
     ) where {T <: Number}
     _evaluate_all(knots(B), x, BSplineOrder(order(B)), op, T; kws...)
 end
+
+@inline function basis_to_array_index(::PeriodicBSplineBasis, axs, i::Int)
+    while i < first(axs)
+        i += length(axs)
+    end
+    while i > last(axs)
+        i -= length(axs)
+    end
+    i
+end
