@@ -38,6 +38,9 @@ function test_periodic_splines(ord::BSplineOrder)
     rng = MersenneTwister(42)
     S = @inferred Spline(B, randn(rng, length(B)))
 
+    # Not currently supported...
+    @test_throws ErrorException integral(S)
+
     # This is mainly to check that the coefficients are not re-wrapped in a
     # PeriodicVector.
     let Salt = @inferred Spline(B, coefficients(S))

@@ -72,11 +72,20 @@ function basis_derivative(B::BSplineBasis, ::Derivative{n}) where {n}
     @assert n ≥ 0
     ts = knots(B)
     k = order(B)
-
     # The derived B-spline basis has 2n fewer knots.
     ts′ = view(ts, (firstindex(ts) + n):(lastindex(ts) - n))
-
     BSplineBasis(BSplineOrder(k - n), ts′; augment = Val(false))
+end
+
+function basis_integral(B::BSplineBasis)
+    ts = knots(B)
+    k = order(B)
+    # The new basis has 2 more knots and 1 more B-spline.
+    t_int = similar(ts, length(ts) + 2)
+    t_int[(begin + 1):(end - 1)] .= ts
+    t_int[begin] = t_int[begin + 1]
+    t_int[end] = t_int[end - 1]
+    BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
 end
 
 Base.:(==)(A::BSplineBasis, B::BSplineBasis) =

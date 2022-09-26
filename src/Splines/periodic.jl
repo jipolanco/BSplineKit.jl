@@ -114,3 +114,9 @@ function _derivative(
 
     Spline(B′, du)
 end
+
+# Note that the integral of a periodic function is in general not periodic
+# (unless the function has zero mean over a single period).
+# Maybe we could return a spline in a regular BSplineBasis?
+_integral(::PeriodicBSplineBasis, ::Spline) =
+    error("integration of periodic splines is currently not supported")

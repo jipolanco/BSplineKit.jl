@@ -322,34 +322,15 @@ function integral(S::Spline)
     end
 end
 
-function _integral(B::AbstractBSplineBasis, S::Spline)
+function _integral(B::BSplineBasis, S::Spline)
     u = coefficients(S)
     t = knots(S)
     k = order(S)
-    Base.require_one_based_indexing(u)
-
-    Nt = length(t)
-    N = length(u)
-
-    # Note that the new spline has 2 more knots and 1 more B-spline.
-    t_int = similar(t, Nt + 2)
-    t_int[2:(end - 1)] .= t
-    t_int[1] = t_int[2]
-    t_int[end] = t_int[end - 1]
-
-    β = similar(u, N + 1)
-    β[1] = zero(eltype(β))
-
+    β = similar(u, length(u) + 1)
+    β[begin] = zero(eltype(β))
     @inbounds for i in eachindex(u)
-        m = i + 1
-        β[m] = zero(eltype(β))
-        for j = 1:i
-            β[m] += u[j] * (t[j + k] - t[j]) / k
-        end
+        β[i + 1] = β[i] + u[i] * (t[i + k] - t[i]) / k
     end
-
-    # TODO periodic case??
-    B = BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
-
-    Spline(B, β)
+    B′ = BSplines.basis_integral(B)
+    Spline(B′, β)
 end
