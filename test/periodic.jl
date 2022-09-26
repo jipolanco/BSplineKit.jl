@@ -1,4 +1,5 @@
 using BSplineKit
+using LinearAlgebra
 using Random
 using Test
 
@@ -71,11 +72,6 @@ function test_periodic_splines(ord::BSplineOrder)
         end
     end
 
-    # TODO
-    # - test splines
-    # - test collocation and Galerkin
-    # - test interpolations
-
     # Far from the boundaries, the result should match a regular BSplineBasis
     # (except for the knot index, which is shifted).
     @testset "Compare to regular" begin
@@ -100,6 +96,28 @@ function test_periodic_splines(ord::BSplineOrder)
             @test Sn(x) == Sp(x)
         end
     end
+
+    ftest(x) = sinpi(2x)  # should be L-periodic (L = 1)
+
+    @testset "Collocation + interpolation" begin
+        xs = @inferred collocation_points(B)
+        @test xs == breaks  # this is the default
+        C = @inferred collocation_matrix(B, xs)
+
+        # Interpolate manually
+        ys = ftest.(xs)
+        cs = C \ ys
+        S = @inferred Spline(B, cs)
+        @test S.(xs) ≈ ys
+
+        # Compare with interpolation interface
+        I = @inferred interpolate(xs, ys, ord, Periodic(L))
+        @test I.(xs) ≈ ys
+    end
+
+    # TODO
+    # - test Galerkin + approximations
+    # - test derivatives
 end
 
 @testset "Periodic splines (k = $k)" for k ∈ (3, 4, 6)

@@ -1,14 +1,7 @@
 export PeriodicBSplineBasis,
-       PeriodicKnots,
-       period
+       PeriodicKnots
 
-"""
-    period(B::PeriodicBSplineBasis) -> Real
-    period(ts::PeriodicKnots) -> Real
-
-Returns the period `L` associated to a periodic B-spline basis.
-"""
-function period end
+import ..BoundaryConditions: period
 
 ## ========================================================================== ##
 ## PeriodicKnots                                                              ##

@@ -6,7 +6,8 @@ Contains some boundary condition definitions.
 module BoundaryConditions
 
 export Natural,
-       Periodic
+       Periodic,
+       period
 
 abstract type BoundaryCondition end
 
@@ -48,5 +49,15 @@ Constructs periodic boundary conditions with period `L`.
 struct Periodic{T <: Real} <: BoundaryCondition
     period :: T
 end
+
+"""
+    period(bc::Periodic) -> Real
+    period(B::PeriodicBSplineBasis) -> Real
+    period(ts::PeriodicKnots) -> Real
+
+Returns the period `L` associated to a periodic boundary condition or B-spline
+basis.
+"""
+period(bc::Periodic) = bc.period
 
 end

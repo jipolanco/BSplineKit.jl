@@ -61,4 +61,8 @@ end
 end
 
 wrap_coefficients(::PeriodicBSplineBasis, cs::AbstractVector) = PeriodicVector(cs)
+
+# Make sure that we don't re-wrap already wrapped coefficients.
 wrap_coefficients(::PeriodicBSplineBasis, cs::PeriodicVector) = cs
+
+unwrap_coefficients(::PeriodicBSplineBasis, cs::PeriodicVector) = parent(cs)

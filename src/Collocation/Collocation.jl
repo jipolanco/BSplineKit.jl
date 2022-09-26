@@ -107,7 +107,7 @@ See also [`collocation_matrix!`](@ref).
 function collocation_matrix(
         B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
-        ::Type{MatrixType} = _default_matrix_type(B);
+        ::Type{MatrixType} = default_matrix_type(B, Float64);
         kwargs...,
     ) where {MatrixType}
     Nx = length(x)
@@ -119,9 +119,12 @@ end
 collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
     collocation_matrix(B, x, Derivative(0), M; kwargs...)
 
-_default_matrix_type(::Type{<:AbstractBSplineBasis}) = CollocationMatrix{Float64}
-_default_matrix_type(::Type{<:PeriodicBSplineBasis}) = SparseMatrixCSC{Float64}
-_default_matrix_type(B::AbstractBSplineBasis) = _default_matrix_type(typeof(B))
+default_matrix_type(::Type{<:AbstractBSplineBasis}, ::Type{T}) where {T} =
+    CollocationMatrix{T}
+default_matrix_type(::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
+    SparseMatrixCSC{T}
+default_matrix_type(B::AbstractBSplineBasis, ::Type{T}) where {T} =
+    default_matrix_type(typeof(B), T)
 
 allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
     M(undef, dims...)

@@ -62,6 +62,10 @@ end
 # By default coefficients are not wrapped.
 wrap_coefficients(::AbstractBSplineBasis, cs::AbstractVector) = cs
 
+# This is mainly useful for periodic bases.
+unwrap_coefficients(S::Spline) = unwrap_coefficients(basis(S), coefficients(S))
+unwrap_coefficients(::AbstractBSplineBasis, cs::AbstractVector) = cs
+
 Broadcast.broadcastable(S::Spline) = Ref(S)
 
 Base.copy(S::Spline) = Spline(basis(S), copy(coefficients(S)))

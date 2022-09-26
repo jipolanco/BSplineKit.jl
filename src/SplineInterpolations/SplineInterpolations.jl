@@ -6,6 +6,7 @@ using ..Splines
 
 using BandedMatrices
 using LinearAlgebra
+using SparseArrays
 
 import ..BSplines:
     order, knots, basis
@@ -84,9 +85,13 @@ function SplineInterpolation(
             "incompatible lengths of B-spline basis and collocation points"))
     end
     Tc = float(Tx)
-    C = collocation_matrix(B, x, CollocationMatrix{Tc})
-    SplineInterpolation(B, lu!(C), x, T)
+    C = collocation_matrix(B, x, Collocation.default_matrix_type(B, Tc))
+    SplineInterpolation(B, _factorise!(C), x, T)
 end
+
+# Factorise in-place when possible.
+_factorise!(C::AbstractMatrix) = lu!(C)
+_factorise!(C::SparseMatrixCSC) = lu(C)  # SparseMatrixCSC doesn't support `lu!`
 
 interpolation_points(S::SplineInterpolation) = S.x
 
@@ -112,12 +117,13 @@ previous call to [`interpolate`](@ref), using new data on the same locations
 
 See [`interpolate`](@ref) for details.
 """
-function interpolate!(I::SplineInterpolation, y::AbstractVector)
-    s = spline(I)
-    if length(y) != length(s)
+function interpolate!(I::SplineInterpolation, ys::AbstractVector)
+    S = spline(I)
+    cs = Splines.unwrap_coefficients(S)
+    if length(ys) != length(cs)
         throw(DimensionMismatch("input data has incorrect length"))
     end
-    ldiv!(coefficients(s), I.C, y)  # determine B-spline coefficients
+    ldiv!(cs, I.C, ys)  # determine B-spline coefficients
     I
 end
 
@@ -133,9 +139,18 @@ point.
 
 Optionally, one may pass one of the boundary conditions listed in the [Boundary
 conditions](@ref boundary-conditions-api) section.
-For now, only the [`Natural`](@ref) boundary condition is available.
+Currently, the [`Natural`](@ref) and [`Periodic`](@ref) boundary conditions are
+available.
 
 See also [`interpolate!`](@ref).
+
+!!! note "Periodic boundary conditions"
+
+    Periodic boundary conditions should be used if the interpolated data is
+    supposed to represent a periodic signal.
+    In this case, pass `bc = Period(L)`, where `L` is the period of the x-axis.
+    Note that the endpoint `x[begin] + L` should *not* be included in the `x`
+    vector.
 
 # Examples
 
@@ -204,6 +219,17 @@ function interpolate(
     R = RecombinedBSplineBasis(bc, B)
     T = float(eltype(y))
     itp = SplineInterpolation(undef, R, x, T)
+    interpolate!(itp, y)
+end
+
+function interpolate(
+        x::AbstractVector, y::AbstractVector, k::BSplineOrder, bc::Periodic,
+    )
+    # For periodic BCs, the number of required unique knots is equal to the
+    # number of data points, and therefore we just make them equal.
+    B = PeriodicBSplineBasis(k, x, BoundaryConditions.period(bc))
+    T = float(eltype(y))
+    itp = SplineInterpolation(undef, B, x, T)
     interpolate!(itp, y)
 end
 
