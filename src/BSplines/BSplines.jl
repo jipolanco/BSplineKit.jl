@@ -108,7 +108,7 @@ struct BSplineOrder{k} end
 
 Trait determining whether a basis has a parent B-spline basis.
 
-This is notably the case for [`RecombinedBSplineBasis`](@ref), which are derived
+This is notably the case for `RecombinedBSplineBasis`, which are derived
 from regular B-spline bases.
 """
 function has_parent_basis end

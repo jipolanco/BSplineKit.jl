@@ -1,7 +1,7 @@
 # [Collocation tools](@id collocation-api)
 
 ```@meta
-CurrentModule = BSplineKit.Collocation
+CurrentModule = BSplineKit
 ```
 
 ## Collocation points
@@ -14,8 +14,9 @@ collocation_points!
 ### Point selection methods
 
 ```@docs
-SelectionMethod
-AvgKnots
+Collocation.SelectionMethod
+Collocation.AvgKnots
+Collocation.SameAsKnots
 ```
 
 ## Matrices
@@ -24,6 +25,6 @@ AvgKnots
 CollocationMatrix
 collocation_matrix
 collocation_matrix!
-lu
-lu!
+Collocation.lu
+Collocation.lu!
 ```

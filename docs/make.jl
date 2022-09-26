@@ -27,15 +27,16 @@ for example in ["interpolation.jl", "approximation.jl", "heat.jl", ]
     filename = joinpath(example_dir, example)
     Literate.markdown(filename, output_dir, documenter=true)
 end
+
 @time makedocs(
-    sitename="BSplineKit.jl",
-    format=Documenter.HTML(
-        prettyurls=true,
+    sitename = "BSplineKit.jl",
+    format = Documenter.HTML(
+        prettyurls = true,
         # load assets in <head>
-        assets=["assets/tomate.js"],
+        assets = ["assets/tomate.js"],
     ),
-    modules=[BSplineKit],
-    pages=[
+    modules = [BSplineKit],
+    pages = [
         "Home" => "index.md",
         "Examples" => [
             "generated/interpolation.md",
@@ -55,9 +56,9 @@ end
             "Internals" => ["diffops.md"],
         ],
     ],
-    doctest=with_checks,
-    linkcheck=with_checks,
-    checkdocs=:all,
+    doctest = with_checks,
+    linkcheck = with_checks,
+    checkdocs = :all,
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.

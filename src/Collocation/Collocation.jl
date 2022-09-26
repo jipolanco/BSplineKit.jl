@@ -9,12 +9,14 @@ export
 
 using ..BSplines
 using ..DifferentialOps
-using ..Recombinations:
-    num_constraints,
-    RecombinedBSplineBasis  # for Documenter
+using ..Recombinations: num_constraints
 
 using BandedMatrices
 using SparseArrays
+
+# For Documenter only:
+using ..Recombinations: RecombinedBSplineBasis
+using ..BoundaryConditions: Natural
 
 include("matrix.jl")
 include("points.jl")
@@ -87,18 +89,25 @@ the matrix needs to be inverted.
   collocation points is not adapted. In these cases, the effective
   bandwidth of the matrix may be larger than the expected bandwidth.
 
-- `SparseMatrixCSC{T}`: regular sparse matrix; correctly handles any matrix
-  shape.
+- `SparseMatrixCSC{T}`: regular sparse matrix; correctly handles all matrix
+  shapes.
 
 - `Matrix{T}`: a regular dense matrix. Generally performs worse than the
   alternatives, especially for large problems.
+
+!!! note "Periodic B-spline bases"
+    The default matrix type is `CollocationMatrix{T}`, *except* for
+    periodic bases ([`PeriodicBSplineBasis`](@ref)), in which case the collocation
+    matrix has a few out-of-bands entries due to periodicity.
+    For periodic bases, `SparseMatrixCSC` is the default.
+    Note that this may change in the future.
 
 See also [`collocation_matrix!`](@ref).
 """
 function collocation_matrix(
         B::AbstractBSplineBasis, x::AbstractVector,
         deriv::Derivative = Derivative(0),
-        ::Type{MatrixType} = CollocationMatrix{Float64};
+        ::Type{MatrixType} = _default_matrix_type(B);
         kwargs...,
     ) where {MatrixType}
     Nx = length(x)
@@ -109,6 +118,10 @@ end
 
 collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
     collocation_matrix(B, x, Derivative(0), M; kwargs...)
+
+_default_matrix_type(::Type{<:AbstractBSplineBasis}) = CollocationMatrix{Float64}
+_default_matrix_type(::Type{<:PeriodicBSplineBasis}) = SparseMatrixCSC{Float64}
+_default_matrix_type(B::AbstractBSplineBasis) = _default_matrix_type(typeof(B))
 
 allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
     M(undef, dims...)

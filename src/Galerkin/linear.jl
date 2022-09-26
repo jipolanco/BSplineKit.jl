@@ -45,6 +45,13 @@ Other types of container are also supported, including regular sparse matrices
 (`SparseMatrixCSC`) and dense arrays (`Matrix`).
 See [`collocation_matrix`](@ref) for a discussion on matrix types.
 
+!!! note "Periodic B-spline bases"
+    The default matrix type is `BandedMatrix`, *except* for
+    periodic bases ([`PeriodicBSplineBasis`](@ref)), in which case the Galerkin
+    matrix has a few out-of-bands entries due to periodicity.
+    For periodic bases, `SparseMatrixCSC` is the default.
+    Note that this may change in the future.
+
 ## Derivatives of basis functions
 
 Galerkin matrices associated to the derivatives of basis functions may be
@@ -74,7 +81,7 @@ recombined basis `R` generated from `B` (see [Basis recombination](@ref basis-re
 function galerkin_matrix(
         Bs::NTuple{2,AbstractBSplineBasis},
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{M} = BandedMatrix{Float64},
+        ::Type{M} = _default_matrix_type(first(Bs)),
     ) where {M <: AbstractMatrix}
     B1, B2 = Bs
     symmetry = M <: Hermitian
@@ -89,7 +96,7 @@ end
 function galerkin_matrix(
         B::AbstractBSplineBasis,
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{Min} = BandedMatrix{Float64},
+        ::Type{Min} = _default_matrix_type(B),
     ) where {Min <: AbstractMatrix}
     symmetry = deriv[1] === deriv[2]
     T = eltype(Min)
@@ -99,6 +106,10 @@ end
 
 galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
+
+_default_matrix_type(::Type{<:AbstractBSplineBasis}) = BandedMatrix{Float64}
+_default_matrix_type(::Type{<:PeriodicBSplineBasis}) = SparseMatrixCSC{Float64}
+_default_matrix_type(B::AbstractBSplineBasis) = _default_matrix_type(typeof(B))
 
 function _check_bases(Bs::Tuple{Vararg{AbstractBSplineBasis}})
     ps = map(parent, Bs)
