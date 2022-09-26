@@ -154,12 +154,12 @@ See also [`interpolate!`](@ref).
 
 # Examples
 
-```jldoctest
+```jldoctest interpolate
 julia> xs = -1:0.1:1;
 
 julia> ys = cospi.(xs);
 
-julia> itp = interpolate(xs, ys, BSplineOrder(4))
+julia> S = interpolate(xs, ys, BSplineOrder(4))
 SplineInterpolation containing the 21-element Spline{Float64}:
  basis: 21-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
@@ -167,13 +167,13 @@ SplineInterpolation containing the 21-element Spline{Float64}:
  coefficients: [-1.0, -1.00111, -0.8975, -0.597515, -0.314147, 1.3265e-6, 0.314142, 0.597534, 0.822435, 0.96683  …  0.96683, 0.822435, 0.597534, 0.314142, 1.3265e-6, -0.314147, -0.597515, -0.8975, -1.00111, -1.0]
  interpolation points: -1.0:0.1:1.0
 
-julia> itp(-1)
+julia> S(-1)
 -1.0
 
-julia> (Derivative(1) * itp)(-1)
+julia> (Derivative(1) * S)(-1)
 -0.01663433622896893
 
-julia> (Derivative(2) * itp)(-1)
+julia> (Derivative(2) * S)(-1)
 10.52727328755495
 
 julia> Snat = interpolate(xs, ys, BSplineOrder(4), Natural())
@@ -193,6 +193,37 @@ julia> (Derivative(1) * Snat)(-1)
 julia> (Derivative(2) * Snat)(-1)
 0.0
 
+```
+
+## Periodic boundary conditions
+
+Interpolate ``f(x) = \\cos(πx)`` for ``x ∈ [-1, 1)``.
+Note that the period is ``L = 2`` and that the endpoint (``x = 1``) must *not*
+be included in the data points.
+
+```jldoctest interpolate
+julia> xp = -1:0.1:0.9;
+
+julia> yp = cospi.(xp);
+
+julia> Sper = interpolate(xp, yp, BSplineOrder(4), Periodic(2))
+SplineInterpolation containing the 20-element Spline{Float64}:
+ basis: 20-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
+ order: 4
+ knots: [..., -1.2, -1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3  …  0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, ...]
+ coefficients: [..., -1.01659, -0.96683, -0.822435, -0.597534, -0.314142, 0.0, 0.314142, 0.597534, 0.822435, 0.96683, 1.01659, 0.96683, 0.822435, 0.597534, 0.314142, -3.34668e-17, -0.314142, -0.597534, -0.822435, -0.96683, ...]
+ interpolation points: -1.0:0.1:0.9
+```
+
+As expected, the periodic spline does a better job at approximating the periodic
+function ``f(x) = \\cos(πx)`` near the boundaries than the other interpolations:
+
+```jldoctest interpolate
+julia> x = -0.99; cospi(x), Sper(x), Snat(x), S(x)
+(-0.9995065603657316, -0.9995032595823043, -0.9971071640321146, -0.9996420091470221)
+
+julia> x = 0.998; cospi(x), Sper(x), Snat(x), S(x)
+(-0.9999802608561371, -0.9999801044078943, -0.9994253145274461, -1.0000122303614758)
 ```
 """
 function interpolate(
