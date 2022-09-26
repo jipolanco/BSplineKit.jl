@@ -68,6 +68,17 @@ end
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
+function basis_derivative(B::BSplineBasis, ::Derivative{n}) where {n}
+    @assert n ≥ 0
+    ts = knots(B)
+    k = order(B)
+
+    # The derived B-spline basis has 2n fewer knots.
+    ts′ = view(ts, (firstindex(ts) + n):(lastindex(ts) - n))
+
+    BSplineBasis(BSplineOrder(k - n), ts′; augment = Val(false))
+end
+
 Base.:(==)(A::BSplineBasis, B::BSplineBasis) =
     A === B ||
     order(A) == order(B) && knots(A) == knots(B)

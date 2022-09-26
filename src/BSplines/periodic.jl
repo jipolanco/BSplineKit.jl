@@ -240,3 +240,12 @@ end
     end
     i
 end
+
+function basis_derivative(B::PeriodicBSplineBasis, ::Derivative{n}) where {n}
+    @assert n ≥ 0
+    k = order(B)
+    L = period(B)
+    ts = knots(B) :: PeriodicKnots
+    ξs = parent(ts)  # original breakpoints
+    PeriodicBSplineBasis(BSplineOrder(k - n), ξs, L)
+end

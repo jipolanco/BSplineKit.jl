@@ -39,6 +39,11 @@ end
 Base.length(vs::PeriodicVector) = vs.N
 Base.axes(vs::PeriodicVector) = axes(parent(vs))
 
+function Base.similar(vs::PeriodicVector, ::Type{S}, dims::Dims) where {S}
+    data = similar(parent(vs), S, dims)
+    PeriodicVector(data)
+end
+
 @inline function index_to_main_period(vs::PeriodicVector, i::Int)
     data = parent(vs)
     while i < firstindex(data)
@@ -66,3 +71,46 @@ wrap_coefficients(::PeriodicBSplineBasis, cs::AbstractVector) = PeriodicVector(c
 wrap_coefficients(::PeriodicBSplineBasis, cs::PeriodicVector) = cs
 
 unwrap_coefficients(::PeriodicBSplineBasis, cs::PeriodicVector) = parent(cs)
+
+function _derivative(
+        B::PeriodicBSplineBasis, S::Spline, op::Derivative{Ndiff},
+    ) where {Ndiff}
+    Ndiff :: Integer
+    @assert Ndiff >= 1
+
+    u = coefficients(S) :: PeriodicVector
+    k = order(S)
+
+    if Ndiff >= k
+        throw(ArgumentError(
+            "cannot differentiate order $k spline $Ndiff times!"))
+    end
+
+    B′ = BSplines.basis_derivative(B, op)
+    δ = BSplines.index_offset(knots(B)) - BSplines.index_offset(knots(B′))
+    @assert δ ≥ 0
+    t = knots(B′)
+
+    du = similar(u) :: PeriodicVector
+
+    # Copy coefficients with possible offset to account for different starting
+    # point of B-spline knots.
+    @inbounds for i ∈ eachindex(u)
+        du[i - δ] = u[i]
+    end
+
+    @inbounds for m = 1:Ndiff
+        # We need to save this value due to periodicity.
+        # Note that du[0] and du[N] point to the same value, so that when we
+        # modify du[N], we also modify du[0].
+        du₀ = last(du)
+        for i in Iterators.reverse(eachindex(du))
+            dt = t[i + k - m] - t[i]
+            @assert !iszero(dt)
+            du_prev = i == firstindex(du) ? du₀ : du[i - 1]
+            du[i] = (k - m) * (du[i] - du_prev) / dt
+        end
+    end
+
+    Spline(B′, du)
+end

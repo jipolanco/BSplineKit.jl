@@ -81,9 +81,11 @@ function test_periodic_splines(ord::BSplineOrder)
         # Index offset for matching regular to periodic basis
         δ = (order(B) - 1) - BSplines.index_offset(knots(B))
 
-        @testset "B-spline evaluation" begin
-            iₙ, bsₙ = Bn(x)  # B-splines from regular ("normal") basis
-            iₚ, bsₚ = B(x)   # B-splines from periodic basis
+        @testset "B-spline evaluation: $op" for op ∈ (
+                Derivative(0), Derivative(1), Derivative(2),
+            )
+            iₙ, bsₙ = Bn(x, op)  # B-splines from regular ("normal") basis
+            iₚ, bsₚ = B(x, op)   # B-splines from periodic basis
             @test iₙ == iₚ + δ  # knot indices are shifted
             @test bsₙ == bsₚ    # b-spline values are the same
         end
@@ -94,6 +96,8 @@ function test_periodic_splines(ord::BSplineOrder)
             Sp = Spline{Float64}(undef, B)
             coefficients(Sp) .= @view coefs[(δ + 1):(δ + length(Sp))]
             @test Sn(x) == Sp(x)
+            @test (Derivative(1) * Sn)(x) == (Derivative(1) * Sp)(x)
+            @test (Derivative(2) * Sn)(x) == (Derivative(2) * Sp)(x)
         end
     end
 
@@ -117,7 +121,6 @@ function test_periodic_splines(ord::BSplineOrder)
 
     # TODO
     # - test Galerkin + approximations
-    # - test derivatives
 end
 
 @testset "Periodic splines (k = $k)" for k ∈ (3, 4, 6)

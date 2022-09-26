@@ -100,6 +100,7 @@ Spline(init, B::AbstractBSplineBasis) = Spline{Float64}(init, B)
 Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T} =
     Spline{T}(init, B)
 
+# TODO can this be removed??
 parent_spline(S::Spline) = parent_spline(basis(S), S)
 parent_spline(::AbstractBSplineBasis, S::Spline) = S
 
@@ -246,7 +247,14 @@ julia> Derivative(2) * S
  coefficients: [-21.146, -0.98038, -8.63255, 15.3972, 1.65313, -10.4239, -5.53341, 3.67724, -2.65301, 27.917, -123.138]
 ```
 """
-Base.:*(op::Derivative, S::Spline) = _diff(basis(S), S, op)
+@inline function Base.:*(op::Derivative, S::Spline)
+    B = basis(S)
+    if has_parent_basis(B)
+        op * parent_spline(S)
+    else
+        _derivative(B, S, op)
+    end
+end
 
 """
     diff(S::Spline, [op::Derivative = Derivative(1)]) -> Spline
@@ -257,12 +265,10 @@ Returns `N`-th derivative of spline `S` as a new spline.
 """
 Base.diff(S::Spline, op = Derivative(1)) = op * S
 
-_diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
+_derivative(::AbstractBSplineBasis, S::Spline, ::Derivative{0}) = S
 
-_diff(::BSplineBasis, S::Spline, ::Derivative{0}) = S
-
-function _diff(
-        ::BSplineBasis, S::Spline, ::Derivative{Ndiff} = Derivative(1),
+function _derivative(
+        B::BSplineBasis, S::Spline, op::Derivative{Ndiff},
     ) where {Ndiff}
     Ndiff :: Integer
     @assert Ndiff >= 1
@@ -276,13 +282,12 @@ function _diff(
             "cannot differentiate order $k spline $Ndiff times!"))
     end
 
-    Base.require_one_based_indexing(u)
     du = similar(u)
     copy!(du, u)
 
     @inbounds for m = 1:Ndiff, i in Iterators.Reverse(eachindex(du))
         dt = t[i + k - m] - t[i]
-        if iszero(dt) || i == 1
+        if iszero(dt) || i == firstindex(du)
             # In this case, the B-spline that this coefficient is
             # multiplying is zero everywhere, so we can set this to zero.
             # From de Boor (2001, p. 117): "anything times zero is zero".
@@ -295,16 +300,11 @@ function _diff(
     # Finally, create lower-order spline with the given coefficients.
     # Note that the spline has `2 * Ndiff` fewer knots, and `Ndiff` fewer
     # B-splines.
-    N = length(u)
-    Nt = length(t)
-    t_new = view(t, (1 + Ndiff):(Nt - Ndiff))
-    B = BSplineBasis(BSplineOrder(k - Ndiff), t_new; augment = Val(false))
+    B′ = BSplines.basis_derivative(B, op)
+    u′ = view(du, (firstindex(du) + Ndiff):lastindex(du))
 
-    Spline(B, view(du, (1 + Ndiff):N))
+    Spline(B′, u′)
 end
-
-# Zeroth derivative: return S itself.
-Base.diff(S::Spline, ::Derivative{0}) = S
 
 """
     integral(S::Spline)
@@ -313,11 +313,16 @@ Returns an antiderivative of the given spline as a new spline.
 
 The algorithm is described in de Boor 2001, p. 127.
 """
-integral(S::Spline) = _integral(basis(S), S)
+function integral(S::Spline)
+    B = basis(S)
+    if has_parent_basis(B)
+        integral(parent_spline(S))
+    else
+        _integral(B, S)
+    end
+end
 
-_integral(::AbstractBSplineBasis, S, etc...) = integral(parent_spline(S), etc...)
-
-function _integral(::BSplineBasis, S::Spline)
+function _integral(B::AbstractBSplineBasis, S::Spline)
     u = coefficients(S)
     t = knots(S)
     k = order(S)
@@ -343,6 +348,8 @@ function _integral(::BSplineBasis, S::Spline)
         end
     end
 
+    # TODO periodic case??
     B = BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
+
     Spline(B, β)
 end
