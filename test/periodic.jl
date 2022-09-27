@@ -108,8 +108,9 @@ function test_periodic_splines(ord::BSplineOrder)
 
     @testset "Collocation + interpolation" begin
         xs = @inferred collocation_points(B)
-        @test xs == breaks  # this is the default
+        @test iseven(k) == (xs == breaks)  # this is the default for even k
         C = @inferred collocation_matrix(B, xs)
+        @test cond(Array(C)) < 1e3
 
         # Interpolate manually
         ys = ftest.(xs)
@@ -119,6 +120,7 @@ function test_periodic_splines(ord::BSplineOrder)
 
         # Compare with interpolation interface
         I = @inferred interpolate(xs, ys, ord, Periodic(L))
+        @test cond(Array(I.C.U)) < 1e3
         @test I.(xs) ≈ ys
     end
 

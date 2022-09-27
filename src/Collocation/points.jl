@@ -40,7 +40,8 @@ Some examples of bases that satisfy this condition are:
 struct SameAsKnots <: SelectionMethod end
 
 default_method(::AbstractBSplineBasis) = AvgKnots()
-default_method(::PeriodicBSplineBasis) = SameAsKnots()
+default_method(::PeriodicBSplineBasis{k}) where {k} =
+    iseven(k) ? SameAsKnots() : AvgKnots()
 
 struct GrevilleSiteIterator{Basis <: AbstractBSplineBasis}
     basis :: Basis
@@ -102,15 +103,6 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
 
     x = T(tsum / (k - 1))
 
-    # If this is the first (last) point and there are no BCs on the left
-    # (right), we make sure that the point exactly matches the left (right)
-    # boundary.
-    if cl === 0 && i == 0
-        x = T(first(lims))
-    elseif cr === 0 && i == N - 1
-        x = T(last(lims))
-    end
-
     # Make sure that the point is inside the domain.
     # This may not be the case if end knots have multiplicity less than k.
     x = clamp(x, lims...)
@@ -142,7 +134,10 @@ For now, the following  methods are accepted:
 be equal to the number of knots.
 
 The former is the default, except for periodic B-spline bases
-([`PeriodicBSplineBasis`](@ref)) for which `SameAsKnots` is the default.
+([`PeriodicBSplineBasis`](@ref)) of *even* order ``k``, for which `SameAsKnots`
+is the default.
+(Note that for odd-order B-splines, this can lead to non-invertible collocation
+matrices.)
 
 See also [`collocation_points!`](@ref).
 """

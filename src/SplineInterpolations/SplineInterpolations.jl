@@ -228,9 +228,9 @@ julia> x = 0.998; cospi(x), Sper(x), Snat(x), S(x)
 """
 function interpolate(
         x::AbstractVector, y::AbstractVector, k::BSplineOrder,
-        ::Nothing = nothing,
+        bc::Nothing = nothing,
     )
-    t = make_knots(x, order(k))
+    t = make_knots(x, k, bc)
     B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
 
     # If input data is integer, convert the spline element type to float.
@@ -256,9 +256,8 @@ end
 function interpolate(
         x::AbstractVector, y::AbstractVector, k::BSplineOrder, bc::Periodic,
     )
-    # For periodic BCs, the number of required unique knots is equal to the
-    # number of data points, and therefore we just make them equal.
-    B = PeriodicBSplineBasis(k, x, BoundaryConditions.period(bc))
+    ts = make_knots(x, k, bc)
+    B = PeriodicBSplineBasis(k, ts, BoundaryConditions.period(bc))
     T = float(eltype(y))
     itp = SplineInterpolation(undef, B, x, T)
     interpolate!(itp, y)
@@ -266,7 +265,10 @@ end
 
 # Define B-spline knots from collocation points and B-spline order.
 # Note that the choice is not unique.
-function make_knots(x::AbstractVector{Tx}, k) where {Tx <: Real}
+# This is for the case without BCs.
+function make_knots(
+        x::AbstractVector{Tx}, ::BSplineOrder{k}, ::Nothing,
+    ) where {Tx <: Real, k}
     Base.require_one_based_indexing(x)
     T = float(Tx)  # just in case Tx is Integer...
     N = length(x)
@@ -288,6 +290,33 @@ function make_knots(x::AbstractVector{Tx}, k) where {Tx <: Real}
     end
 
     t
+end
+
+# Case of periodic BCs.
+# For even-order splines, put knots at the same positions as interpolation
+# points.
+# Note that this doesn't work great for odd-order splines, since it leads to an
+# ill-defined linear system (non-invertible collocation matrix).
+function make_knots(
+        xs::AbstractVector{Tx}, ::BSplineOrder{k}, bc::Periodic,
+    ) where {Tx <: Real, k}
+    L = BoundaryConditions.period(bc)
+    first(xs) + L > last(xs) ||
+        error("endpoint x₁ + L must *not* be included in the interpolation points")
+    iseven(k) && return xs
+    ts = similar(xs)
+    xprev = first(xs)
+    i = firstindex(ts)
+    @inbounds while i < lastindex(ts)
+        x = xs[i + 1]
+        ts[i] = (xprev + x) / 2
+        xprev = x
+        i += 1
+    end
+    L = BoundaryConditions.period(bc)
+    x = first(xs) + L
+    ts[end] = (xprev + x) / 2
+    ts
 end
 
 end
