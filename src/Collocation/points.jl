@@ -67,12 +67,11 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
     end
 
     # For recombined bases, skip points at the boundaries.
-    cl, cr = num_constraints(B)  # left/right constraints
+    cl, _ = num_constraints(B)  # left/right constraints
     ii = i + cl
 
     k = order(B)
     ts = knots(B)
-    lims = boundaries(B)
 
     if state === nothing
         tsum = zero(eltype(ts))
@@ -102,13 +101,31 @@ Base.eltype(it::GrevilleSiteIterator) = float(eltype(knots(basis(it))))
     end
 
     x = T(tsum / (k - 1))
+    x = ensure_points_at_boundaries(B, i, x)
 
     # Make sure that the point is inside the domain.
     # This may not be the case if end knots have multiplicity less than k.
-    x = clamp(x, lims...)
+    x = clamp(x, boundaries(B)...)
 
     x, (i + 1, tsum, compensation)
 end
+
+# Ensure that there are collocation points at the boundaries.
+# This is only relevant for regular BSplineBasis, and is not needed for
+# recombined or periodic bases.
+function ensure_points_at_boundaries(B::BSplineBasis, i, x)
+    a, b = boundaries(B)
+    N = length(B)
+    if i == 0
+        oftype(x, a)
+    elseif i == N - 1
+        oftype(x, b)
+    else
+        x
+    end
+end
+
+ensure_points_at_boundaries(::AbstractBSplineBasis, i, x) = x
 
 """
     collocation_points(
