@@ -38,9 +38,6 @@ function test_periodic_splines(ord::BSplineOrder)
     rng = MersenneTwister(42)
     S = @inferred Spline(B, randn(rng, length(B)))
 
-    # Not currently supported...
-    @test_throws ErrorException integral(S)
-
     # This is mainly to check that the coefficients are not re-wrapped in a
     # PeriodicVector.
     let Salt = @inferred Spline(B, coefficients(S))
@@ -122,9 +119,11 @@ function test_periodic_splines(ord::BSplineOrder)
         I = @inferred interpolate(xs, ys, ord, Periodic(L))
         @test cond(Array(I.C.U)) < 1e3
         @test I.(xs) ≈ ys
+        @test boundaries(basis(I)) == (first(xs), first(xs) + L)
     end
 
     # TODO
+    # - test integrals
     # - test Galerkin + approximations
 end
 

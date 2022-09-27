@@ -304,6 +304,7 @@ function make_knots(
     first(xs) + L > last(xs) ||
         error("endpoint x₁ + L must *not* be included in the interpolation points")
     iseven(k) && return xs
+
     ts = similar(xs)
     xprev = first(xs)
     i = firstindex(ts)
@@ -316,6 +317,15 @@ function make_knots(
     L = BoundaryConditions.period(bc)
     x = first(xs) + L
     ts[end] = (xprev + x) / 2
+
+    # Make sure first knot == first point.
+    # This is somewhat arbitrary, but it's needed so that the boundaries of the
+    # B-spline basis correspond to those of the data.
+    # Unfortunately, this produces some extra spacing between the first knot and
+    # the rest.
+    # Not sure if there's a better way of doing this...
+    ts[begin] = xs[begin]
+
     ts
 end
 
