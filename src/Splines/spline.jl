@@ -256,6 +256,9 @@ julia> Derivative(2) * S
     end
 end
 
+# Special case of zeroth derivative.
+Base.:*(::Derivative{0}, S::Spline) = S
+
 """
     diff(S::Spline, [op::Derivative = Derivative(1)]) -> Spline
 
@@ -264,8 +267,6 @@ Same as `op * S`.
 Returns `N`-th derivative of spline `S` as a new spline.
 """
 Base.diff(S::Spline, op = Derivative(1)) = op * S
-
-_derivative(::AbstractBSplineBasis, S::Spline, ::Derivative{0}) = S
 
 function _derivative(
         B::BSplineBasis, S::Spline, op::Derivative{Ndiff},
