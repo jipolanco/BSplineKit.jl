@@ -77,6 +77,7 @@ function test_periodic_splines(ord::BSplineOrder)
     @testset "Compare to regular" begin
         Bn = BSplineBasis(ord, breaks)
         x = (2 * breaks[k + 2] + breaks[k + 3]) / 3
+        x′ = (3 * breaks[k + 3] + breaks[k + 4]) / 4  # for integrals
 
         # Index offset for matching regular to periodic basis
         δ = (order(B) - 1) - BSplines.index_offset(knots(B))
@@ -98,10 +99,13 @@ function test_periodic_splines(ord::BSplineOrder)
             @test Sn(x) == Sp(x)
             @test (Derivative(1) * Sn)(x) == (Derivative(1) * Sp)(x)
             @test (Derivative(2) * Sn)(x) == (Derivative(2) * Sp)(x)
+            ∫n = integral(Sn)
+            ∫p = integral(Sp)
+            @test ∫n(x′) - ∫n(x) ≈ ∫p(x′) - ∫p(x)
         end
     end
 
-    ftest(x) = sinpi(2x)  # should be L-periodic (L = 1)
+    ftest(x) = 1 + sinpi(2x)  # should be L-periodic (L = 1)
 
     @testset "Collocation + interpolation" begin
         xs = @inferred collocation_points(B)

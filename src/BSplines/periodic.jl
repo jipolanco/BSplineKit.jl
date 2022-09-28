@@ -248,3 +248,19 @@ function basis_derivative(B::PeriodicBSplineBasis, ::Derivative{n}) where {n}
     ξs = parent(ts)  # original breakpoints
     PeriodicBSplineBasis(BSplineOrder(k - n), ξs, L)
 end
+
+# Note that we return a non-periodic basis, since the integral of a periodic
+# function (a spline in our case) is in general not periodic.
+function basis_integral(B::PeriodicBSplineBasis)
+    ts = knots(B) :: PeriodicKnots
+    k = order(B)
+    N = length(B)
+    @assert length(ts) == N + k
+    t_int = similar(parent(ts), N + 2k + 1)
+    δ = index_offset(ts)
+    t_int .= @view ts[(begin + δ - k):(begin + δ + N + k)]
+    a, b = boundaries(B)
+    @assert t_int[begin + k] ≈ a
+    @assert t_int[end - k] ≈ b
+    BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
+end

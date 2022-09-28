@@ -118,5 +118,22 @@ end
 # Note that the integral of a periodic function is in general not periodic
 # (unless the function has zero mean over a single period).
 # Maybe we could return a spline in a regular BSplineBasis?
-_integral(::PeriodicBSplineBasis, ::Spline) =
-    error("integration of periodic splines is currently not supported")
+function _integral(B::PeriodicBSplineBasis, S::Spline)
+    @assert B === basis(S)
+    B′ = BSplines.basis_integral(B) :: BSplineBasis
+    u = coefficients(S) :: PeriodicVector
+    t = knots(B)
+    # t = knots(S)
+    k = order(S)
+    β = similar(parent(u), length(B′))
+    fill!(β, 0)
+    δ = BSplines.index_offset(knots(B)) - k + 1
+    @inbounds for i in eachindex(β)[begin:end-1]
+        j = i + δ
+        β[i + 1] = β[i] + u[j] * (t[j + k] - t[j]) / k
+    end
+    S = Spline(B′, β)
+    xleft, _ = boundaries(B′)
+    β .-= S(xleft)  # such that S(a) = 0, for consistency with non-periodic splines
+    S
+end
