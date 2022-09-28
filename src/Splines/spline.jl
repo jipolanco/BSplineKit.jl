@@ -46,7 +46,8 @@ struct Spline{
     basis :: Basis
     coefs :: CoefVector
 
-    function Spline(B::AbstractBSplineBasis, coefs::AbstractVector)
+    function Spline(B::AbstractBSplineBasis, cs::AbstractVector)
+        coefs = wrap_coefficients(B, cs)  # used for periodic bases
         length(coefs) == length(B) ||
             throw(ArgumentError("wrong number of coefficients"))
         Basis = typeof(B)
@@ -57,6 +58,13 @@ struct Spline{
         new{T, Basis, CoefVector}(B, coefs)
     end
 end
+
+# By default coefficients are not wrapped.
+wrap_coefficients(::AbstractBSplineBasis, cs::AbstractVector) = cs
+
+# This is mainly useful for periodic bases.
+unwrap_coefficients(S::Spline) = unwrap_coefficients(basis(S), coefficients(S))
+unwrap_coefficients(::AbstractBSplineBasis, cs::AbstractVector) = cs
 
 Broadcast.broadcastable(S::Spline) = Ref(S)
 
@@ -92,8 +100,9 @@ Spline(init, B::AbstractBSplineBasis) = Spline{Float64}(init, B)
 Spline(init, B::AbstractBSplineBasis, ::Type{T}) where {T} =
     Spline{T}(init, B)
 
+# TODO can this be removed??
 parent_spline(S::Spline) = parent_spline(basis(S), S)
-parent_spline(::BSplineBasis, S::Spline) = S
+parent_spline(::AbstractBSplineBasis, S::Spline) = S
 
 """
     coefficients(S::Spline)
@@ -132,19 +141,23 @@ order(S::Spline) = order(typeof(S))
 
 # TODO allow evaluating derivatives at point `x` (should be much cheaper than
 # constructing a new Spline for the derivative)
-(S::Spline)(x) = _evaluate(basis(S), S, x)
+@inline function (S::Spline)(x)
+    B = basis(S)
+    if has_parent_basis(B)
+        parent_spline(S)(x)
+    else
+        _evaluate(S, x)
+    end
+end
 
-function _evaluate(::BSplineBasis, S::Spline, x)
+function _evaluate(S::Spline, x)
     T = eltype(S)
     t = knots(S)
-    n = knot_interval(t, x)
-    n === nothing && return zero(T)  # x is outside of knot domain
+    n, zone = find_knot_interval(t, x)
+    iszero(zone) || return zero(T)  # x is outside of knot domain
     k = order(S)
     spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
 end
-
-# Fallback, if the basis is not a regular BSplineBasis
-_evaluate(::AbstractBSplineBasis, S::Spline, x) = parent_spline(S)(x)
 
 function spline_kernel(
         c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
@@ -161,7 +174,9 @@ function spline_kernel(
             jr = j - r
             ex = quote
                 $ex
-                α = @inbounds (x - t[$jk + n]) / (t[$jr + n + 1] - t[$jk + n])
+                @inbounds ti = t[$jk + n]
+                @inbounds tj = t[$jr + n + 1]
+                α = (x - ti) / (tj - ti)
                 $d_j = $T((1 - α) * $d_p + α * $d_j)
             end
         end
@@ -183,7 +198,10 @@ function spline_kernel_alt(
     @inbounds for r = 2:k
         dprev = d[r - 1]
         for j = r:k
-            α = (x - t[j + n - k]) / (t[j + n - r + 1] - t[j + n - k])
+            jn = j + n
+            ti = t[jn - k]
+            tj = t[jn - r + 1]
+            α = (x - ti) / (tj - ti)
             dtmp = dprev
             dprev = d[j]
             d[j] = (1 - α) * dtmp + α * dprev
@@ -229,7 +247,17 @@ julia> Derivative(2) * S
  coefficients: [-21.146, -0.98038, -8.63255, 15.3972, 1.65313, -10.4239, -5.53341, 3.67724, -2.65301, 27.917, -123.138]
 ```
 """
-Base.:*(op::Derivative, S::Spline) = _diff(basis(S), S, op)
+@inline function Base.:*(op::Derivative, S::Spline)
+    B = basis(S)
+    if has_parent_basis(B)
+        op * parent_spline(S)
+    else
+        _derivative(B, S, op)
+    end
+end
+
+# Special case of zeroth derivative.
+Base.:*(::Derivative{0}, S::Spline) = S
 
 """
     diff(S::Spline, [op::Derivative = Derivative(1)]) -> Spline
@@ -240,12 +268,8 @@ Returns `N`-th derivative of spline `S` as a new spline.
 """
 Base.diff(S::Spline, op = Derivative(1)) = op * S
 
-_diff(::AbstractBSplineBasis, S, etc...) = diff(parent_spline(S), etc...)
-
-_diff(::BSplineBasis, S::Spline, ::Derivative{0}) = S
-
-function _diff(
-        ::BSplineBasis, S::Spline, ::Derivative{Ndiff} = Derivative(1),
+function _derivative(
+        B::BSplineBasis, S::Spline, op::Derivative{Ndiff},
     ) where {Ndiff}
     Ndiff :: Integer
     @assert Ndiff >= 1
@@ -259,13 +283,12 @@ function _diff(
             "cannot differentiate order $k spline $Ndiff times!"))
     end
 
-    Base.require_one_based_indexing(u)
     du = similar(u)
     copy!(du, u)
 
     @inbounds for m = 1:Ndiff, i in Iterators.Reverse(eachindex(du))
         dt = t[i + k - m] - t[i]
-        if iszero(dt) || i == 1
+        if iszero(dt) || i == firstindex(du)
             # In this case, the B-spline that this coefficient is
             # multiplying is zero everywhere, so we can set this to zero.
             # From de Boor (2001, p. 117): "anything times zero is zero".
@@ -278,16 +301,11 @@ function _diff(
     # Finally, create lower-order spline with the given coefficients.
     # Note that the spline has `2 * Ndiff` fewer knots, and `Ndiff` fewer
     # B-splines.
-    N = length(u)
-    Nt = length(t)
-    t_new = view(t, (1 + Ndiff):(Nt - Ndiff))
-    B = BSplineBasis(BSplineOrder(k - Ndiff), t_new; augment = Val(false))
+    B′ = BSplines.basis_derivative(B, op)
+    u′ = view(du, (firstindex(du) + Ndiff):lastindex(du))
 
-    Spline(B, view(du, (1 + Ndiff):N))
+    Spline(B′, u′)
 end
-
-# Zeroth derivative: return S itself.
-Base.diff(S::Spline, ::Derivative{0}) = S
 
 """
     integral(S::Spline)
@@ -295,55 +313,40 @@ Base.diff(S::Spline, ::Derivative{0}) = S
 Returns an antiderivative of the given spline as a new spline.
 
 The algorithm is described in de Boor 2001, p. 127.
+
+Note that the integral spline `I` returned by this function is defined up to a
+constant.
+By convention, here the returned spline `I` is zero at the left boundary of the
+domain.
+One usually cares about the integral of `S` from point `a` to point `b`, which
+can be obtained as `I(b) - I(a)`.
+
+!!! note "Periodic splines"
+
+    Note that the integral of a periodic function is in general not periodic.
+    For periodic splines (backed by a [`PeriodicBSplineBasis`](@ref)), this
+    function returns a non-periodic spline (backed by a regular
+    [`BSplineBasis`](@ref)).
+
 """
-integral(S::Spline) = _integral(basis(S), S)
+function integral(S::Spline)
+    B = basis(S)
+    if has_parent_basis(B)
+        integral(parent_spline(S))
+    else
+        _integral(B, S)
+    end
+end
 
-_integral(::AbstractBSplineBasis, S, etc...) = integral(parent_spline(S), etc...)
-
-function _integral(::BSplineBasis, S::Spline)
+function _integral(B::BSplineBasis, S::Spline)
     u = coefficients(S)
     t = knots(S)
     k = order(S)
-    Base.require_one_based_indexing(u)
-
-    Nt = length(t)
-    N = length(u)
-
-    # Note that the new spline has 2 more knots and 1 more B-spline.
-    t_int = similar(t, Nt + 2)
-    t_int[2:(end - 1)] .= t
-    t_int[1] = t_int[2]
-    t_int[end] = t_int[end - 1]
-
-    β = similar(u, N + 1)
-    β[1] = zero(eltype(β))
-
+    β = similar(u, length(u) + 1)
+    β[begin] = zero(eltype(β))
     @inbounds for i in eachindex(u)
-        m = i + 1
-        β[m] = zero(eltype(β))
-        for j = 1:i
-            β[m] += u[j] * (t[j + k] - t[j]) / k
-        end
+        β[i + 1] = β[i] + u[i] * (t[i + k] - t[i]) / k
     end
-
-    B = BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
-    Spline(B, β)
-end
-
-function knot_interval(t::AbstractVector, x)
-    n = searchsortedlast(t, x)  # t[n] <= x < t[n + 1]
-    n == 0 && return nothing    # x < t[1]
-
-    Nt = length(t)
-
-    if n == Nt  # i.e. if x >= t[end]
-        t_last = t[n]
-        x > t_last && return nothing
-        # If x is exactly on the last knot, decrease the index as necessary.
-        while t[n] == t_last
-            n -= one(n)
-        end
-    end
-
-    n
+    B′ = BSplines.basis_integral(B)
+    Spline(B′, β)
 end

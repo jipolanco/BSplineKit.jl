@@ -54,6 +54,9 @@ function galerkin_tensor!(
     )
     _check_bases(Bs)
 
+    any(B -> B isa PeriodicBSplineBasis, Bs) &&
+        error("`PeriodicBSplineBasis` currently not supported by `galerkin_tensor!`")
+
     Ns = size(A)
     if Ns != length.(Bs)
         throw(DimensionMismatch("wrong dimensions of Galerkin tensor"))

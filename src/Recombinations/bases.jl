@@ -221,6 +221,8 @@ struct RecombinedBSplineBasis{
     end
 end
 
+BSplines.has_parent_basis(::Type{<:RecombinedBSplineBasis}) = true
+
 Base.:(==)(A::RecombinedBSplineBasis, B::RecombinedBSplineBasis) =
     A === B ||
     constraints(A) == constraints(B) &&

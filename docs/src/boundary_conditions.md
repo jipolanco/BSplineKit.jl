@@ -12,4 +12,5 @@ BoundaryConditions
 
 ```@docs
 Natural
+Periodic
 ```

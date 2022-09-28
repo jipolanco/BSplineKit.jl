@@ -45,6 +45,13 @@ Other types of container are also supported, including regular sparse matrices
 (`SparseMatrixCSC`) and dense arrays (`Matrix`).
 See [`collocation_matrix`](@ref) for a discussion on matrix types.
 
+!!! note "Periodic B-spline bases"
+    The default matrix type is `BandedMatrix`, *except* for
+    periodic bases ([`PeriodicBSplineBasis`](@ref)), in which case the Galerkin
+    matrix has a few out-of-bands entries due to periodicity.
+    For periodic bases, `SparseMatrixCSC` is the default.
+    Note that this may change in the future.
+
 ## Derivatives of basis functions
 
 Galerkin matrices associated to the derivatives of basis functions may be
@@ -74,7 +81,7 @@ recombined basis `R` generated from `B` (see [Basis recombination](@ref basis-re
 function galerkin_matrix(
         Bs::NTuple{2,AbstractBSplineBasis},
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{M} = BandedMatrix{Float64},
+        ::Type{M} = _default_matrix_type(first(Bs)),
     ) where {M <: AbstractMatrix}
     B1, B2 = Bs
     symmetry = M <: Hermitian
@@ -89,7 +96,7 @@ end
 function galerkin_matrix(
         B::AbstractBSplineBasis,
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{Min} = BandedMatrix{Float64},
+        ::Type{Min} = _default_matrix_type(B),
     ) where {Min <: AbstractMatrix}
     symmetry = deriv[1] === deriv[2]
     T = eltype(Min)
@@ -100,9 +107,14 @@ end
 galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
     galerkin_matrix(B, Derivative.((0, 0)), M)
 
+_default_matrix_type(::Type{<:AbstractBSplineBasis}) = BandedMatrix{Float64}
+_default_matrix_type(::Type{<:PeriodicBSplineBasis}) = SparseMatrixCSC{Float64}
+_default_matrix_type(B::AbstractBSplineBasis) = _default_matrix_type(typeof(B))
+
 function _check_bases(Bs::Tuple{Vararg{AbstractBSplineBasis}})
-    ps = parent.(Bs)
-    if any(ps .!== ps[1])
+    ps = map(parent, Bs)
+    pref = first(ps)
+    if any(p -> p !== pref, ps)
         throw(ArgumentError(
             "all bases must share the same parent B-spline basis"
         ))
@@ -173,6 +185,8 @@ function galerkin_matrix!(
     B1, B2 = Bs
     same_ij = B1 == B2 && deriv[1] == deriv[2]
     T = eltype(S)
+    xa, xb = boundaries(B1)
+    @assert (xa, xb) === boundaries(B2)
 
     if size(S) != length.(Bs)
         throw(DimensionMismatch("wrong dimensions of Galerkin matrix"))
@@ -202,7 +216,7 @@ function galerkin_matrix!(
     end
 
     fill!(S, 0)
-    nlast = last(eachindex(ts))
+    nlast = lastindex(ts)
     ioff = first(num_constraints(B1))
     joff = first(num_constraints(B2))
 
@@ -213,6 +227,11 @@ function galerkin_matrix!(
         n == nlast && break
         tn, tn1 = ts[n], ts[n + 1]
         tn1 == tn && continue  # interval of length = 0
+
+        # Check if segment is outside of the boundaries.
+        if tn1 ≤ xa || tn ≥ xb
+            continue
+        end
 
         metric = QuadratureMetric(tn, tn1)
 
@@ -229,7 +248,9 @@ function galerkin_matrix!(
             y = metric.α * w
             for (δj, bj) ∈ pairs(bjs), (δi, bi) ∈ pairs(bis)
                 i = ilast + 1 - δi
+                i = basis_to_array_index(Bs[1], axes(A, 1), i)
                 j = jlast + 1 - δj
+                j = basis_to_array_index(Bs[2], axes(A, 2), j)
                 if !fill_upper && i < j
                     continue
                 elseif !fill_lower && i > j

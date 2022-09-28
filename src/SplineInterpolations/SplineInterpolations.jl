@@ -6,6 +6,7 @@ using ..Splines
 
 using BandedMatrices
 using LinearAlgebra
+using SparseArrays
 
 import ..BSplines:
     order, knots, basis
@@ -84,9 +85,13 @@ function SplineInterpolation(
             "incompatible lengths of B-spline basis and collocation points"))
     end
     Tc = float(Tx)
-    C = collocation_matrix(B, x, CollocationMatrix{Tc})
-    SplineInterpolation(B, lu!(C), x, T)
+    C = collocation_matrix(B, x, Collocation.default_matrix_type(B, Tc))
+    SplineInterpolation(B, _factorise!(C), x, T)
 end
+
+# Factorise in-place when possible.
+_factorise!(C::AbstractMatrix) = lu!(C)
+_factorise!(C::SparseMatrixCSC) = lu(C)  # SparseMatrixCSC doesn't support `lu!`
 
 interpolation_points(S::SplineInterpolation) = S.x
 
@@ -112,12 +117,13 @@ previous call to [`interpolate`](@ref), using new data on the same locations
 
 See [`interpolate`](@ref) for details.
 """
-function interpolate!(I::SplineInterpolation, y::AbstractVector)
-    s = spline(I)
-    if length(y) != length(s)
+function interpolate!(I::SplineInterpolation, ys::AbstractVector)
+    S = spline(I)
+    cs = Splines.unwrap_coefficients(S)
+    if length(ys) != length(cs)
         throw(DimensionMismatch("input data has incorrect length"))
     end
-    ldiv!(coefficients(s), I.C, y)  # determine B-spline coefficients
+    ldiv!(cs, I.C, ys)  # determine B-spline coefficients
     I
 end
 
@@ -133,18 +139,27 @@ point.
 
 Optionally, one may pass one of the boundary conditions listed in the [Boundary
 conditions](@ref boundary-conditions-api) section.
-For now, only the [`Natural`](@ref) boundary condition is available.
+Currently, the [`Natural`](@ref) and [`Periodic`](@ref) boundary conditions are
+available.
 
 See also [`interpolate!`](@ref).
 
+!!! note "Periodic boundary conditions"
+
+    Periodic boundary conditions should be used if the interpolated data is
+    supposed to represent a periodic signal.
+    In this case, pass `bc = Period(L)`, where `L` is the period of the x-axis.
+    Note that the endpoint `x[begin] + L` should *not* be included in the `x`
+    vector.
+
 # Examples
 
-```jldoctest
+```jldoctest interpolate
 julia> xs = -1:0.1:1;
 
 julia> ys = cospi.(xs);
 
-julia> itp = interpolate(xs, ys, BSplineOrder(4))
+julia> S = interpolate(xs, ys, BSplineOrder(4))
 SplineInterpolation containing the 21-element Spline{Float64}:
  basis: 21-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
@@ -152,13 +167,13 @@ SplineInterpolation containing the 21-element Spline{Float64}:
  coefficients: [-1.0, -1.00111, -0.8975, -0.597515, -0.314147, 1.3265e-6, 0.314142, 0.597534, 0.822435, 0.96683  …  0.96683, 0.822435, 0.597534, 0.314142, 1.3265e-6, -0.314147, -0.597515, -0.8975, -1.00111, -1.0]
  interpolation points: -1.0:0.1:1.0
 
-julia> itp(-1)
+julia> S(-1)
 -1.0
 
-julia> (Derivative(1) * itp)(-1)
+julia> (Derivative(1) * S)(-1)
 -0.01663433622896893
 
-julia> (Derivative(2) * itp)(-1)
+julia> (Derivative(2) * S)(-1)
 10.52727328755495
 
 julia> Snat = interpolate(xs, ys, BSplineOrder(4), Natural())
@@ -179,12 +194,43 @@ julia> (Derivative(2) * Snat)(-1)
 0.0
 
 ```
+
+## Periodic boundary conditions
+
+Interpolate ``f(x) = \\cos(πx)`` for ``x ∈ [-1, 1)``.
+Note that the period is ``L = 2`` and that the endpoint (``x = 1``) must *not*
+be included in the data points.
+
+```jldoctest interpolate
+julia> xp = -1:0.1:0.9;
+
+julia> yp = cospi.(xp);
+
+julia> Sper = interpolate(xp, yp, BSplineOrder(4), Periodic(2))
+SplineInterpolation containing the 20-element Spline{Float64}:
+ basis: 20-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
+ order: 4
+ knots: [..., -1.2, -1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3  …  0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, ...]
+ coefficients: [..., -1.01659, -0.96683, -0.822435, -0.597534, -0.314142, 0.0, 0.314142, 0.597534, 0.822435, 0.96683, 1.01659, 0.96683, 0.822435, 0.597534, 0.314142, -3.34668e-17, -0.314142, -0.597534, -0.822435, -0.96683, ...]
+ interpolation points: -1.0:0.1:0.9
+```
+
+As expected, the periodic spline does a better job at approximating the periodic
+function ``f(x) = \\cos(πx)`` near the boundaries than the other interpolations:
+
+```jldoctest interpolate
+julia> x = -0.99; cospi(x), Sper(x), Snat(x), S(x)
+(-0.9995065603657316, -0.9995032595823043, -0.9971071640321146, -0.9996420091470221)
+
+julia> x = 0.998; cospi(x), Sper(x), Snat(x), S(x)
+(-0.9999802608561371, -0.9999801044078943, -0.9994253145274461, -1.0000122303614758)
+```
 """
 function interpolate(
         x::AbstractVector, y::AbstractVector, k::BSplineOrder,
-        ::Nothing = nothing,
+        bc::Nothing = nothing,
     )
-    t = make_knots(x, order(k))
+    t = make_knots(x, k, bc)
     B = BSplineBasis(k, t; augment = Val(false))  # it's already augmented!
 
     # If input data is integer, convert the spline element type to float.
@@ -207,9 +253,22 @@ function interpolate(
     interpolate!(itp, y)
 end
 
+function interpolate(
+        x::AbstractVector, y::AbstractVector, k::BSplineOrder, bc::Periodic,
+    )
+    ts = make_knots(x, k, bc)
+    B = PeriodicBSplineBasis(k, ts, BoundaryConditions.period(bc))
+    T = float(eltype(y))
+    itp = SplineInterpolation(undef, B, x, T)
+    interpolate!(itp, y)
+end
+
 # Define B-spline knots from collocation points and B-spline order.
 # Note that the choice is not unique.
-function make_knots(x::AbstractVector{Tx}, k) where {Tx <: Real}
+# This is for the case without BCs.
+function make_knots(
+        x::AbstractVector{Tx}, ::BSplineOrder{k}, ::Nothing,
+    ) where {Tx <: Real, k}
     Base.require_one_based_indexing(x)
     T = float(Tx)  # just in case Tx is Integer...
     N = length(x)
@@ -231,6 +290,43 @@ function make_knots(x::AbstractVector{Tx}, k) where {Tx <: Real}
     end
 
     t
+end
+
+# Case of periodic BCs.
+# For even-order splines, put knots at the same positions as interpolation
+# points.
+# Note that this doesn't work great for odd-order splines, since it leads to an
+# ill-defined linear system (non-invertible collocation matrix).
+function make_knots(
+        xs::AbstractVector{Tx}, ::BSplineOrder{k}, bc::Periodic,
+    ) where {Tx <: Real, k}
+    L = BoundaryConditions.period(bc)
+    first(xs) + L > last(xs) ||
+        error("endpoint x₁ + L must *not* be included in the interpolation points")
+    iseven(k) && return xs
+
+    ts = similar(xs)
+    xprev = first(xs)
+    i = firstindex(ts)
+    @inbounds while i < lastindex(ts)
+        x = xs[i + 1]
+        ts[i] = (xprev + x) / 2
+        xprev = x
+        i += 1
+    end
+    L = BoundaryConditions.period(bc)
+    x = first(xs) + L
+    ts[end] = (xprev + x) / 2
+
+    # Make sure first knot == first point.
+    # This is somewhat arbitrary, but it's needed so that the boundaries of the
+    # B-spline basis correspond to those of the data.
+    # Unfortunately, this produces some extra spacing between the first knot and
+    # the rest.
+    # Not sure if there's a better way of doing this...
+    ts[begin] = xs[begin]
+
+    ts
 end
 
 end

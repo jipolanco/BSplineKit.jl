@@ -12,6 +12,7 @@ coefficients
 eltype(::Spline)
 length(::Spline)
 basis(::Spline)
+PeriodicVector
 ```
 
 ## Derivatives and integrals

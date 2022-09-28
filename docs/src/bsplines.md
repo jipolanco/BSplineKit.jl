@@ -20,6 +20,14 @@ getindex
 length(::BSplineBasis)
 ```
 
+## Periodic B-spline bases
+
+```@docs
+PeriodicBSplineBasis
+PeriodicKnots
+period
+```
+
 ## Basis functions
 
 ```@docs
@@ -39,5 +47,7 @@ nonzero_in_segment
 BSplineOrder
 AugmentedKnots
 augment_knots!
+basis_to_array_index
+has_parent_basis
 multiplicity
 ```

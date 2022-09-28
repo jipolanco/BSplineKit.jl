@@ -1,15 +1,15 @@
 """
-    BSplineBasis{k}
+    BSplineBasis{k, T}
 
-B-spline basis for splines of order `k`.
+B-spline basis for splines of order `k` and knot element type `T <: Real`.
 
 The basis is defined by a set of knots and by the B-spline order.
 
 ---
 
-    BSplineBasis(k, breakpoints::AbstractVector; augment = Val(true))
+    BSplineBasis(order::BSplineOrder{k}, ts::AbstractVector; augment = Val(true))
 
-Create B-spline basis of order `k` with the given breakpoints.
+Create B-spline basis of order `k` with breakpoints `ts`.
 
 If `augment = Val(true)`, breakpoints will be "augmented" so that boundary knots
 have multiplicity `k`. Note that, if they are passed as a regular `Vector`, the
@@ -18,17 +18,9 @@ input may be modified. See [`augment_knots!`](@ref) for details.
 # Examples
 
 ```jldoctest BSplineBasis
-julia> breaks = range(-1, 1, length = 21)
+julia> breaks = range(-1, 1; length = 21)
 -1.0:0.1:1.0
 
-julia> B = BSplineBasis(5, breaks)
-24-element BSplineBasis of order 5, domain [-1.0, 1.0]
- knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5  …  0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0]
-```
-
-This is equivalent to the above:
-
-```jldoctest BSplineBasis
 julia> B = BSplineBasis(BSplineOrder(5), breaks)
 24-element BSplineBasis of order 5, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5  …  0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0]
@@ -75,6 +67,26 @@ end
 
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
+
+function basis_derivative(B::BSplineBasis, ::Derivative{n}) where {n}
+    @assert n ≥ 0
+    ts = knots(B)
+    k = order(B)
+    # The derived B-spline basis has 2n fewer knots.
+    ts′ = view(ts, (firstindex(ts) + n):(lastindex(ts) - n))
+    BSplineBasis(BSplineOrder(k - n), ts′; augment = Val(false))
+end
+
+function basis_integral(B::BSplineBasis)
+    ts = knots(B)
+    k = order(B)
+    # The new basis has 2 more knots and 1 more B-spline.
+    t_int = similar(ts, length(ts) + 2)
+    t_int[(begin + 1):(end - 1)] .= ts
+    t_int[begin] = t_int[begin + 1]
+    t_int[end] = t_int[end - 1]
+    BSplineBasis(BSplineOrder(k + 1), t_int; augment = Val(false))
+end
 
 Base.:(==)(A::BSplineBasis, B::BSplineBasis) =
     A === B ||
@@ -138,7 +150,7 @@ function Base.show(io::IO, B::AbstractBSplineBasis)
     nothing
 end
 
-Base.summary(io::IO, B::BSplineBasis) = summary_basis(io, B)
+Base.summary(io::IO, B::AbstractBSplineBasis) = summary_basis(io, B)
 
 function summary_basis(io, B::AbstractBSplineBasis)
     a, b = boundaries(B)
@@ -165,6 +177,8 @@ Base.parent(g::BSplineBasis) = g
 Returns `(xmin, xmax)` tuple with the boundaries of the domain supported by the
 basis.
 """
+function boundaries end
+
 function boundaries(B::BSplineBasis)
     k = order(B)
     N = length(B)
@@ -173,20 +187,25 @@ function boundaries(B::BSplineBasis)
 end
 
 """
-    knots(g::BSplineBasis)
+    knots(g::AbstractBSplineBasis)
     knots(g::Spline)
 
 Returns the knots of the B-spline basis.
 """
+function knots end
+
 knots(g::BSplineBasis) = g.t
 
 """
-    order(::Type{BSplineBasis}) -> Int
+    order(::Type{AbstractBSplineBasis}) -> Int
+    order(::AbstractBSplineBasis) -> Int
     order(::Type{Spline}) -> Int
     order(::BSplineOrder) -> Int
 
 Returns order of B-splines as an integer.
 """
-order(::Type{<:BSplineBasis{k}}) where {k} = k
+function order end
+
+order(::Type{<:AbstractBSplineBasis{k}}) where {k} = k
 order(b::AbstractBSplineBasis) = order(typeof(b))
 order(::BSplineOrder{k}) where {k} = k
