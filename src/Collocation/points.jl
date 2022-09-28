@@ -148,7 +148,7 @@ For now, the following  methods are accepted:
 
 - [`Collocation.AvgKnots()`](@ref);
 - [`Collocation.SameAsKnots()`](@ref), which requires the length of the basis to
-be equal to the number of knots.
+  be equal to the number of knots.
 
 The former is the default, except for periodic B-spline bases
 ([`PeriodicBSplineBasis`](@ref)) of *even* order ``k``, for which `SameAsKnots`
