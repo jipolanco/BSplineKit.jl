@@ -108,6 +108,7 @@ function test_periodic_splines(ord::BSplineOrder)
         @test iseven(k) == (xs == breaks)  # this is the default for even k
         C = @inferred collocation_matrix(B, xs)
         @test cond(Array(C)) < 1e3
+        @test all(≈(1), sum(C; dims = 2))  # partition of unity
 
         # Interpolate manually
         ys = ftest.(xs)
@@ -124,7 +125,22 @@ function test_periodic_splines(ord::BSplineOrder)
 
     # TODO
     # - test integrals
-    # - test Galerkin + approximations
+    # - test approximations
+    @testset "Galerkin" begin
+        G = @inferred galerkin_matrix(B)
+
+        # Due to the partition of unity property, the sum of all elements
+        # must be the size of the domain (= ∫ 1 dx).
+        @test sum(G) ≈ period(B)
+
+        # Similarly, the sum along each column (or row) is
+        #       ∫ b_j dx = (t[j + k] - t[j]) / k
+        @test all(axes(G, 2)) do j
+            sum(view(G, :, j)) ≈ (ts[j + k] - ts[j]) / k
+        end
+    end
+
+    nothing
 end
 
 @testset "Periodic splines (k = $k)" for k ∈ (3, 4, 6)
