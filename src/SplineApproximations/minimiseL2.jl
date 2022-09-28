@@ -61,7 +61,7 @@ function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
     # https://github.com/JuliaMatrices/ArrayLayouts.jl/issues/66
     Mfact = cholesky!(M) :: Cholesky{eltype(M), typeof(parent(M))}
 
-    data = (; M = Mfact)
+    data = (; Mfact,)
     A = SplineApproximation(m, S, data)
     approximate!(f, A)
 end
@@ -71,6 +71,7 @@ function _approximate!(f, A, m::MinimiseL2Error)
     S = spline(A)
     cs = coefficients(S)
     galerkin_projection!(f, cs, basis(S))  # computes rhs onto cs
-    ldiv!(data(A).M, cs)  # now cs = M \ rhs
+    cs_data = Splines.unwrap_coefficients(S)  # same as cs, except for periodic splines
+    ldiv!(data(A).Mfact, cs_data)  # now cs = M \ rhs
     A
 end

@@ -128,7 +128,6 @@ function test_periodic_splines(ord::BSplineOrder)
     end
 
     # TODO
-    # - test integrals
     # - test approximations
     @testset "Galerkin" begin
         G = @inferred galerkin_matrix(B)
