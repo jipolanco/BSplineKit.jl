@@ -45,6 +45,11 @@ function test_periodic_splines(ord::BSplineOrder)
         @test typeof(S) === typeof(Salt)
     end
 
+    ftest(x) = 1 + sinpi(2x)  # should be L-periodic (L = 1)
+
+    app_in = @inferred approximate(ftest, B, ApproxByInterpolation(B))
+    app_L2 = @inferred approximate(ftest, B, MinimiseL2Error())
+
     @testset "Evaluate x = $x" for x ∈ (0.02, 0.42, 0.89)
         ilast, bs = @inferred B(x)
         @test (ilast, bs) == @inferred B(x; ileft = ilast)
@@ -69,6 +74,11 @@ function test_periodic_splines(ord::BSplineOrder)
             ilast′, bs′ = B(x + n * L)
             @test ilast′ == ilast + n * N
             @test all(bs .≈ bs′)
+        end
+
+        @testset "Approximations" begin
+            @test isapprox(app_in(x), ftest(x); rtol = 0.01)
+            @test isapprox(app_L2(x), ftest(x); rtol = 0.01)
         end
     end
 
@@ -105,8 +115,6 @@ function test_periodic_splines(ord::BSplineOrder)
         end
     end
 
-    ftest(x) = 1 + sinpi(2x)  # should be L-periodic (L = 1)
-
     @testset "Collocation + interpolation" begin
         xs = @inferred collocation_points(B)
         @test iseven(k) == (xs == breaks)  # this is the default for even k
@@ -127,8 +135,6 @@ function test_periodic_splines(ord::BSplineOrder)
         @test boundaries(basis(I)) == (first(xs), first(xs) + L)
     end
 
-    # TODO
-    # - test approximations
     @testset "Galerkin" begin
         G = @inferred galerkin_matrix(B)
 
