@@ -19,9 +19,6 @@ using ..Recombinations:
 
 using ..BoundaryConditions
 
-import Interpolations:
-    interpolate, interpolate!
-
 export
     SplineInterpolation, spline, interpolate, interpolate!
 
