@@ -139,8 +139,6 @@ knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{T,Basis}}) where {T,Basis} = order(Basis)
 order(S::Spline) = order(typeof(S))
 
-# TODO allow evaluating derivatives at point `x` (should be much cheaper than
-# constructing a new Spline for the derivative)
 @inline function (S::Spline)(x)
     B = basis(S)
     if has_parent_basis(B)
@@ -154,18 +152,28 @@ function _evaluate(S::Spline, x)
     T = eltype(S)
     t = knots(S)
     n, zone = find_knot_interval(t, x)
-    iszero(zone) || return zero(T)  # x is outside of knot domain
-    k = order(S)
-    spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
+    if iszero(zone)
+        k = order(S)
+        spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
+    else
+        # x is outside of knot domain.
+        # We sum "zeros" to make sure we return the right type and be consistent
+        # with `spline_kernel`.
+        zero(x) + zero(T) + zero(eltype(t))
+    end
 end
 
 function spline_kernel(
-        c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
-    ) where {T,k}
+        c::AbstractVector, t, n, x, ::BSplineOrder{k},
+    ) where {k}
     # Algorithm adapted from https://en.wikipedia.org/wiki/De_Boor's_algorithm
     if @generated
         ex = quote
-            @nexprs $k j -> d_j = @inbounds c[j + n - $k]
+            # We add zero to make sure that d_j doesn't change type later.
+            # This is important when x is a ForwardDiff.Dual.
+            z = zero(x) + zero(eltype(t))
+            @nexprs $k j -> d_j = @inbounds z + c[j + n - $k]
+            T = typeof(d_1)
         end
         for r = 2:k, j = k:-1:r
             d_j = Symbol(:d_, j)
@@ -177,7 +185,7 @@ function spline_kernel(
                 @inbounds ti = t[$jk + n]
                 @inbounds tj = t[$jr + n + 1]
                 α = (x - ti) / (tj - ti)
-                $d_j = $T((1 - α) * $d_p + α * $d_j)
+                $d_j = ((1 - α) * $d_p + α * $d_j) :: T
             end
         end
         d_k = Symbol(:d_, k)
@@ -192,9 +200,13 @@ function spline_kernel(
 end
 
 function spline_kernel_alt(
-        c::AbstractVector{T}, t, n, x, ::BSplineOrder{k},
-    ) where {T, k}
-    d = MVector(ntuple(j -> @inbounds(c[j + n - k]), Val(k)))
+        c::AbstractVector, t, n, x, ::BSplineOrder{k},
+    ) where {k}
+    # We add zero to make sure that the vector has the right element type.
+    # This is important when x is a ForwardDiff.Dual.
+    z = zero(x) + zero(eltype(t))
+    d = MVector(ntuple(j -> @inbounds(z + c[j + n - k]), Val(k)))
+    T = eltype(d)  # this is the type that will be returned
     @inbounds for r = 2:k
         dprev = d[r - 1]
         for j = r:k
@@ -204,7 +216,7 @@ function spline_kernel_alt(
             α = (x - ti) / (tj - ti)
             dtmp = dprev
             dprev = d[j]
-            d[j] = (1 - α) * dtmp + α * dprev
+            d[j] = ((1 - α) * dtmp + α * dprev) :: T
         end
     end
     @inbounds d[k]
