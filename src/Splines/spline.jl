@@ -159,7 +159,9 @@ function _evaluate(S::Spline, x)
         # x is outside of knot domain.
         # We sum "zeros" to make sure we return the right type and be consistent
         # with `spline_kernel`.
-        zero(x) + zero(T) + zero(eltype(t))
+        # We also use broadcasting in case `c` is a vector of StaticArrays.
+        z = zero(x) + zero(eltype(t))
+        z .+ zero(T)
     end
 end
 
@@ -171,8 +173,9 @@ function spline_kernel(
         ex = quote
             # We add zero to make sure that d_j doesn't change type later.
             # This is important when x is a ForwardDiff.Dual.
+            # We also use broadcasting in case `c` is a vector of StaticArrays.
             z = zero(x) + zero(eltype(t))
-            @nexprs $k j -> d_j = @inbounds z + c[j + n - $k]
+            @nexprs $k j -> d_j = @inbounds z .+ c[j + n - $k]
             T = typeof(d_1)
         end
         for r = 2:k, j = k:-1:r
@@ -204,8 +207,9 @@ function spline_kernel_alt(
     ) where {k}
     # We add zero to make sure that the vector has the right element type.
     # This is important when x is a ForwardDiff.Dual.
+    # We also use broadcasting in case `c` is a vector of StaticArrays.
     z = zero(x) + zero(eltype(t))
-    d = MVector(ntuple(j -> @inbounds(z + c[j + n - k]), Val(k)))
+    d = MVector(ntuple(j -> @inbounds(z .+ c[j + n - k]), Val(k)))
     T = eltype(d)  # this is the type that will be returned
     @inbounds for r = 2:k
         dprev = d[r - 1]
