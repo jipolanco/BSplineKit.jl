@@ -2,6 +2,7 @@ using BSplineKit
 using BSplineKit.BSplines: multiplicity
 
 using BandedMatrices
+using ForwardDiff
 using LinearAlgebra
 using Test
 
@@ -204,6 +205,10 @@ function test_splines(B::BSplineBasis, knots_in)
         @test_nowarn show(devnull, S)
         @test Splines.parent_spline(S) === S
 
+        # Compare derivatives with ForwardDiff
+        S′ = Derivative() * S
+        @test S′.(xcol) ≈ ForwardDiff.derivative.(Ref(S), xcol)
+
         # Broadcasting
         f(S, x) = S(x)
         @test f.(S, xcol) == S.(xcol)
@@ -237,16 +242,19 @@ function test_splines(::BSplineOrder{k}) where {k}
         @inferred BSplineBasis(BSplineOrder(k), copy(xs), augment=Val(false))
         @inferred BSplineBasis(BSplineOrder(k), copy(xs), augment=Val(true))
         @inferred (() -> BSplineBasis(k, copy(xs)))()
-        g = BSplineBasis(k, copy(xs))
 
         @testset "Type stability" begin
-            # The return type of evaluating a spline should be the element type
-            # of the coefficient vector.
-            coefs = randn(Float32, length(g))
-            S = @inferred Spline(g, coefs)
-            xeval = Float64(0.32)
-            @test @inferred(S(xeval)) isa Float32
+            # The return type of evaluating a spline should be the promoted type
+            # beetween the coefficient type (Float32 here), the knot element
+            # type (Float32), and the type of x.
+            Bf = @inferred BSplineBasis(BSplineOrder(k), Float32.(xs))
+            coefs = randn(Float32, length(Bf))
+            S = @inferred Spline(Bf, coefs)
+            @test @inferred(S(Float32(0.32))) isa Float32
+            @test @inferred(S(Float64(0.32))) isa Float64
         end
+
+        g = BSplineBasis(k, copy(xs))
 
         @testset "Evaluate spline" begin
             coefs = randn(length(g))
