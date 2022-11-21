@@ -343,7 +343,7 @@ function nonzero_in_segment(R::RecombinedBSplineBasis, n)
     nonzero_in_segment(parent(R), n - δl; N = length(R))
 end
 
-function support(R::RecombinedBSplineBasis, j)
+function support(R::RecombinedBSplineBasis, j::Integer)
     δl = num_constraints(R)[1]
     support(parent(R), j + δl)
 end

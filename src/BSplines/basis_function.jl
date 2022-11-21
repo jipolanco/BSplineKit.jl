@@ -73,7 +73,7 @@ support(b::BasisFunction) = support(basis(b), b.i)
 
 Get range of knots supported by the ``i``-th basis function.
 """
-support(B::BSplineBasis, i::Integer) = i:(i + order(B))
+support(B::AbstractBSplineBasis, i::Integer) = i:(i + order(B))
 
 """
     nonzero_in_segment(B::AbstractBSplineBasis, n::Int) -> UnitRange{Int}
@@ -127,20 +127,23 @@ are also supported.
 
 See also [`evaluate!`](@ref).
 """
-function evaluate(B::BSplineBasis, i::Integer, x::Real,
-                  op::AbstractDifferentialOp = Derivative(0),
-                  ::Type{T} = Float64) where {T}
-    N = length(B)
-    if !(1 <= i <= N)
-        throw(DomainError(i, "Basis function index must be in 1:$N"))
+function evaluate end
+
+evaluate(B::BSplineBasis, args...) = _evaluate(B, args...)
+
+function _evaluate(B::AbstractBSplineBasis, i::Integer, x::Real,
+                   op::AbstractDifferentialOp = Derivative(0),
+                   ::Type{T} = Float64) where {T}
+    if !checkbounds(Bool, B, i)
+        throw(DomainError(i, lazy"Basis function index must be in $(eachindex(B))"))
     end
     k = order(B)
     t = knots(B)
     evaluate_diff(op, BSplineOrder(k), t, i, x, T)
 end
 
-evaluate(B::BSplineBasis, i::Integer, x::Real, ::Type{T}) where {T} =
-    evaluate(B, i, x, Derivative(0), T)
+_evaluate(B::AbstractBSplineBasis, i::Integer, x::Real, ::Type{T}) where {T} =
+    _evaluate(B, i, x, Derivative(0), T)
 
 # No derivative
 evaluate_diff(::Derivative{0}, ::BSplineOrder{k}, t, i, x,
@@ -188,8 +191,8 @@ function evaluate_diff(S::DifferentialOpSum, etc...)
 end
 
 # For evaluation at multiple locations (allocates a vector).
-evaluate(B::BSplineBasis, i, x::AbstractVector, args...) =
-    evaluate.(B, i, x, args...)
+_evaluate(B, i, x::AbstractVector, args...) =
+    _evaluate.(B, i, x, args...)
 
 """
     evaluate!(b::AbstractVector, B::BSplineBasis, i::Integer,

@@ -233,6 +233,11 @@ end
 
 support(B::PeriodicBSplineBasis, i::Integer) = i:(i + order(B))
 
+## Evaluation of individual B-splines.
+
+Base.checkbounds(::Type{Bool}, B::PeriodicBSplineBasis, I) = true  # accept all indices
+evaluate(B::PeriodicBSplineBasis, args...) = _evaluate(B, args...)
+
 @inline function basis_to_array_index(::PeriodicBSplineBasis, axs, i::Int)
     while i < first(axs)
         i += length(axs)
