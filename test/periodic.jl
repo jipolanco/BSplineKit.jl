@@ -56,6 +56,14 @@ function test_periodic_splines(ord::BSplineOrder)
         @test all(>(0), bs)
         @test sum(bs) ≈ 1  # partition of unity
 
+        iall = ilast:-1:(ilast - k + 1)  # indices of all non-zero B-splines at x
+
+        @testset "Support" for i ∈ eachindex(B)
+            sup = support(B, i)
+            ta, tb = ts[sup[begin]], ts[sup[end]]
+            @test (i ∈ iall) == (ta ≤ x < tb)
+        end
+
         # Check for zero allocations
         eval_alloc(B, x) = (B(x); @allocated(B(x)))
         @test 0 == eval_alloc(B, x)
