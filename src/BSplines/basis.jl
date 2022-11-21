@@ -130,9 +130,11 @@ julia> B[6](-0.5, Derivative(1))
     BasisFunction(B, i, T)
 end
 
-@inline function Base.checkbounds(B::AbstractBSplineBasis, I)
-    checkbounds(eachindex(B), I)
-end
+@inline Base.checkbounds(::Type{Bool}, B::AbstractBSplineBasis, I) =
+    checkbounds(Bool, eachindex(B), I)
+
+@inline Base.checkbounds(B::AbstractBSplineBasis, I) =
+    checkbounds(Bool, B, I) || throw(BoundsError(B, I))
 
 @inline Base.eachindex(B::AbstractBSplineBasis) = Base.OneTo(length(B))
 
