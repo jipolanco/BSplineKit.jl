@@ -1,5 +1,4 @@
-export PeriodicBSplineBasis,
-       PeriodicKnots
+export PeriodicBSplineBasis, PeriodicKnots, knots_in_main_period
 
 import ..BoundaryConditions: period
 
@@ -23,48 +22,61 @@ Describes an infinite vector of knots with periodicity `L`.
 
 ---
 
-    PeriodicKnots(ξs::AbstractVector{T}, L::Real, ::BSplineOrder{k})
+    PeriodicKnots(ξs::AbstractVector{T}, ::BSplineOrder{k})
 
-Construct a periodic knot sequence with period `L` from breakpoints `ξs`.
+Construct a periodic knot sequence from breakpoints `ξs`.
 
-The breakpoints should be in non-decreasing order.
-They represent a single period, and must *not* include the endpoint.
-In other words, the last point must be such that `ξs[end] < ξs[begin] + L`.
+The knot period is taken to be `L = ξs[end] - ξs[begin]`.
+In other words, the breakpoints `ξs` are expected to include the endpoint `ξs[begin] + L`.
+
+The breakpoints should be given in non-decreasing order.
 
 Note that the indices of the returned knots `ts` are offset with respect to the
 input `ξs` according to `ts[i] = ξs[i + offset]` where `offset = k ÷ 2`.
 """
-struct PeriodicKnots{
-        T, k, Knots <: AbstractVector{T},
-    } <: AbstractPeriodicVector{T}
-    # Knots in a single period (length = N).
-    # The knot vector is such that data[end] - data[begin] < period.
+struct PeriodicKnots{T, k, Knots <: AbstractVector{T}} <: AbstractPeriodicVector{T}
+    # Knots in a single period (length = N + 1).
+    # Only the indices 1:N are used, but we also include the endpoint
+    # associated to index N + 1.
     data       :: Knots
-
     N          :: Int
     period     :: T
     boundaries :: NTuple{2, T}
 
-    function PeriodicKnots(
-            breaks::AbstractVector{T}, period::Real,
-            ::BSplineOrder{k},
-        ) where {T, k}
-        k :: Int
-        L = convert(T, period)
-        a = first(breaks)
-        if last(breaks) - a ≥ L
-            throw(ArgumentError("the knot extent (t[end] - t[begin]) must be *strictly* smaller than the period L"))
-        end
-        boundaries = (a, a + L)
+    function PeriodicKnots(breaks::AbstractVector{T}, ::BSplineOrder{k}) where {T, k}
+        k::Int
+        N = length(breaks) - 1  # exclude the endpoint
+        a, b = first(breaks), last(breaks)
+        L = b - a
+        boundaries = (a, b)
         Knots = typeof(breaks)
-        N = length(breaks)
         new{T, k, Knots}(breaks, N, L, boundaries)
     end
 end
 
+# This undocumented constructor is for compatibility with previous versions,
+# and may be removed soon.
+# Note that, here, the endpoint shound *not* be included in the knot vector.
+function PeriodicKnots(breaks::AbstractVector{T}, period::Real, ord::BSplineOrder) where {T}
+    @warn """The constructor PeriodicKnots(breaks, period, order) is deprecated.
+    Use PeriodicKnots(breaks, order) instead, and include the endpoint in the `breaks` vector.
+    """
+    a = first(breaks)
+    b = a + period
+    if last(breaks) ≥ b
+        throw(
+            ArgumentError(
+                "the knot extent (t[end] - t[begin]) must be *strictly* smaller than the period L",
+            )
+        )
+    end
+    ts = vcat(breaks, b)
+    PeriodicKnots(ts, ord)
+end
+
 boundaries(ts::PeriodicKnots) = ts.boundaries
 period(ts::PeriodicKnots) = ts.period
-order(::PeriodicKnots{T,k}) where {T,k} = k
+order(::PeriodicKnots{T, k}) where {T, k} = k
 
 # This offset is to make sure collocation matrices are diagonally-dominant.
 index_offset(ts::PeriodicKnots) = order(ts) ÷ 2
@@ -76,6 +88,15 @@ Base.size(ts::PeriodicKnots) = (length(ts),)
 # This is such that ts[i] and ts[i + N] correspond to the same position due to
 # periodicity.
 period_length(ts::PeriodicKnots) = ts.N
+
+# Idea: typically parent(ts) has indices 1:(N + 1), and we want to return a
+# view to indices 1:N.
+function knots_in_main_period(ts::PeriodicKnots)
+    N = period_length(ts)
+    data = parent(ts)
+    inds = eachindex(data)[Base.OneTo(N)]
+    view(data, inds)
+end
 
 _knot_zone(::PeriodicKnots, x) = 0
 
@@ -126,25 +147,21 @@ The basis is defined by a set of knots and by the B-spline order.
 
 ---
 
-    PeriodicBSplineBasis(order::BSplineOrder{k}, ts::AbstractVector, L::Real)
+    PeriodicBSplineBasis(order::BSplineOrder{k}, ts::AbstractVector)
 
-Create periodic B-spline basis of order `k` with knots `ts` and period `L`.
+Create periodic B-spline basis of order `k` with knots `ts`.
 
-The knot vector `ts` must be in non-decreasing order, and must satisfy
-`(ts[end] - ts[begin]) < L`.
-In other words, it must *not* include the endpoint `ts[begin] + L`.
+The knot period is taken to be `L = ts[end] - ts[begin]`.
 
 # Examples
 
 Create B-spline basis on periodic domain with period ``L = 2``.
 
 ```jldoctest
-julia> L = 2;
+julia> ts = range(-1, 1; length = 11)
+-1.0:0.2:1.0
 
-julia> ts = range(-1, 1; length = 11)[1:10]
--1.0:0.2:0.8
-
-julia> B = PeriodicBSplineBasis(BSplineOrder(4), ts, L)
+julia> B = PeriodicBSplineBasis(BSplineOrder(4), ts)
 10-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
  knots: [..., -1.4, -1.2, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, ...]
 
@@ -181,29 +198,33 @@ julia> knots(B)
   1.2
 ```
 """
-struct PeriodicBSplineBasis{
-        k, T, Knots <: PeriodicKnots{T},
-    } <: AbstractBSplineBasis{k, T}
-    N :: Int    # number of B-splines / knots in the "main" interval
-    t :: Knots
+struct PeriodicBSplineBasis{k, T, Knots <: PeriodicKnots{T}} <: AbstractBSplineBasis{k, T}
+    N::Int    # number of B-splines / knots in the "main" interval
+    t::Knots
 
     function PeriodicBSplineBasis(
-            ord::BSplineOrder{k}, ts::AbstractVector{T},
-            period::Real,
-        ) where {k, T}
-        k :: Integer
+        ord::BSplineOrder{k},
+        ts::AbstractVector{T},
+    ) where {k, T}
+        k::Integer
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        ts_per = PeriodicKnots(ts, period, ord)
+        ts_per = PeriodicKnots(ts, ord)
         Knots = typeof(ts_per)
-        N = length(parent(ts_per))
+        N = period_length(ts_per)
         new{k, T, Knots}(N, ts_per)
     end
 end
 
 @inline PeriodicBSplineBasis(k::Integer, args...; kwargs...) =
     PeriodicBSplineBasis(BSplineOrder(k), args...; kwargs...)
+
+# The new constructor takes a knot vector which includes the endpoint ts[begin] + L.
+@deprecate(
+    PeriodicBSplineBasis(ord, ts, L),
+    PeriodicBSplineBasis(ord, vcat(ts, first(ts) + L)),
+)
 
 Base.parent(B::PeriodicBSplineBasis) = B
 
@@ -221,13 +242,15 @@ function summary_basis(io, B::PeriodicBSplineBasis)
 end
 
 Base.:(==)(A::PeriodicBSplineBasis, B::PeriodicBSplineBasis) =
-    A === B ||
-    order(A) == order(B) && knots(A) == knots(B)
+    A === B || order(A) == order(B) && knots(A) == knots(B)
 
 @propagate_inbounds function evaluate_all(
-        B::PeriodicBSplineBasis, x::Real, op::Derivative, ::Type{T};
-        kws...,
-    ) where {T <: Number}
+    B::PeriodicBSplineBasis,
+    x::Real,
+    op::Derivative,
+    ::Type{T};
+    kws...,
+) where {T <: Number}
     _evaluate_all(knots(B), x, BSplineOrder(order(B)), op, T; kws...)
 end
 
@@ -250,16 +273,15 @@ end
 
 function basis_derivative(B::PeriodicBSplineBasis, ::Derivative{n}) where {n}
     k = order(B)
-    L = period(B)
-    ts = knots(B) :: PeriodicKnots
+    ts = knots(B)::PeriodicKnots
     ξs = parent(ts)  # original breakpoints
-    PeriodicBSplineBasis(BSplineOrder(k - n), ξs, L)
+    PeriodicBSplineBasis(BSplineOrder(k - n), ξs)
 end
 
 # Note that we return a non-periodic basis, since the integral of a periodic
 # function (a spline in our case) is in general not periodic.
 function basis_integral(B::PeriodicBSplineBasis)
-    ts = knots(B) :: PeriodicKnots
+    ts = knots(B)::PeriodicKnots
     k = order(B)
     N = length(B)
     @assert length(ts) == N + k

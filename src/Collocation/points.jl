@@ -171,7 +171,7 @@ collocation_points(B::AbstractBSplineBasis; method = default_method(B)) =
 # usually the set of knots that the user passed when creating the basis.
 _knots_in_domain(B::AbstractBSplineBasis) = _knots_in_domain(knots(B))
 _knots_in_domain(ts::AbstractVector) = ts
-_knots_in_domain(ts::PeriodicKnots) = parent(ts)
+_knots_in_domain(ts::PeriodicKnots) = knots_in_main_period(ts)
 
 function collocation_points(B::AbstractBSplineBasis, method::SelectionMethod)
     x = similar(knots(B), length(B))
