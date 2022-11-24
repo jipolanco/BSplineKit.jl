@@ -47,6 +47,7 @@ end
             "bsplines.md",
             "splines.md",
             "interpolation.md",
+            "extrapolation.md",
             "approximation.md",
             "recombination.md",
             "tensors.md",

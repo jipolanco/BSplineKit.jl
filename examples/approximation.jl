@@ -55,7 +55,7 @@ function plot_knots!(ax, ts; ybase = 0, knot_offset = 0.03, kws...)
             end
         end
     end
-    scatter!(ax, ts, ys; marker = :x, color = :gray, markersize = 16, kws...)
+    scatter!(ax, ts, ys; marker = '×', color = :gray, markersize = 24, kws...)
     ax
 end
 

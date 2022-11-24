@@ -139,31 +139,35 @@ knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{T,Basis}}) where {T,Basis} = order(Basis)
 order(S::Spline) = order(typeof(S))
 
-@inline function (S::Spline)(x)
+(S::Spline)(x) = evaluate(S, x)
+
+@inline function evaluate(S::Spline, x, args...)
     B = basis(S)
     if has_parent_basis(B)
-        parent_spline(S)(x)
+        evaluate(parent_spline(S), x, args...)
     else
-        _evaluate(S, x)
+        _evaluate(S, x, args...)
     end
 end
 
 function _evaluate(S::Spline, x)
-    T = eltype(S)
     t = knots(S)
     n, zone = find_knot_interval(t, x)
     if iszero(zone)
-        k = order(S)
-        spline_kernel(coefficients(S), t, n, x, BSplineOrder(k))
+        evaluate(S, x, n)
     else
         # x is outside of knot domain.
         # We sum "zeros" to make sure we return the right type and be consistent
         # with `spline_kernel`.
         # We also use broadcasting in case `c` is a vector of StaticArrays.
+        T = eltype(S)
         z = zero(x) + zero(eltype(t))
         z .+ zero(T)
     end
 end
+
+_evaluate(S::Spline, x, n::Integer) =
+    spline_kernel(coefficients(S), knots(S), n, x, BSplineOrder(order(S)))
 
 function spline_kernel(
         c::AbstractVector, t, n, x, ::BSplineOrder{k},

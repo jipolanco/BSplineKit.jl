@@ -34,4 +34,7 @@ include("SplineInterpolations/SplineInterpolations.jl")
 include("SplineApproximations/SplineApproximations.jl")
 @reexport using .SplineApproximations
 
+include("SplineExtrapolations/SplineExtrapolations.jl")
+@reexport using .SplineExtrapolations
+
 end

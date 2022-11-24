@@ -61,7 +61,7 @@ function plot_knots!(ax, ts; knot_offset = 0.03, kws...)
             ys[i] = ys[i - 1] + knot_offset
         end
     end
-    scatter!(ax, ts, ys; marker = :x, markersize = 20, color = :gray, kws...)
+    scatter!(ax, ts, ys; marker = '×', markersize = 24, color = :gray, kws...)
     ax
 end
 
@@ -282,7 +282,7 @@ xcol = collocation_points(R)
 # [`collocation_matrix`](@ref).
 # Note that both matrices are of type [`CollocationMatrix`](@ref), which wrap
 # matrices defined in
-# [BandedMatrices.jl](https://github.com/JuliaMatrices/BandedMatrices.jl).
+# [BandedMatrices.jl](https://github.com/JuliaLinearAlgebra/BandedMatrices.jl).
 
 Acol = collocation_matrix(R, xcol)
 Lcol = collocation_matrix(R, xcol, Derivative(2))

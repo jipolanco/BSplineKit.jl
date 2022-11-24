@@ -72,7 +72,7 @@ Due to the compact support of B-splines, the collocation matrix is
 [banded](https://en.wikipedia.org/wiki/Band_matrix) if the collocation points
 are properly distributed. Therefore, it makes sense to store it in a
 `BandedMatrix` (from the
-[BandedMatrices](https://github.com/JuliaMatrices/BandedMatrices.jl) package),
+[BandedMatrices](https://github.com/JuliaLinearAlgebra/BandedMatrices.jl) package),
 as this will lead to memory savings and especially to time savings if
 the matrix needs to be inverted.
 
