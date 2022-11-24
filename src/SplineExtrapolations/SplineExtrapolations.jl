@@ -8,14 +8,19 @@ export
 using ..BSplines
 using ..Splines
 
-abstract type AbstractExtrapolationType end
+"""
+    AbstractExtrapolationMethod
+
+Abstract type representing an extrapolation method.
+"""
+abstract type AbstractExtrapolationMethod end
 
 """
-    Flat <: AbstractExtrapolationType
+    Flat <: AbstractExtrapolationMethod
 
 Singleton type representing a flat extrapolation.
 """
-struct Flat <: AbstractExtrapolationType end
+struct Flat <: AbstractExtrapolationMethod end
 
 function extrapolate_at_point(::Flat, S::Spline, x)
     a, b = boundaries(basis(S))
@@ -31,26 +36,26 @@ given extrapolation method.
 """
 struct SplineExtrapolation{
         S <: Spline,
-        ExtType <: AbstractExtrapolationType,
+        M <: AbstractExtrapolationMethod,
     } <: SplineWrapper{S}
     spline :: S
-    type   :: ExtType
+    method :: M
 
-    SplineExtrapolation(sp::Spline, type::AbstractExtrapolationType) =
-        new{typeof(sp), typeof(type)}(sp, type)
+    SplineExtrapolation(sp::Spline, method::AbstractExtrapolationMethod) =
+        new{typeof(sp), typeof(method)}(sp, method)
 end
 
 SplineExtrapolation(S::SplineWrapper, args...) = SplineExtrapolation(spline(S), args...)
 
-(f::SplineExtrapolation)(x) = extrapolate_at_point(f.type, f.spline, x)
+(f::SplineExtrapolation)(x) = extrapolate_at_point(f.method, f.spline, x)
 
 """
-    extrapolate(S::Union{Spline, SplineWrapper}, type::AbstractExtrapolationType)
+    extrapolate(S::Union{Spline, SplineWrapper}, method::AbstractExtrapolationMethod)
 
 Construct a [`SplineExtrapolation`](@ref) from the given spline `S` (which can
 also be the result of an interpolation).
 """
-extrapolate(sp::Union{Spline, SplineWrapper}, type::AbstractExtrapolationType) =
-    SplineExtrapolation(sp, type)
+extrapolate(sp::Union{Spline, SplineWrapper}, method::AbstractExtrapolationMethod) =
+    SplineExtrapolation(sp, method)
 
 end
