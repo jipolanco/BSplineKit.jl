@@ -282,7 +282,7 @@ xcol = collocation_points(R)
 # [`collocation_matrix`](@ref).
 # Note that both matrices are of type [`CollocationMatrix`](@ref), which wrap
 # matrices defined in
-# [BandedMatrices.jl](https://github.com/JuliaMatrices/BandedMatrices.jl).
+# [BandedMatrices.jl](https://github.com/JuliaLinearAlgebra/BandedMatrices.jl).
 
 Acol = collocation_matrix(R, xcol)
 Lcol = collocation_matrix(R, xcol, Derivative(2))

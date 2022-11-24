@@ -58,7 +58,7 @@ function approximate(f, B::AbstractBSplineBasis, m::MinimiseL2Error)
     M = galerkin_matrix(B)  # by default it's a BandedMatrix
 
     # We annotate the return type to avoid inference issue in ArrayLayouts...
-    # https://github.com/JuliaMatrices/ArrayLayouts.jl/issues/66
+    # https://github.com/JuliaLinearAlgebra/ArrayLayouts.jl/issues/66
     Mfact = cholesky!(M) :: Cholesky{eltype(M), typeof(parent(M))}
 
     data = (; Mfact,)

@@ -85,3 +85,41 @@ current_figure()  # hide
 
 # Clearly, the spurious oscillations are strongly suppressed near the
 # boundaries.
+
+# ## [Extrapolations](@id extrapolation-example)
+#
+# One can use extrapolation to evaluate splines outside of their domain of definition.
+# A few different extrapolation strategies are implemented in BSplineKit.
+# See [Extrapolation methods](@ref) for details.
+#
+# Below we compare a few possible extrapolation strategies included in BSplineKit.
+#
+# First, we generate and interpolate new data:
+
+xs = 0:0.2:1
+ys = 2 * cospi.(xs)
+S = interpolate(xs, ys, BSplineOrder(4))
+
+# One can directly evaluate these interpolations outside of the domain
+# ``[0, 1]``, but the result will always be zero:
+
+S(-0.32)
+
+# To enable extrapolations, one must call [`extrapolate`](@ref) with the
+# desired extrapolation strategy (see [Extrapolation methods](@ref) for a list).
+# Here we compare both [`Flat`](@ref) and [`Smooth`](@ref) methods:
+
+E_flat   = extrapolate(S, Flat())
+E_smooth = extrapolate(S, Smooth())
+
+#
+
+fig = Figure(resolution = (600, 400))
+ax = Axis(fig[1, 1])
+scatter!(ax, xs, ys; label = "Data", color = :black)
+lines!(ax, -0.5..1.5, x -> S(x); label = "No extrapolation", linewidth = 2)
+lines!(ax, -0.5..1.5, x -> E_smooth(x); label = "Smooth", linestyle = :dash, linewidth = 2)
+lines!(ax, -0.5..1.5, x -> E_flat(x); label = "Flat", linestyle = :dot, linewidth = 2)
+axislegend(ax)
+fig
+

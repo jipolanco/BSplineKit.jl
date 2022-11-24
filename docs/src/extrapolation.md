@@ -19,13 +19,25 @@ boundary conditions:
 julia> xdata = -1:0.2:1;
 
 julia> ydata = 2 * cospi.(xdata)
+11-element Vector{Float64}:
+ -2.0
+ -1.618033988749895
+ -0.6180339887498947
+  0.6180339887498947
+  1.618033988749895
+  2.0
+  1.618033988749895
+  0.6180339887498947
+ -0.6180339887498947
+ -1.618033988749895
+ -2.0
 
 julia> itp = interpolate(xdata, ydata, BSplineOrder(4))
 SplineInterpolation containing the 11-element Spline{Float64}:
  basis: 11-element BSplineBasis of order 4, domain [-1.0, 1.0]
  order: 4
  knots: [-1.0, -1.0, -1.0, -1.0, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 1.0, 1.0, 1.0, 1.0]
- coefficients: [0.720767, 3.93278, -3.27239, -0.121387, -2.4667, 3.06485, -1.46434, 1.69219, -2.89315, -0.996997, 0.104239]
+ coefficients: [-2.0, -2.03018, -1.10276, 0.660559, 1.7279, 2.13605, 1.7279, 0.660559, -1.10276, -2.03018, -2.0]
  interpolation points: -1.0:0.2:1.0
 
 julia> ext = extrapolate(itp, Flat())
@@ -37,10 +49,10 @@ SplineExtrapolation containing the 11-element Spline{Float64}:
  extrapolation method: Flat()
 
 julia> ext(1.0)
-2.0
+-2.0
 
 julia> ext(1.1)
-2.0
+-2.0
 ```
 
 ## Functions
@@ -49,7 +61,7 @@ julia> ext(1.1)
 extrapolate
 ```
 
-## Extrapolation types
+## Extrapolation methods
 
 ```@docs
 Flat
