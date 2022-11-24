@@ -53,6 +53,7 @@ extrapolate
 
 ```@docs
 Flat
+Smooth
 ```
 
 ## Internals
