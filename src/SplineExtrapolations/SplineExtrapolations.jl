@@ -45,9 +45,19 @@ struct SplineExtrapolation{
         new{typeof(sp), typeof(method)}(sp, method)
 end
 
+method(f::SplineExtrapolation) = f.method
+
 SplineExtrapolation(S::SplineWrapper, args...) = SplineExtrapolation(spline(S), args...)
 
-(f::SplineExtrapolation)(x) = extrapolate_at_point(f.method, f.spline, x)
+function Base.show(io::IO, f::SplineExtrapolation)
+    println(io, nameof(typeof(f)), " containing the ", spline(f))
+    let io = IOContext(io, :compact => true, :limit => true)
+        print(io, " extrapolation method: ", method(f))
+    end
+    nothing
+end
+
+(f::SplineExtrapolation)(x) = extrapolate_at_point(method(f), spline(f), x)
 
 """
     extrapolate(S::Union{Spline, SplineWrapper}, method::AbstractExtrapolationMethod)

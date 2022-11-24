@@ -9,6 +9,7 @@ using Random
 
     @testset "Flat" begin
         ext = @inferred extrapolate(itp, Flat())
+        @test startswith(repr(ext), "SplineExtrapolation containing the")
         @test itp(0.42) == @inferred ext(0.42)
         @test itp(-1.0) == @inferred ext(-2.3)
         @test itp(1.0) == @inferred ext(2.4)
