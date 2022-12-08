@@ -84,7 +84,7 @@ the matrix needs to be inverted.
   systems.
   On the other hand, for matrix-vector or matrix-matrix
   multiplications, `SparseMatrixCSC` may perform better, especially when using OpenBLAS (see
-  [BandedMatrices issue](https://github.com/JuliaMatrices/BandedMatrices.jl/issues/110)).
+  [BandedMatrices issue](https://github.com/JuliaLinearAlgebra/BandedMatrices.jl/issues/110)).
   May fail with an error for non-square matrix shapes, or if the distribution of
   collocation points is not adapted. In these cases, the effective
   bandwidth of the matrix may be larger than the expected bandwidth.
