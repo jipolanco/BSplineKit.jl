@@ -178,7 +178,7 @@ galerkin_matrix!(M, B::AbstractBSplineBasis, args...) =
     galerkin_matrix!(M, (B, B), args...)
 
 function galerkin_matrix!(
-        S::AbstractMatrix, Bs::Tuple{Vararg{<:AbstractBSplineBasis,2}},
+        S::AbstractMatrix, Bs::Tuple{Vararg{AbstractBSplineBasis,2}},
         deriv = Derivative.((0, 0)),
     )
     _check_bases(Bs)
