@@ -254,7 +254,9 @@ function interpolate(
         x::AbstractVector, y::AbstractVector, k::BSplineOrder, bc::Periodic,
     )
     ts = make_knots(x, k, bc)
-    B = PeriodicBSplineBasis(k, ts, BoundaryConditions.period(bc))
+    L = BoundaryConditions.period(bc)
+    @assert ts[end] - ts[begin] ≈ L  # endpoint is included in the knots
+    B = PeriodicBSplineBasis(k, ts)
     T = float(eltype(y))
     itp = SplineInterpolation(undef, B, x, T)
     interpolate!(itp, y)
@@ -300,20 +302,27 @@ function make_knots(
     L = BoundaryConditions.period(bc)
     first(xs) + L > last(xs) ||
         error("endpoint x₁ + L must *not* be included in the interpolation points")
-    iseven(k) && return xs
 
-    ts = similar(xs)
-    xprev = first(xs)
+    ts = similar(xs, length(xs) + 1)  # note: knots *do* include the endpoint
+
+    if iseven(k)
+        @views ts[begin:(end - 1)] .= xs
+        ts[end] = first(xs) + L
+        return ts
+    end
+
+    x₀ = first(xs)
+    xₙ = x₀ + L
+    xprev = x₀
     i = firstindex(ts)
-    @inbounds while i < lastindex(ts)
+    @inbounds while i < lastindex(xs)
         x = xs[i + 1]
         ts[i] = (xprev + x) / 2
         xprev = x
         i += 1
     end
     L = BoundaryConditions.period(bc)
-    x = first(xs) + L
-    ts[end] = (xprev + x) / 2
+    ts[end - 1] = (xprev + xₙ) / 2
 
     # Make sure first knot == first point.
     # This is somewhat arbitrary, but it's needed so that the boundaries of the
@@ -321,7 +330,8 @@ function make_knots(
     # Unfortunately, this produces some extra spacing between the first knot and
     # the rest.
     # Not sure if there's a better way of doing this...
-    ts[begin] = xs[begin]
+    ts[begin] = x₀
+    ts[end] = xₙ  # must be x₀ + L
 
     ts
 end
