@@ -11,12 +11,7 @@ function test_periodic_splines(ord::BSplineOrder)
 
     # Test deprecated constructors
     @testset "Deprecated" begin
-        @test_logs(
-            (:warn, r"The constructor PeriodicKnots\(.*\) is deprecated"),
-            BSplineKit.PeriodicKnots(breaks[1:end-1], L, ord),
-        )
-        @test_throws ArgumentError BSplineKit.PeriodicKnots(breaks, L, ord)
-        @test B == @test_deprecated PeriodicBSplineBasis(ord, breaks[begin:end-1], L)
+        @test_deprecated PeriodicBSplineBasis(ord, breaks[begin:end-1], L)
     end
 
     N = length(B)
@@ -31,7 +26,7 @@ function test_periodic_splines(ord::BSplineOrder)
     @test typeof(period(B)) === eltype(breaks)
     @test @inferred(boundaries(B)) == (0, 1)
     @test B == B
-    let B′ = PeriodicBSplineBasis(BSplineOrder(k - 1), breaks, L)
+    let B′ = PeriodicBSplineBasis(BSplineOrder(k - 1), breaks)
         @test B ≠ B′
     end
 
@@ -108,8 +103,8 @@ function test_periodic_splines(ord::BSplineOrder)
 
     # Far from the boundaries, the result should match a regular BSplineBasis
     # (except for the knot index, which is shifted).
+    Bn = BSplineBasis(ord, breaks)
     @testset "Compare to regular" begin
-        Bn = BSplineBasis(ord, breaks)
         x = (2 * breaks[k+2] + breaks[k+3]) / 3
         x′ = (3 * breaks[k+3] + breaks[k+4]) / 4  # for integrals
 
