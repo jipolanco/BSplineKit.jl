@@ -54,26 +54,6 @@ struct PeriodicKnots{T, k, Knots <: AbstractVector{T}} <: AbstractPeriodicVector
     end
 end
 
-# This undocumented constructor is for compatibility with previous versions,
-# and may be removed soon.
-# Note that, here, the endpoint shound *not* be included in the knot vector.
-function PeriodicKnots(breaks::AbstractVector{T}, period::Real, ord::BSplineOrder) where {T}
-    @warn """The constructor PeriodicKnots(breaks, period, order) is deprecated.
-    Use PeriodicKnots(breaks, order) instead, and include the endpoint in the `breaks` vector.
-    """
-    a = first(breaks)
-    b = a + period
-    if last(breaks) ≥ b
-        throw(
-            ArgumentError(
-                "the knot extent (t[end] - t[begin]) must be *strictly* smaller than the period L",
-            )
-        )
-    end
-    ts = vcat(breaks, b)
-    PeriodicKnots(ts, ord)
-end
-
 boundaries(ts::PeriodicKnots) = ts.boundaries
 period(ts::PeriodicKnots) = ts.period
 order(::PeriodicKnots{T, k}) where {T, k} = k
