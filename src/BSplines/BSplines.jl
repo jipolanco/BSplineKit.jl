@@ -17,6 +17,7 @@ export
     evaluate,
     evaluate!,
     evaluate_all,
+    isindomain,
     nonzero_in_segment,
     has_parent_basis,
     find_knot_interval,

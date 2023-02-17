@@ -189,7 +189,19 @@ function boundaries(B::BSplineBasis)
 end
 
 """
-    knots(g::AbstractBSplineBasis)
+    isindomain(B::AbstractBSplineBasis, x::Real)
+
+Check if the coordinate `x` is within the boundaries of the domain.
+"""
+function isindomain(B::AbstractBSplineBasis, x::Real)
+    a, b = boundaries(B)
+    # This is basically equivalent to a ≤ x ≤ b, but returns `false` in cases
+    # like a = 0.0 and x = -0.0, consistently with `sort` and `searchsortedlast`.
+    !isless(x, a) && !isless(b, x)
+end
+
+"""
+    knots(B::AbstractBSplineBasis)
     knots(g::Spline)
 
 Returns the knots of the B-spline basis.

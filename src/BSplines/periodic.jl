@@ -211,6 +211,7 @@ Base.parent(B::PeriodicBSplineBasis) = B
 Base.length(B::PeriodicBSplineBasis) = B.N
 knots(B::PeriodicBSplineBasis) = B.t
 boundaries(B::PeriodicBSplineBasis) = boundaries(knots(B))
+isindomain(B::PeriodicBSplineBasis, x::Real) = true  # basis can be evaluated at any `x`
 period(B::PeriodicBSplineBasis) = period(knots(B))
 
 function summary_basis(io, B::PeriodicBSplineBasis)
