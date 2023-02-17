@@ -105,6 +105,17 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
         end
     end
 
+    @testset "Out-of-bounds points" begin
+        a, b = boundaries(B)
+        xs = [a - eps(a), a, (a + b) / 2, b, b + eps(b)]
+        C = collocation_matrix(B, xs, Matrix{Float64})
+        @test all(iszero, @view(C[1, :]))  # x < a
+        for i ∈ 2:4
+            @test sum(@view(C[i, :])) ≈ 1  # a ≤ x ≤ b (+ partition of unity)
+        end
+        @test all(iszero, @view(C[5, :]))  # x > b
+    end
+
     nothing
 end
 

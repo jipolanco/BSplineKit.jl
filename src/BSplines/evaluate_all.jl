@@ -23,7 +23,7 @@ More precisely:
   towards the left.
   In other words, it is such that ``t_{i} ≤ x < t_{i + 1}``.
 
-  It is effectively computed as `i = searchsortedlast(knots(B), x)`.
+  It can be effectively computed as `i = searchsortedlast(knots(B), x)`.
   If the correct value of `i` is already known, one can avoid this computation by
   manually passing this index via the optional `ileft` keyword argument.
 

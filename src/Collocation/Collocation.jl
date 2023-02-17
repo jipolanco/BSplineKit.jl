@@ -178,8 +178,12 @@ function collocation_matrix!(
     fill!(C, 0)
     b_lo, b_hi = max_bandwidths(C)
 
-    @inbounds for i ∈ axes(C, 1)
-        jlast, bs = evaluate_all(B, x[i], deriv, T)  # = (b_{jlast + 1 - k}(x), …, b_{jlast}(x))
+    @inbounds for (i, xi) ∈ pairs(x)
+        # If x is not in the domain of the basis, then all basis functions
+        # evaluate to zero.
+        isindomain(B, xi) || continue
+
+        jlast, bs = evaluate_all(B, xi, deriv, T)  # = (b_{jlast + 1 - k}(x), …, b_{jlast}(x))
 
         for (δj, bj) ∈ pairs(bs)
             j = jlast + 1 - δj
@@ -196,7 +200,7 @@ function collocation_matrix!(
                 # This will cause problems if C is a BandedMatrix, and (i, j) is
                 # outside the allowed bands. This may be the case if the collocation
                 # points are not properly distributed.
-                @warn "Non-zero value outside of matrix bands: b[$j](x[$i]) = $bj"
+                @warn lazy"Non-zero value outside of matrix bands: b[$j]($xi) = $bj"
             end
 
             C[i, j] = bj
