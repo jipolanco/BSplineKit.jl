@@ -6,7 +6,7 @@ import BandedMatrices:
 
 using LinearAlgebra
 import LinearAlgebra:
-    LU, ZeroPivotException,
+    LU, ZeroPivotException, BlasInt,
     ldiv!, lu!, lu, factorize
 
 import Base: @propagate_inbounds
@@ -98,7 +98,7 @@ function lu!(C::CollocationMatrix, ::NoPivot = NoPivot(); check = true)
     @assert nroww == nbandl + nbandu + 1
     isempty(C) && error("matrix is empty")
     middle = nbandu + 1  # w[middle, :] contains the main diagonal of A
-    Cfact = LU(C, Int[], 0) :: CollocationLU  # factors, ipiv, info
+    Cfact = LU(C, Int[], zero(BlasInt)) :: CollocationLU  # factors, ipiv, info
 
     if nrow == 1
         @inbounds iszero(w[middle, nrow]) && throw(ZeroPivotException(1))

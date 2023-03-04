@@ -52,9 +52,8 @@ include("SplineExtrapolations/SplineExtrapolations.jl")
             S = Spline(B, rand(length(B)))
             S(0.32)
             Derivative() * S
-            # FIXME precompilation sometimes fails here (see e.g. issue #58):
-            # interpolate(xdata, ydata, ord)
-            # iseven(order(ord)) && interpolate(xdata, ydata, ord, Natural())
+            interpolate(xdata, ydata, ord)
+            iseven(order(ord)) && interpolate(xdata, ydata, ord, Natural())
             approximate(sinpi, B, MinimiseL2Error())  # triggers compilation of Galerkin stuff
         end
     end
