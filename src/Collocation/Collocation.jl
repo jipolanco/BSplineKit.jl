@@ -13,6 +13,7 @@ using ..Recombinations: num_constraints
 
 using BandedMatrices
 using SparseArrays
+using StaticArrays: Size, SVector, MVector, SMatrix, MMatrix
 
 # For Documenter only:
 using ..Recombinations: RecombinedBSplineBasis
