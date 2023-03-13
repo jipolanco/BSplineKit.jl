@@ -49,5 +49,6 @@ AugmentedKnots
 augment_knots!
 basis_to_array_index
 has_parent_basis
+static_length
 multiplicity
 ```

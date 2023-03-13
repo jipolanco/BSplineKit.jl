@@ -65,6 +65,10 @@ end
 @inline _make_length(::BSplineOrder{k}, ts) where {k} = length(ts) - k
 @inline _make_length(::BSplineOrder{k}, ts::SVector{M}) where {k, M} = StaticInt(M - k)
 
+static_length(::Type{<:BSplineBasis{k,T,Knots,Int}} where {k,T,Knots}) = nothing
+static_length(::Type{<:BSplineBasis{k,T,Knots,StaticInt{N}}}) where {k,T,Knots,N} = N
+static_length(B::BSplineBasis) = static_length(typeof(B))
+
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
 
