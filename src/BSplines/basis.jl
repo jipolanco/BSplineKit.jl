@@ -40,11 +40,12 @@ julia> Bn = BSplineBasis(5, breaks, augment = Val(false))
 ```
 
 """
-struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,T}
-    N :: Int    # number of B-splines
-    t :: Knots  # knots (length = N + k)
+struct BSplineBasis{k, T, Knots <: AbstractVector{T}, Length <: Union{Int, StaticInt}} <: AbstractBSplineBasis{k,T}
+    N :: Length  # number of B-splines
+    t :: Knots   # knots (length = N + k)
+
     function BSplineBasis(
-            ::BSplineOrder{k}, knots::AbstractVector{T};
+            ord::BSplineOrder{k}, knots::AbstractVector{T};
             augment::Val{Augment} = Val(true),
         ) where {k,T,Augment}
         k :: Integer
@@ -52,18 +53,17 @@ struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        # TODO when `knots` is a regular Vector, it would be nice to avoid
-        # modifying the vector and to instead use an AugmentedKnots instance
-        # (commented line below).
-        # However, for now that seems to be sligthly slower when evaluating
-        # splines, not sure why...
-        t = Augment ? augment_knots!(knots, k) : knots
-        # t = Augment ? AugmentedKnots{k}(knots) : knots
-        N = length(t) - k
+        # TODO avoid modifying `knots` when it's a regular Vector?
+        t = Augment ? augment_knots!(knots, ord) : knots
+        N = _make_length(ord, t)
         Knots = typeof(t)
-        new{k, T, Knots}(N, t)
+        Length = typeof(N)
+        new{k, T, Knots, Length}(N, t)
     end
 end
+
+@inline _make_length(::BSplineOrder{k}, ts) where {k} = length(ts) - k
+@inline _make_length(::BSplineOrder{k}, ts::SVector{M}) where {k, M} = StaticInt(M - k)
 
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
@@ -165,11 +165,11 @@ end
 Broadcast.broadcastable(B::AbstractBSplineBasis) = Ref(B)
 
 """
-    length(g::BSplineBasis)
+    length(g::BSplineBasis) -> Int
 
 Returns the number of B-splines composing a spline.
 """
-Base.length(g::BSplineBasis) = g.N
+Base.length(g::BSplineBasis) = dynamic(g.N) :: Int
 Base.size(g::AbstractBSplineBasis) = (length(g), )
 Base.parent(g::BSplineBasis) = g
 

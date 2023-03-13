@@ -24,6 +24,9 @@ export
     basis_to_array_index,
     support
 
+using Static: StaticInt, dynamic
+using StaticArraysCore: SVector
+
 using ..DifferentialOps
 
 """

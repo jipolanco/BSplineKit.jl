@@ -1,4 +1,5 @@
 using Base: @propagate_inbounds
+using StaticArraysCore: Size, MVector
 
 """
     AugmentedKnots{T,k} <: AbstractVector{T}
@@ -80,6 +81,24 @@ function augment_knots!(t::Vector, ::BSplineOrder{k}) where {k}
         @inbounds t[i] = ta
     end
     t
+end
+
+function augment_knots!(t_in::SVector, ::BSplineOrder{k}) where {k}
+    Base.require_one_based_indexing(t_in)
+    Nt = length(t_in) + 2 * (k - 1)  # number of knots
+    ta, tb = first(t_in), last(t_in)
+    t = similar(t_in, Size(Nt)) :: MVector
+    δ = k - 1
+    for i = Nt:-1:(Nt - δ)
+        @inbounds t[i] = tb
+    end
+    for i = (Nt - k):-1:(k + 1)
+        @inbounds t[i] = t_in[i - δ]  # shift values of original vector
+    end
+    for i = k:-1:1
+        @inbounds t[i] = ta
+    end
+    SVector{Nt}(t)
 end
 
 """
