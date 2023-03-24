@@ -15,6 +15,8 @@ import Base: @propagate_inbounds
     const NoPivot = Val{false}
 end
 
+# TODO don't wrap a BandedMatrix, but wrap directly a rectangular array
+
 """
     CollocationMatrix{T} <: AbstractBandedMatrix{T}
 

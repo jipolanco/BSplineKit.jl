@@ -111,10 +111,21 @@ function collocation_matrix(
         ::Type{MatrixType} = default_matrix_type(B, Float64);
         kwargs...,
     ) where {MatrixType}
-    Nx = length(x)
-    Nb = length(B)
-    C = allocate_collocation_matrix(MatrixType, (Nx, Nb), order(B); kwargs...)
+    C = allocate_collocation_matrix(MatrixType, x, B; kwargs...)
     collocation_matrix!(C, B, x, deriv; kwargs...)
+    consolidate_matrix(C)
+end
+
+consolidate_matrix(C) = C
+consolidate_matrix(C::CollocationMatrix) = consolidate_matrix(C, bandeddata(C))
+consolidate_matrix(C::CollocationMatrix, bandeddata) = C
+
+function consolidate_matrix(C::CollocationMatrix, bandeddata::MMatrix)
+    ncols = size(C, 2)
+    l, u = bandwidths(C)
+    CollocationMatrix(
+        BandedMatrices._BandedMatrix(SMatrix(bandeddata), ncols, l, u)
+    )
 end
 
 collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
@@ -127,14 +138,14 @@ default_matrix_type(::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
 default_matrix_type(B::AbstractBSplineBasis, ::Type{T}) where {T} =
     default_matrix_type(typeof(B), T)
 
-allocate_collocation_matrix(::Type{M}, dims, k) where {M <: AbstractMatrix} =
-    M(undef, dims...)
+allocate_collocation_matrix(::Type{M}, x, B) where {M <: AbstractMatrix} =
+    M(undef, length(x), length(B))
 
-allocate_collocation_matrix(::Type{SparseMatrixCSC{T}}, dims, k) where {T} =
-    spzeros(T, dims...)
+allocate_collocation_matrix(::Type{SparseMatrixCSC{T}}, x, B) where {T} =
+    spzeros(T, length(x), length(B))
 
 function allocate_collocation_matrix(
-        ::Type{M}, dims, k,
+        ::Type{M}, x, B,
     ) where {M <: CollocationMatrix}
     # Number of upper and lower diagonal bands.
     #
@@ -150,11 +161,23 @@ function allocate_collocation_matrix(
     # to an upper band of size k - 2.
     #
     # TODO is there a way to reduce the number of bands??
+    k = order(B)
     bands = collocation_bandwidths(k)
+    l, u = bands
+    nrows = l + u + 1
+    ncols = length(x)
     T = eltype(M)
-    data = BandedMatrix{T}(undef, dims, bands)
+    # data_raw = Matrix{T}(undef, nrows, ncols)
+    data_raw = _collocation_matrix_raw(Val(nrows), x, T)
+    data = BandedMatrices._BandedMatrix(data_raw, ncols, l, u)
     CollocationMatrix(data) :: M
 end
+
+_collocation_matrix_raw(::Val{nrows}, xs::AbstractVector, ::Type{T}) where {nrows, T} =
+    Matrix{T}(undef, nrows, length(xs))
+
+_collocation_matrix_raw(::Val{nrows}, xs::SVector{Nx}, ::Type{T}) where {nrows, Nx, T} =
+    MMatrix{nrows, Nx, T, nrows * Nx}(undef)
 
 collocation_bandwidths(k) = (k - 2, k - 2)
 
