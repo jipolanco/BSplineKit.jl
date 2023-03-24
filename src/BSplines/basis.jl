@@ -8,6 +8,7 @@ The basis is defined by a set of knots and by the B-spline order.
 ---
 
     BSplineBasis(order::BSplineOrder{k}, ts::AbstractVector; augment = Val(true))
+    BSplineBasis(order::BSplineOrder{k}, ts::NTuple; augment = Val(true))
 
 Create B-spline basis of order `k` with breakpoints `ts`.
 
@@ -39,12 +40,39 @@ julia> Bn = BSplineBasis(5, breaks, augment = Val(false))
  knots: -1.0:0.1:1.0
 ```
 
+# Statically-sized bases
+
+To define a basis with static size (i.e. size known at compile time), the
+breakpoints `ts` should be passed as a tuple or as an `SVector` (from the
+`StaticArrays` package):
+
+```jldoctest
+julia> breaks = (0.0, 0.1, 0.2, 0.6, 1.0);
+
+julia> B = BSplineBasis(BSplineOrder(3), breaks)
+6-element BSplineBasis of order 3, domain [0.0, 1.0]
+ knots: [0.0, 0.0, 0.0, 0.1, 0.2, 0.6, 1.0, 1.0, 1.0]
+
+julia> knots(B)
+9-element StaticArraysCore.SVector{9, Float64} with indices SOneTo(9):
+ 0.0
+ 0.0
+ 0.0
+ 0.1
+ 0.2
+ 0.6
+ 1.0
+ 1.0
+ 1.0
+```
+
 """
-struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,T}
-    N :: Int    # number of B-splines
-    t :: Knots  # knots (length = N + k)
+struct BSplineBasis{k, T, Knots <: AbstractVector{T}, Length <: Union{Int, StaticInt}} <: AbstractBSplineBasis{k,T}
+    N :: Length  # number of B-splines
+    t :: Knots   # knots (length = N + k)
+
     function BSplineBasis(
-            ::BSplineOrder{k}, knots::AbstractVector{T};
+            ord::BSplineOrder{k}, knots::AbstractVector{T};
             augment::Val{Augment} = Val(true),
         ) where {k,T,Augment}
         k :: Integer
@@ -52,18 +80,23 @@ struct BSplineBasis{k, T, Knots <: AbstractVector{T}} <: AbstractBSplineBasis{k,
         if k <= 0
             throw(ArgumentError("B-spline order must be k ≥ 1"))
         end
-        # TODO when `knots` is a regular Vector, it would be nice to avoid
-        # modifying the vector and to instead use an AugmentedKnots instance
-        # (commented line below).
-        # However, for now that seems to be sligthly slower when evaluating
-        # splines, not sure why...
-        t = Augment ? augment_knots!(knots, k) : knots
-        # t = Augment ? AugmentedKnots{k}(knots) : knots
-        N = length(t) - k
+        # TODO avoid modifying `knots` when it's a regular Vector?
+        t = Augment ? augment_knots!(knots, ord) : knots
+        N = _make_length(ord, t)
         Knots = typeof(t)
-        new{k, T, Knots}(N, t)
+        Length = typeof(N)
+        new{k, T, Knots, Length}(N, t)
     end
 end
+
+BSplineBasis(ord::BSplineOrder, knots::Tuple; kws...) = BSplineBasis(ord, SVector(knots); kws...)
+
+@inline _make_length(::BSplineOrder{k}, ts) where {k} = length(ts) - k
+@inline _make_length(::BSplineOrder{k}, ts::SVector{M}) where {k, M} = StaticInt(M - k)
+
+static_length(::Type{<:BSplineBasis{k,T,Knots,Int}} where {k,T,Knots}) = nothing
+static_length(::Type{<:BSplineBasis{k,T,Knots,StaticInt{N}}}) where {k,T,Knots,N} = N
+static_length(B::BSplineBasis) = static_length(typeof(B))
 
 @inline BSplineBasis(k::Integer, args...; kwargs...) =
     BSplineBasis(BSplineOrder(k), args...; kwargs...)
@@ -165,11 +198,11 @@ end
 Broadcast.broadcastable(B::AbstractBSplineBasis) = Ref(B)
 
 """
-    length(g::BSplineBasis)
+    length(g::BSplineBasis) -> Int
 
 Returns the number of B-splines composing a spline.
 """
-Base.length(g::BSplineBasis) = g.N
+Base.length(g::BSplineBasis) = dynamic(g.N) :: Int
 Base.size(g::AbstractBSplineBasis) = (length(g), )
 Base.parent(g::BSplineBasis) = g
 

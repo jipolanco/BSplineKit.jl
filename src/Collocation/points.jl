@@ -173,19 +173,20 @@ _knots_in_domain(B::AbstractBSplineBasis) = _knots_in_domain(knots(B))
 _knots_in_domain(ts::AbstractVector) = ts
 _knots_in_domain(ts::PeriodicKnots) = knots_in_main_period(ts)
 
-function collocation_points(B::AbstractBSplineBasis, method::SelectionMethod)
+collocation_points(B::AbstractBSplineBasis, method::SelectionMethod) =
+    _collocation_points(knots(B), B, method)
+
+# Avoid allocation in the SameAsKnots case.
+collocation_points(B::AbstractBSplineBasis, ::SameAsKnots) = _knots_in_domain(B)
+
+function _collocation_points(::AbstractVector, B, method)
     x = similar(knots(B), length(B))
     collocation_points!(x, B, method)
 end
 
-# Avoid allocation in the SameAsKnots case.
-function collocation_points(B::AbstractBSplineBasis, ::SameAsKnots)
-    ts = _knots_in_domain(B)
-    length(ts) == length(B) ||
-        throw(ArgumentError(
-            "number of knots must match number of B-splines"
-        ))
-    ts
+function _collocation_points(::SVector, B, method)
+    it = _iterator(B, method)
+    SVector(it...)  # this doesn't allocate
 end
 
 """
@@ -217,11 +218,8 @@ function collocation_points!(
             "number of collocation points must match number of B-splines"
         ))
     end
-    _collocation_points!(x, B, method)
+    copyto!(x, _iterator(B, method))
 end
 
-_collocation_points!(xs, B::AbstractBSplineBasis, ::AvgKnots) =
-    copyto!(xs, GrevilleSiteIterator(B))
-
-_collocation_points!(xs, B::AbstractBSplineBasis, ::SameAsKnots) =
-    copyto!(xs, _knots_in_domain(B))
+_iterator(B::AbstractBSplineBasis, ::AvgKnots) = GrevilleSiteIterator(B)
+_iterator(B::AbstractBSplineBasis, ::SameAsKnots) = _knots_in_domain(B)
