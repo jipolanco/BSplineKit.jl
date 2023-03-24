@@ -4,6 +4,7 @@ using StaticArrays
 @testset "Static length" begin
     breaks = SVector(0.0, 0.1, 0.4, 0.7, 1.0)
     B = @inferred BSplineBasis(BSplineOrder(4), breaks)
+    @test B === @inferred BSplineBasis(BSplineOrder(4), Tuple(breaks))  # test constructor based on tuple
     Bdyn = BSplineBasis(BSplineOrder(4), collect(breaks))  # non-static knots
     @assert knots(Bdyn) isa Vector
     @test static_length(B) === length(B)

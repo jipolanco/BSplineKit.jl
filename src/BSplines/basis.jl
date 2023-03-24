@@ -8,6 +8,7 @@ The basis is defined by a set of knots and by the B-spline order.
 ---
 
     BSplineBasis(order::BSplineOrder{k}, ts::AbstractVector; augment = Val(true))
+    BSplineBasis(order::BSplineOrder{k}, ts::NTuple; augment = Val(true))
 
 Create B-spline basis of order `k` with breakpoints `ts`.
 
@@ -39,6 +40,32 @@ julia> Bn = BSplineBasis(5, breaks, augment = Val(false))
  knots: -1.0:0.1:1.0
 ```
 
+# Statically-sized bases
+
+To define a basis with static size (i.e. size known at compile time), the
+breakpoints `ts` should be passed as a tuple or as an `SVector` (from the
+`StaticArrays` package):
+
+```jldoctest
+julia> breaks = (0.0, 0.1, 0.2, 0.6, 1.0);
+
+julia> B = BSplineBasis(BSplineOrder(3), breaks)
+6-element BSplineBasis of order 3, domain [0.0, 1.0]
+ knots: [0.0, 0.0, 0.0, 0.1, 0.2, 0.6, 1.0, 1.0, 1.0]
+
+julia> knots(B)
+9-element StaticArraysCore.SVector{9, Float64} with indices SOneTo(9):
+ 0.0
+ 0.0
+ 0.0
+ 0.1
+ 0.2
+ 0.6
+ 1.0
+ 1.0
+ 1.0
+```
+
 """
 struct BSplineBasis{k, T, Knots <: AbstractVector{T}, Length <: Union{Int, StaticInt}} <: AbstractBSplineBasis{k,T}
     N :: Length  # number of B-splines
@@ -61,6 +88,8 @@ struct BSplineBasis{k, T, Knots <: AbstractVector{T}, Length <: Union{Int, Stati
         new{k, T, Knots, Length}(N, t)
     end
 end
+
+BSplineBasis(ord::BSplineOrder, knots::Tuple; kws...) = BSplineBasis(ord, SVector(knots); kws...)
 
 @inline _make_length(::BSplineOrder{k}, ts) where {k} = length(ts) - k
 @inline _make_length(::BSplineOrder{k}, ts::SVector{M}) where {k, M} = StaticInt(M - k)
