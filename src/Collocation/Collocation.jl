@@ -21,6 +21,7 @@ using ..BoundaryConditions: Natural
 
 include("matrix.jl")
 include("points.jl")
+include("cyclic.jl")
 
 """
     collocation_matrix(
@@ -133,10 +134,16 @@ collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
 
 default_matrix_type(::Type{<:AbstractBSplineBasis}, ::Type{T}) where {T} =
     CollocationMatrix{T}
-default_matrix_type(::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
-    SparseMatrixCSC{T}
 default_matrix_type(B::AbstractBSplineBasis, ::Type{T}) where {T} =
     default_matrix_type(typeof(B), T)
+
+default_matrix_type(::Type{B}, ::Type{T}) where {B <: PeriodicBSplineBasis, T} =
+    _default_matrix_type(BSplineOrder(order(B)), B, T)
+
+_default_matrix_type(::BSplineOrder, ::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
+    SparseMatrixCSC{T}
+_default_matrix_type(::BSplineOrder{4}, ::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
+    CyclicTridiagonalMatrix{T}
 
 allocate_collocation_matrix(::Type{M}, x, B) where {M <: AbstractMatrix} =
     M(undef, length(x), length(B))

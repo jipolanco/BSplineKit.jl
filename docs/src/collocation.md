@@ -28,3 +28,10 @@ collocation_matrix!
 Collocation.lu
 Collocation.lu!
 ```
+
+## Internals
+
+```@docs
+Collocation.CyclicTridiagonalMatrix
+Collocation.solve_tridiagonal!
+```
