@@ -148,8 +148,11 @@ function test_periodic_splines(ord::BSplineOrder)
         @test S.(xs) ≈ ys
 
         # Compare with interpolation interface
-        I = @inferred interpolate(xs, ys, ord, Periodic(L))
-        @test cond(Array(I.C.U)) < 1e3
+        # We make copies because inputs are modified for cubic periodic splines.
+        I = @inferred interpolate(copy(xs), copy(ys), ord, Periodic(L))
+        if hasproperty(I.C, :U)  # not implemented for CyclicTridiagonalMatrix
+            @test cond(Array(I.C.U)) < 1e3
+        end
         @test I.(xs) ≈ ys
         @test boundaries(basis(I)) == (first(xs), first(xs) + L)
     end

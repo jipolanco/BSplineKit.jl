@@ -2,6 +2,7 @@ module SplineInterpolations
 
 using ..BSplines
 using ..Collocation
+using ..Collocation: CyclicTridiagonalMatrix
 using ..Splines
 
 using BandedMatrices
@@ -51,15 +52,23 @@ struct SplineInterpolation{
         S <: Spline,
         F <: Factorization,
         Points <: AbstractVector,
+        ColMatCopy <: Union{Nothing, AbstractMatrix},
     } <: SplineWrapper{S}
 
     spline :: S
-    C :: F  # factorisation of collocation matrix
+    C :: F           # factorisation of collocation matrix
     x :: Points
+
+    # Optional copies of collocation matrix and collocation points.
+    # Right now, these are used for cubic periodic splines, which modify `C`
+    # and `x` (as well as `y`) when `ldiv!` is called.
+    # See `CyclicTridiagonalMatrix` for details.
+    C_copy :: ColMatCopy
 
     function SplineInterpolation(
             B::AbstractBSplineBasis, C::Factorization, x::AbstractVector,
-            ::Type{T},
+            ::Type{T};
+            C_copy = nothing,
         ) where {T}
         N = length(B)
         size(C) == (N, N) ||
@@ -67,7 +76,9 @@ struct SplineInterpolation{
         length(x) == N ||
             throw(DimensionMismatch("wrong number of collocation points"))
         s = Spline(undef, B, T)  # uninitialised spline
-        new{typeof(s), typeof(C), typeof(x)}(s, C, x)
+        new{typeof(s), typeof(C), typeof(x), typeof(C_copy)}(
+            s, C, x, C_copy,
+        )
     end
 end
 
@@ -83,12 +94,17 @@ function SplineInterpolation(
     end
     Tc = float(Tx)
     C = collocation_matrix(B, x, Collocation.default_matrix_type(B, Tc))
-    SplineInterpolation(B, _factorise!(C), x, T)
+    C_copy = _maybe_copy_matrix(C)
+    SplineInterpolation(B, _factorise!(C), x, T; C_copy)
 end
 
 # Factorise in-place when possible.
 _factorise!(C::AbstractMatrix) = lu!(C)
 _factorise!(C::SparseMatrixCSC) = lu(C)  # SparseMatrixCSC doesn't support `lu!`
+
+# Create copy if required by the matrix type.
+_maybe_copy_matrix(::AbstractMatrix) = nothing
+_maybe_copy_matrix(C::CyclicTridiagonalMatrix) = copy(C)  # periodic cubic splines
 
 interpolation_points(S::SplineInterpolation) = S.x
 
@@ -120,7 +136,11 @@ function interpolate!(I::SplineInterpolation, ys::AbstractVector)
     if length(ys) != length(cs)
         throw(DimensionMismatch("input data has incorrect length"))
     end
-    ldiv!(cs, I.C, ys)  # determine B-spline coefficients
+    (; C, C_copy,) = I
+    if C_copy !== nothing
+        copy!(C, C_copy)  # this is for methods that modify C (case of CyclicTridiagonalMatrix)
+    end
+    ldiv!(cs, C, ys)  # determine B-spline coefficients
     I
 end
 
@@ -148,6 +168,13 @@ See also [`interpolate!`](@ref).
     In this case, pass `bc = Period(L)`, where `L` is the period of the x-axis.
     Note that the endpoint `x[begin] + L` should *not* be included in the `x`
     vector.
+
+!!! note "Cubic periodic splines"
+
+    *Cubic* periodic splines (`BSplineOrder(4)`) are particularly well
+    optimised compared to periodic splines of other orders.
+    Just note that interpolations using cubic periodic splines modify their
+    input (including `x` and `y` values).
 
 # Examples
 
@@ -208,7 +235,7 @@ SplineInterpolation containing the 20-element Spline{Float64}:
  basis: 20-element PeriodicBSplineBasis of order 4, domain [-1.0, 1.0), period 2.0
  order: 4
  knots: [..., -1.2, -1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3  …  0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, ...]
- coefficients: [..., -1.01659, -0.96683, -0.822435, -0.597534, -0.314142, 0.0, 0.314142, 0.597534, 0.822435, 0.96683, 1.01659, 0.96683, 0.822435, 0.597534, 0.314142, -3.34668e-17, -0.314142, -0.597534, -0.822435, -0.96683, ...]
+ coefficients: [..., -1.01659, -0.96683, -0.822435, -0.597534, -0.314142, 1.10589e-17, 0.314142, 0.597534, 0.822435, 0.96683, 1.01659, 0.96683, 0.822435, 0.597534, 0.314142, 3.90313e-18, -0.314142, -0.597534, -0.822435, -0.96683, ...]
  interpolation points: -1.0:0.1:0.9
 ```
 

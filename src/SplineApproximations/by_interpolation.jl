@@ -25,8 +25,14 @@ of points, which are expected to be appropriate for the given basis.
 
 The interpolation points are determined by calling [`collocation_points`](@ref).
 """
-struct ApproxByInterpolation{Points <: AbstractVector} <: AbstractApproxMethod
+struct ApproxByInterpolation{Points <: AbstractVector, Coefs <: AbstractVector} <: AbstractApproxMethod
     xs :: Points
+    ys :: Coefs  # only used in specific cases (cubic periodic splines for now)
+
+    function ApproxByInterpolation(xs::AbstractVector)
+        ys = empty(xs)
+        new{typeof(xs), typeof(ys)}(xs, ys)
+    end
 end
 
 function Base.show(io::IO, m::ApproxByInterpolation)
@@ -49,7 +55,14 @@ function _approximate!(f, A, m::ApproxByInterpolation)
     S = data(A)
     xs = SplineInterpolations.interpolation_points(S)
     @assert xs === method(A).xs
-    ys = coefficients(S)  # just to avoid allocating extra vector
+    if S.C_copy === nothing
+        ys = coefficients(S)  # just to avoid allocating extra vector
+    else
+        # In this case, assume that ys and coefficients(S) cannot be aliased.
+        # This is the case for cubic periodic splines.
+        ys = m.ys
+        resize!(ys, length(xs))
+    end
     @inbounds for i in eachindex(xs, ys)
         ys[i] = f(xs[i])
     end

@@ -38,6 +38,7 @@ end
 
 Base.length(vs::PeriodicVector) = vs.N
 Base.axes(vs::PeriodicVector) = axes(parent(vs))
+Base.dataids(vs::PeriodicVector) = Base.dataids(parent(vs))  # to check for aliasing (called by Base.mightalias)
 
 function Base.similar(vs::PeriodicVector, ::Type{S}, dims::Dims) where {S}
     data = similar(parent(vs), S, dims)
