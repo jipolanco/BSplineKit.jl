@@ -25,7 +25,7 @@ breakpoints(t::AugmentedKnots) = t.x
 Base.size(t::AugmentedKnots) = (t.Nt, )
 Base.IndexStyle(::Type{<:AugmentedKnots}) = IndexLinear()
 
-# Custom definition of searchsortedlast, for sligthly faster determination of
+# Custom definition of searchsortedlast, for slightly faster determination of
 # the knot interval corresponding to a given point `x` (used when evaluating
 # splines; see `find_knot_interval`).
 # TODO does this actually improve performance??

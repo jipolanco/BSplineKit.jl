@@ -103,7 +103,7 @@ function test_boundary_conditions(ops::Tuple{Vararg{Derivative}},
     # etc...
 
     for n = 0:(k - 1)
-        # We cound use `dot` here, but it doesn't make a difference for
+        # We could use `dot` here, but it doesn't make a difference for
         # single derivatives. It does make a difference for linear combinations
         # of derivatives (e.g. Robin BCs).
         bsum = sum(1:N) do i
