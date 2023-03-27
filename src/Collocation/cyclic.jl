@@ -126,6 +126,7 @@ function solve_tridiagonal!(x::AbstractVector, A::CyclicTridiagonalMatrix, d::Ab
     γ = sqrt(ac)  # value required to perturb b[1] and b[n] with the same offset
 
     u = x  # alias to avoid allocations
+    fill!(u, 0)
     u[1] = γ
     u[n] = cₙ
 
