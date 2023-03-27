@@ -45,10 +45,8 @@ end
 Base.size(A::CyclicTridiagonalMatrix) = (A.n, A.n)
 
 # Used by copy(::CyclicTridiagonalMatrix)
-function Base.similar(A::CyclicTridiagonalMatrix, ::Type{S}, dims::Dims{2}) where {S}
-    n′ = dims[1]
-    n′ == dims[2] || throw(DimensionMismatch("the matrix must be square"))
-    diags = map(v -> similar(v, S, n′), diagonals(A))
+function Base.similar(A::CyclicTridiagonalMatrix, ::Type{S}) where {S}
+    diags = map(v -> similar(v, S), diagonals(A))
     CyclicTridiagonalMatrix(diags...)
 end
 
@@ -101,7 +99,7 @@ end
 end
 
 """
-    solve_tridiagonal!(x::AbstractVector, A::CyclicTridiagonalMatrix, y::AbstractVector)
+    LinearAlgebra.ldiv!(x::AbstractVector, A::CyclicTridiagonalMatrix, y::AbstractVector)
 
 Solve cyclic tridiagonal linear system `Ax = y`.
 
@@ -111,11 +109,14 @@ Uses the algorithm described in
 [Wikipedia](https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm#Variants)
 based on the Sherman–Morrison formula.
 """
-function solve_tridiagonal!(x::AbstractVector, A::CyclicTridiagonalMatrix, d::AbstractVector)
+function LinearAlgebra.ldiv!(x::AbstractVector, A::CyclicTridiagonalMatrix, d::AbstractVector)
     (; n, a, b, c,) = A
     @assert n == length(a) == length(b) == length(c)  # assume lengths haven't been modified
     n == length(x) == length(d) || throw(DimensionMismatch(lazy"all vectors must have length $n"))
     Base.require_one_based_indexing.((x, a, b, c, d))
+    Base.mightalias(x, d) && throw(ArgumentError(
+        "vectors `x` and `y` may not be aliased"
+    ))
 
     a₁ = a[1]
     cₙ = c[n]
@@ -160,7 +161,11 @@ end
 
 # Simultaneously solve M (non-cyclic) tridiagonal linear systems using Thomas algorithm.
 # Note that xs[i] and ds[i] can be aliased.
-@fastmath function solve_thomas!(xs::NTuple{M}, (a, b, c), ds::NTuple{M}) where {M}
+@fastmath function solve_thomas!(
+        xs::Tuple{Vararg{AbstractVector, M}},
+        (a, b, c),
+        ds::Tuple{Vararg{AbstractVector, M}},
+    ) where {M}
     Base.require_one_based_indexing.((a, b, c))
     foreach(Base.require_one_based_indexing, xs)
     foreach(Base.require_one_based_indexing, ds)
@@ -192,10 +197,11 @@ struct CyclicLUWrapper{T, Mat <: CyclicTridiagonalMatrix{T}} <: Factorization{T}
 end
 
 Base.size(F::CyclicLUWrapper) = size(F.A)
+Base.copy!(dest::CyclicLUWrapper, C::CyclicTridiagonalMatrix) = copy!(dest.A, C)  # for interpolations
 
 # TODO can we precompute some information? note that, for now, the
 # "factorisation" can only be used once, after which the data is modified...
 LinearAlgebra.lu!(A::CyclicTridiagonalMatrix) = lu(A)  # this is just to trick the interpolation functions
 LinearAlgebra.lu(A::CyclicTridiagonalMatrix) = CyclicLUWrapper(A)
-LinearAlgebra.ldiv!(x::AbstractVector, A::CyclicTridiagonalMatrix, y::AbstractVector) = solve_tridiagonal!(x, A, y)
 LinearAlgebra.ldiv!(x::AbstractVector, F::CyclicLUWrapper, y::AbstractVector) = ldiv!(x, F.A, y)
+LinearAlgebra.ldiv!(F::CyclicLUWrapper, y::AbstractVector) = ldiv!(y, F.A, copy(y))

@@ -33,5 +33,5 @@ Collocation.lu!
 
 ```@docs
 Collocation.CyclicTridiagonalMatrix
-Collocation.solve_tridiagonal!
+LinearAlgebra.ldiv!
 ```
