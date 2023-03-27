@@ -245,7 +245,7 @@ function test_splines(::BSplineOrder{k}) where {k}
 
         @testset "Type stability" begin
             # The return type of evaluating a spline should be the promoted type
-            # beetween the coefficient type (Float32 here), the knot element
+            # between the coefficient type (Float32 here), the knot element
             # type (Float32), and the type of x.
             Bf = @inferred BSplineBasis(BSplineOrder(k), Float32.(xs))
             coefs = randn(Float32, length(Bf))
