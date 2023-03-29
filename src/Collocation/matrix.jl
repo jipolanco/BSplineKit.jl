@@ -58,7 +58,7 @@ function CollocationMatrix(B::BandedMatrix)
 end
 
 # This is to reuse BandedMatrices operations
-function convert(::Type{<:BandedMatrix}, C::CollocationMatrix)
+function Base.convert(::Type{BandedMatrix}, C::CollocationMatrix)
     n = size(C, 1)
     l, u = bandwidths(C)
     BandedMatrices._BandedMatrix(C.data, n, l, u)
@@ -88,18 +88,10 @@ function Base.fill!(A::CollocationMatrix, v)
     A
 end
 
-function LinearAlgebra.mul!(y::Vector{T}, A::CollocationMatrix{T}, x::Vector{T}) where {T}
-    trans = 'N'  # no transposition
-    data = parent(A)
-    m = size(A, 1)
-    kl, ku = bandwidths(A)
-    α = one(T)
-    β = zero(T)
-    BLAS.gbmv!(trans, m, kl, ku, α, data, x, β, y)
-    y
-end
+LinearAlgebra.mul!(y::AbstractVector, A::CollocationMatrix, x::AbstractVector) =
+    mul!(y, convert(BandedMatrix, A), x)
 
-Base.:*(A::CollocationMatrix{T}, x::Vector{T}) where {T} = mul!(similar(x), A, x)
+Base.:*(A::CollocationMatrix{T}, x::Vector{T}) where {T} = convert(BandedMatrix, A) * x
 
 # Adapted from BandedMatrices
 function Base.array_summary(
@@ -123,9 +115,6 @@ end
     @inbounds BandedMatrices.banded_setindex!(A.data, l, u, v, i, j)
     v
 end
-
-@inline @propagate_inbounds Base.setindex!(A::CollocationMatrix, v, i...) =
-    parent(A)[i...] = v
 
 const CollocationLU{T} = LU{T, <:CollocationMatrix{T}} where {T}
 
