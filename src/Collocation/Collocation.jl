@@ -72,15 +72,11 @@ The `MatrixType` optional argument allows to select the type of returned matrix.
 
 Due to the compact support of B-splines, the collocation matrix is
 [banded](https://en.wikipedia.org/wiki/Band_matrix) if the collocation points
-are properly distributed. Therefore, it makes sense to store it in a
-`BandedMatrix` (from the
-[BandedMatrices](https://github.com/JuliaLinearAlgebra/BandedMatrices.jl) package),
-as this will lead to memory savings and especially to time savings if
-the matrix needs to be inverted.
+are properly distributed.
 
 ### Supported matrix types
 
-- `CollocationMatrix{T}`: thin wrapper over `BandedMatrix{T}`, with efficient LU
+- `CollocationMatrix{T}`: similar to a `BandedMatrix{T}`, with efficient LU
   factorisations without pivoting (see [`CollocationMatrix`](@ref) for details).
   This option performs much better than sparse matrices for inversion of linear
   systems.
@@ -101,7 +97,10 @@ the matrix needs to be inverted.
     The default matrix type is `CollocationMatrix{T}`, *except* for
     periodic bases ([`PeriodicBSplineBasis`](@ref)), in which case the collocation
     matrix has a few out-of-bands entries due to periodicity.
-    For periodic bases, `SparseMatrixCSC` is the default.
+    For *cubic* periodic bases, the
+    [`Collocation.CyclicTridiagonalMatrix`](@ref) matrix type is used, which
+    implements efficient solution of linear problems.
+    For non-cubic periodic bases, `SparseMatrixCSC` is the default.
     Note that this may change in the future.
 
 See also [`collocation_matrix!`](@ref).
@@ -121,12 +120,8 @@ consolidate_matrix(C) = C
 consolidate_matrix(C::CollocationMatrix) = consolidate_matrix(C, bandeddata(C))
 consolidate_matrix(C::CollocationMatrix, bandeddata) = C
 
-function consolidate_matrix(C::CollocationMatrix, bandeddata::MMatrix)
-    ncols = size(C, 2)
-    l, u = bandwidths(C)
-    CollocationMatrix(
-        BandedMatrices._BandedMatrix(SMatrix(bandeddata), ncols, l, u)
-    )
+function consolidate_matrix(::CollocationMatrix, bandeddata::MMatrix)
+    CollocationMatrix(SMatrix(bandeddata))
 end
 
 collocation_matrix(B, x, ::Type{M}; kwargs...) where {M} =
@@ -171,13 +166,11 @@ function allocate_collocation_matrix(
     k = order(B)
     bands = collocation_bandwidths(k)
     l, u = bands
+    @assert l == u  # this is always the case... (and assumed by CollocationMatrix)
     nrows = l + u + 1
-    ncols = length(x)
     T = eltype(M)
-    # data_raw = Matrix{T}(undef, nrows, ncols)
     data_raw = _collocation_matrix_raw(Val(nrows), x, T)
-    data = BandedMatrices._BandedMatrix(data_raw, ncols, l, u)
-    CollocationMatrix(data) :: M
+    CollocationMatrix(data_raw) :: M
 end
 
 _collocation_matrix_raw(::Val{nrows}, xs::AbstractVector, ::Type{T}) where {nrows, T} =
@@ -243,7 +236,7 @@ end
 
 # Maximum number of bandwidths allowed in a matrix container.
 max_bandwidths(A::BandedMatrix) = bandwidths(A)
-max_bandwidths(A::CollocationMatrix) = max_bandwidths(parent(A))
+max_bandwidths(A::CollocationMatrix) = bandwidths(A)
 max_bandwidths(A::AbstractMatrix) = size(A) .- 1
 
 end
