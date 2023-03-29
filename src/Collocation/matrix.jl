@@ -15,8 +15,6 @@ import Base: @propagate_inbounds
     const NoPivot = Val{false}
 end
 
-# TODO don't wrap a BandedMatrix, but wrap directly a rectangular array
-
 """
     CollocationMatrix{T} <: AbstractBandedMatrix{T}
 
@@ -28,9 +26,9 @@ C_{ij} = b_j(x_i),
 
 where ``\\bm{x}`` is a set of collocation points.
 
-Wraps a `BandedMatrix`, providing an efficient LU factorisation without pivoting
-adapted from de Boor (1978). The factorisation takes advantage of the total
-positivity of spline collocation matrices (de Boor 2001, p. 175).
+Provides an efficient LU factorisation without pivoting adapted from de Boor (1978).
+The factorisation takes advantage of the total positivity of spline collocation
+matrices (de Boor 2001, p. 175).
 
 # Factorisation
 
@@ -41,22 +39,67 @@ be performed via `factorize`.
 """
 struct CollocationMatrix{
         T,
-        M <: BandedMatrix{T},
+        M <: AbstractMatrix{T},
     } <: AbstractBandedMatrix{T}
-    data :: M
-    CollocationMatrix(x::BandedMatrix{T}) where {T} = new{T, typeof(x)}(x)
+    # TODO try using HybridArrays?
+    data :: M  # (Nbands, Nx)
+    function CollocationMatrix(data::AbstractMatrix{T}) where {T}
+        @assert !(data isa BandedMatrix)
+        @assert isodd(size(data, 1))  # odd number of bands (= l + u + 1 = 2l + 1)
+        new{T, typeof(data)}(data)
+    end
+end
+
+# For compatibility with old versions.
+function CollocationMatrix(B::BandedMatrix)
+    l, u = bandwidths(B)
+    l == u || error("expected same number of lower and upper bands")
+    CollocationMatrix(bandeddata(B))
+end
+
+# This is to reuse BandedMatrices operations
+function convert(::Type{<:BandedMatrix}, C::CollocationMatrix)
+    n = size(C, 1)
+    l, u = bandwidths(C)
+    BandedMatrices._BandedMatrix(C.data, n, l, u)
 end
 
 # This affects printing e.g. in the REPL.
 MemoryLayout(::Type{<:CollocationMatrix{T,M}}) where {T,M} = MemoryLayout(M)
 
 factorize(A::CollocationMatrix) = lu(A)
-bandwidths(A::CollocationMatrix) = bandwidths(parent(A))
-bandeddata(A::CollocationMatrix) = bandeddata(parent(A))
+bandeddata(A::CollocationMatrix) = parent(A)
+
+@inline function bandwidths(A::CollocationMatrix)
+    # Assume lower = upper bands
+    nbands = size(parent(A), 1)  # total number of bands
+    h = (nbands - 1) ÷ 2
+    h, h
+end
 
 Base.parent(A::CollocationMatrix) = A.data
-Base.size(A::CollocationMatrix) = size(parent(A))
+Base.size(A::CollocationMatrix) = (n = size(parent(A), 2); (n, n))  # matrix is square
 Base.copy(A::CollocationMatrix) = CollocationMatrix(copy(parent(A)))
+Base.similar(A::CollocationMatrix) = CollocationMatrix(similar(parent(A)))
+
+function Base.fill!(A::CollocationMatrix, v)
+    iszero(v) || throw(ArgumentError("CollocationMatrix can only be `fill`ed with zeros"))
+    fill!(A.data, v)
+    A
+end
+
+function LinearAlgebra.mul!(y::Vector{T}, A::CollocationMatrix{T}, x::Vector{T}) where {T}
+    trans = 'N'  # no transposition
+    data = parent(A)
+    m = size(A, 1)
+    kl, ku = bandwidths(A)
+    α = one(T)
+    β = zero(T)
+    BLAS.gbmv!(trans, m, kl, ku, α, data, x, β, y)
+    y
+end
+
+Base.:*(A::CollocationMatrix{T}, x::Vector{T}) where {T} = mul!(similar(x), A, x)
 
 # Adapted from BandedMatrices
 function Base.array_summary(
@@ -66,8 +109,20 @@ function Base.array_summary(
     print(io, Base.dims2string(length.(inds)), " CollocationMatrix{$T} with bandwidths $(bandwidths(A))")
 end
 
-@inline @propagate_inbounds Base.getindex(A::CollocationMatrix, i...) =
-    parent(A)[i...]
+# Adapted from BandedMatrices
+@inline function Base.getindex(A::CollocationMatrix, i::Int, j::Int)
+    @boundscheck checkbounds(A, i, j)
+    l, u = bandwidths(A)
+    @inbounds BandedMatrices.banded_getindex(A.data, l, u, i, j)
+end
+
+# Adapted from BandedMatrices
+@inline function Base.setindex!(A::CollocationMatrix, v, i::Int, j::Int)
+    @boundscheck checkbounds(A, i, j)
+    l, u = bandwidths(A)
+    @inbounds BandedMatrices.banded_setindex!(A.data, l, u, v, i, j)
+    v
+end
 
 @inline @propagate_inbounds Base.setindex!(A::CollocationMatrix, v, i...) =
     parent(A)[i...] = v
@@ -176,8 +231,8 @@ function ldiv!(
         F::CollocationLU,
         y::AbstractVector,
     )
-    A = parent(F.factors) :: BandedMatrix
-    w = BandedMatrices.bandeddata(A)
+    A = F.factors :: CollocationMatrix
+    w = bandeddata(A)
     nrow = size(A, 1)
     nbandl, nbandu = bandwidths(A)
     middle = nbandu + 1
@@ -227,19 +282,25 @@ function ldiv!(
 end
 
 function Base.getproperty(F::CollocationLU, d::Symbol)
-    factors = getfield(F, :factors) :: CollocationMatrix
-    A = parent(factors) :: BandedMatrix
+    A = getfield(F, :factors) :: CollocationMatrix
     data = bandeddata(A)
     l, u = bandwidths(A)
     middle = u + 1
+    T = eltype(A)
     if d === :L
-        L = similar(A, size(A)..., l, 0)
-        bandeddata(L) .= @view data[middle:(middle + l), :]
+        L = BandedMatrix{T}(undef, size(A), (l, 0))
+        for j ∈ 1:l
+            Ldata = bandeddata(L)
+            @views Ldata[1 + j, :] .= data[middle + j, :]
+        end
         L[Band(0)] .= 1
         LowerTriangular(L)
     elseif d === :U
-        U = similar(A, size(A)..., 0, u)
-        bandeddata(U) .= @view data[1:middle, :]
+        U = BandedMatrix{T}(undef, size(A), (0, u))
+        Udata = bandeddata(U)
+        for j ∈ 1:middle
+            @views Udata[j, :] .= data[j, :]
+        end
         UpperTriangular(U)
     elseif d === :p
         Base.OneTo(size(F, 1))    # no row permutations (no pivoting)

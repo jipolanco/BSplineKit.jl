@@ -4,28 +4,22 @@ using Random
 function test_collocation_matrix()
     # Test special case of 1×1 matrix
     @testset "1×1 matrix" begin
-        B = BandedMatrix{Float64}(undef, (1, 1), (0, 0))
-        B[1, 1] = 0
-        C = @inferred CollocationMatrix(B)
+        C = @inferred CollocationMatrix([0.0;;])
         @test_throws ZeroPivotException(1) lu!(C)
         C[1, 1] = 3
         F = lu(C)
-        @test F.L == [1]'
-        @test F.U == [3]'
+        @test F.L == [1;;]
+        @test F.U == [3;;]
         y = [6]
         x = F \ y
         @test x == [2]
     end
 
-    @testset "Non-square" begin
-        B = BandedMatrix{Float32}(undef, (7, 8), (2, 2))
-        C = CollocationMatrix(B)
-        @test_throws DimensionMismatch lu(C)  # not supported
-    end
-
     # Special cases of triangular input matrices
     @testset "Upper triangular" begin
-        U = CollocationMatrix(brand(Float32, 8, 8, 0, 2))
+        U = CollocationMatrix(brand(Float32, 8, 8, 2, 2))
+        U[Band(-1)] .= 0
+        U[Band(-2)] .= 0
         F = lu(U)
         @test F.L == I
         @test F.U == U
@@ -35,7 +29,9 @@ function test_collocation_matrix()
     end
 
     @testset "Lower triangular" begin
-        L = CollocationMatrix(brand(Float32, 8, 8, 2, 0))
+        L = CollocationMatrix(brand(Float32, 8, 8, 2, 2))
+        L[Band(1)] .= 0
+        L[Band(2)] .= 0
         D = Diagonal(L)
         F = lu(L)
         @test F.U == D
@@ -43,6 +39,14 @@ function test_collocation_matrix()
 
         L[4, 4] = 0
         @test_throws ZeroPivotException(4) lu!(L)
+    end
+
+    @testset "Linear system" begin
+        C = @inferred CollocationMatrix(rand(5, 20))
+        C[Band(0)] .+= 4  # diagonally dominant matrix
+        y = rand(20)
+        x = @inferred C \ y
+        @test C * x ≈ y
     end
 
     nothing
