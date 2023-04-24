@@ -1,7 +1,7 @@
 module BSplineKit
 
 using Reexport
-using SnoopPrecompile
+using PrecompileTools
 
 include("BandedTensors/BandedTensors.jl")
 @reexport using .BandedTensors
@@ -37,7 +37,7 @@ include("SplineApproximations/SplineApproximations.jl")
 include("SplineExtrapolations/SplineExtrapolations.jl")
 @reexport using .SplineExtrapolations
 
-@precompile_setup begin
+@setup_workload begin
     breakpoints = (
         0:0.1:1,
         [-cospi(n / 10) for n = 0:10],
@@ -45,7 +45,7 @@ include("SplineExtrapolations/SplineExtrapolations.jl")
     orders = BSplineOrder.((3, 4, 5, 6))
     xdata = sort!(rand(10))
     ydata = randn(10)
-    @precompile_all_calls begin
+    @compile_workload begin
         for breaks ∈ breakpoints, ord ∈ orders
             B = BSplineBasis(ord, copy(breaks))
             B(0.32)
