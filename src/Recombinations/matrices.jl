@@ -160,15 +160,43 @@ end
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
 _default_eltype(::BoundaryCondition) = Float64
-_default_eltype(::DiffOpList) = Float64
 _default_eltype(::Derivative{0}) = Bool  # Dirichlet BCs
 _default_eltype(::Derivative{1}) = Bool  # Neumann BCs
+_default_eltype(::Vararg{Derivative}) = Float64
 
 # Case (D(0), D(1), D(2), ...)
-_default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool
+_default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool  # TODO this isn't always right, is it?
+_default_eltype(ops::DiffOpList) = _default_eltype(ops...)
 
-RecombineMatrix(ops, B::BSplineBasis) =
-    RecombineMatrix(ops, B, _default_eltype(ops))
+# Same BCs on both sides.
+RecombineMatrix(ops, B::BSplineBasis, args...) = RecombineMatrix(ops, ops, B, args...)
+
+# No element type specified.
+function RecombineMatrix(ops_l, ops_r, B::BSplineBasis)
+    Tl = _default_eltype(ops_l)
+    Tr = _default_eltype(ops_r)
+    T = promote_type(Tl, Tr)
+    RecombineMatrix(ops_l, ops_r, B::BSplineBasis, T)
+end
+
+function RecombineMatrix(left, right, B::BSplineBasis, ::Type{T}) where {T}
+    ops_l = _normalise_ops(left, B)
+    ops_r = _normalise_ops(right, B)
+    _check_bspline_order(ops_l, B)
+    _check_bspline_order(ops_r, B)
+    N = length(B)
+    ldrop, ul = _make_submatrix(ops_l, (B, Val(:left)), T)
+    rdrop, lr = _make_submatrix(ops_r, (B, Val(:right)), T)
+    _RecombineMatrix(ops_l => ul, ops_r => lr, N; dropped_bsplines = (ldrop, rdrop))
+end
+
+_normalise_ops(op::Derivative, B) = (op,)
+_normalise_ops(op::Tuple, B) = op
+_normalise_ops(op::BoundaryCondition, B) = op
+_normalise_ops(op::Natural, B) = _natural_ops(B)
+
+RecombineMatrix(bc::BoundaryCondition, B::BSplineBasis) = RecombineMatrix(bc, B, _default_eltype(bc))
+RecombineMatrix(ops::DiffOpList, B::BSplineBasis) = RecombineMatrix(ops, B, _default_eltype(ops))
 
 RecombineMatrix(op::AbstractDifferentialOp, B::BSplineBasis, args...) =
     RecombineMatrix((op,), B, args...)
@@ -176,22 +204,18 @@ RecombineMatrix(op::AbstractDifferentialOp, B::BSplineBasis, args...) =
 RecombineMatrix(r::DerivativeUnitRange, B::BSplineBasis, args...) =
     RecombineMatrix(Tuple(r), B, args...)
 
-# Specialisation for Dirichlet BCs.
-function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis, ::Type{T}) where {T}
-    _check_bspline_order(op, B)
-    N = length(B)
-    ul = SMatrix{1,0,T}()
-    lr = copy(ul)
-    _RecombineMatrix(op, N, ul, lr; dropped_bsplines = (1, 1))
+# Specialisation for Dirichlet BCs: we simply drop the first/last B-spline.
+function _make_submatrix(::Tuple{Derivative{0}}, B, ::Type{T}) where {T}
+    ndrop = 1
+    A = SMatrix{1, 0, T}()
+    ndrop, A
 end
 
-# Specialisation for Neumann BCs.
-function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis, ::Type{T}) where {T}
-    _check_bspline_order(op, B)
-    N = length(B)
-    ul = SMatrix{2,1,T}(1, 1)
-    lr = copy(ul)
-    _RecombineMatrix(op, N, ul, lr; dropped_bsplines = (0, 0))
+# Specialisation for Neumann BCs: we combine the first/last 2 B-splines, without dropping any of them.
+function _make_submatrix(::Tuple{Derivative{1}}, B, ::Type{T}) where {T}
+    ndrop = 0
+    A = SMatrix{2, 1, T}(1, 1)
+    ndrop, A
 end
 
 # Generalisation to higher orders and to more general differential operators
@@ -207,17 +231,89 @@ end
 #
 # That last operator is allowed to be a linear combination of `Derivative`s.
 # In that case, `n` is the maximum degree of the operator.
-function RecombineMatrix(ops::DiffOpList, B::BSplineBasis, ::Type{T}) where {T}
-    _check_bspline_order(ops, B)
+function _make_submatrix(ops::DiffOpList, Bdata::Tuple, ::Type{T}) where {T}
+    B = first(Bdata) :: BSplineBasis
     h = order(B) ÷ 2
     # Identify operators corresponding to natural splines
     if ops === _natural_ops(Val(h))
-        return RecombineMatrix(Natural(), B, T)
+        return _make_submatrix(Natural(), Bdata, T)
     end
     op = last(ops)
     n = max_order(op)
-    m = _bsplines_to_drop(ops...)
-    _make_matrix(Val(n + 1), Val(m), ops, B, T)
+    ndrop = _bsplines_to_drop(ops...)
+    A = _make_submatrix_manyops(Val(n + 1), Val(ndrop), ops, B, T)
+    ndrop, A
+end
+
+function _make_submatrix_manyops(::Val{ndrop}, ::Val{ndrop}, ops, B, ::Type{T}) where {ndrop, T}
+    # Case of mixed BCs (D(0), D(1), ..., D(n - 1)).
+    # B-splines are dropped, and new functions are not created.
+    # This is a generalisation of the Dirichlet case.
+    n = ndrop - 1
+    @assert ops === Tuple(Derivative(0:n))
+    nc = length(ops)  # number of constraints
+    SMatrix{nc, 0, T}()
+end
+
+function _make_submatrix_manyops(::Val{n1}, ::Val{ndrop}, ops, Bdata::Tuple, ::Type{T}) where {n1, ndrop, T}
+    B, side = Bdata
+    @assert B isa BSplineBasis
+    @assert side isa Val  # either Val{:left} or Val{:right}
+
+    nc = length(ops)
+
+    # Check that operators look like:
+    #
+    #   (D{0}, D{1}, …, D{nc - 2}, some other operator of order ≥ nc - 1)
+    #
+    @assert _droplast(ops...) === Tuple(Derivative(0:(nc - 2)))
+    @assert max_order(last(ops)) ≥ nc - 1
+
+    n = n1 - 1
+    q = n - ndrop
+    @assert q ≥ 1
+
+    A = zero(MMatrix{q + nc, q, T})
+    op = last(ops)
+
+    if side === Val(:left)
+        x = first(boundaries(B))
+
+        # Indices of B-splines to recombine.
+        is = ntuple(d -> ndrop + d, Val(q + 1))
+
+        # Coefficients of odd derivatives must change sign, since d/dn = -d/dx
+        # on the left boundary.
+        opn = dot(op, LeftNormal())
+
+        # Evaluate n-th derivatives of bⱼ at the boundary.
+        # TODO replace with analytical formula?
+        bs = evaluate.(B, is, x, opn)
+        for l = 1:q
+            b0, b1 = bs[l], bs[l + 1]
+            @assert !(b0 ≈ b1)
+            r = 2 / (b0 - b1)  # normalisation factor
+            A[l + nc - 1, l] = -b1 * r
+            A[l + nc, l] = b0 * r
+        end
+    elseif side === Val(:right)
+        x = last(boundaries(B))
+        N = length(B)
+        M = N - ndrop  # index of last undropped B-spline
+        is = ntuple(d -> M - d + 1, Val(q + 1))
+        opn = dot(op, RightNormal())
+        @assert opn === op  # the right normal is in the x direction
+        bs = evaluate.(B, is, x, opn)
+        for l = 1:q
+            b0, b1 = bs[q - l + 2], bs[q - l + 1]
+            @assert !(b0 ≈ b1)
+            r = 2 / (b0 - b1)
+            A[l, l] = -b1 * r
+            A[l + 1, l] = b0 * r
+        end
+    end
+
+    SMatrix(A)
 end
 
 # Generalised natural boundary conditions.
@@ -226,7 +322,53 @@ end
 #
 #       ops = (Derivative(2), Derivative(3), …, Derivative(k ÷ 2))
 #
-function RecombineMatrix(::Natural, B::BSplineBasis, ::Type{T}) where {T}
+function _make_submatrix(::Natural, Bdata::Tuple, ::Type{T}) where {T}
+    B, side = Bdata
+    k = order(B)
+    isodd(k) && throw(ArgumentError(
+        lazy"`Natural` boundary condition only supported for even-order splines (got k = $k)"
+    ))
+    h = k ÷ 2
+
+    # rhs = [h, 0, 0, …, 0] (the `h` at the beginning is kind of arbitrary)
+    rhs = SVector(ntuple(i -> i == 1 ? T(h) : zero(T), Val(h + 1))...)
+
+    A = if side === Val(:left)
+        x = first(boundaries(B))
+        js = 1:(h + 1)  # indices of left B-splines
+
+        # Evaluate B-spline derivatives at boundary.
+        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
+
+        # Construct linear systems for determining recombination matrix
+        # coefficients.
+        C1 = _natural_system_matrix(bs, 1)
+        T1 = C1 \ rhs  # coefficients associated to recombined function ϕ₁
+
+        C2 = _natural_system_matrix(bs, 2)
+        T2 = C2 \ rhs  # coefficients associated to recombined function ϕ₂
+
+        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
+    elseif side === Val(:right)
+        x = last(boundaries(B))
+        N = length(B)
+        js = (N - h):N
+        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
+
+        C1 = _natural_system_matrix(bs, 1)
+        T1 = C1 \ rhs
+
+        C2 = _natural_system_matrix(bs, 2)
+        T2 = C2 \ rhs
+
+        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
+    end
+
+    ndrop = 0
+    ndrop, A
+end
+
+function RecombineMatrix_old(::Natural, B::BSplineBasis, ::Type{T}) where {T}
     k = order(B)
     isodd(k) && throw(ArgumentError(
         "`Natural` boundary condition only supported for even-order splines (got k = $k)"
@@ -281,6 +423,13 @@ function _remove_near_zeros(A::SArray; rtol = 100 * eps(eltype(A)))
     typeof(A)((abs(x) < ϵ ? zero(x) : x) for x ∈ A)
 end
 
+@inline _natural_ops(B::BSplineBasis) = _natural_ops(BSplineOrder(order(B)))
+@inline function _natural_ops(::BSplineOrder{k}) where {k}
+    isodd(k) && throw(ArgumentError(
+        lazy"`Natural` boundary condition only supported for even-order splines (got k = $k)"
+    ))
+    _natural_ops(Val(k ÷ 2))
+end
 @inline function _natural_ops(::Val{h}) where {h}
     @assert h ≥ 2
     (_natural_ops(Val(h - 1))..., Derivative(h))
@@ -342,86 +491,8 @@ function _natural_system_matrix(bs::SMatrix{hm, hp}, i) where {hm, hp}
     SMatrix(M)
 end
 
-# Case of mixed BCs (D(0), D(1), ..., D(n - 1)).
-# B-splines are dropped, and new functions are not created.
-# This is a generalisation of the Dirichlet case.
-function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
-    @assert ops === Tuple(Derivative(0:(n - 1)))
-    Nc = length(ops)
-    @assert Nc >= 2  # case Nc = 1 is treated by different functions
-    N = length(B)
-    ul = SMatrix{Nc,0,T}()
-    lr = copy(ul)
-    _RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (n, n))
-end
-
 _droplast(a) = ()
 _droplast(a, etc...) = (a, _droplast(etc...)...)
-
-# Case of single BC, or mixed BCs where the last one is "different" from the
-# others.
-function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
-    No = length(ops)
-
-    # Check that operators look like:
-    #
-    #   (D{0}, D{1}, …, D{No - 2}, some other operator of order ≥ No - 1)
-    #
-    @assert _droplast(ops...) === Tuple(Derivative(0:(No - 2)))
-    @assert max_order(last(ops)) ≥ No - 1
-
-    n = n1 - 1
-    q = n - m
-    @assert q >= 1
-
-    Nc = length(ops)  # this is the number of constraints
-    a, b = boundaries(B)
-    Ca = zero(MMatrix{q + Nc, q, T})
-    Cb = copy(Ca)
-
-    N = length(B)
-    op = last(ops)
-
-    let x = a
-        # Indices of B-splines to recombine.
-        is = ntuple(d -> m + d, Val(q + 1))
-
-        # Coefficients of odd derivatives must change sign, since d/dn = -d/dx
-        # on the left boundary.
-        opn = dot(op, LeftNormal())
-
-        # Evaluate n-th derivatives of bⱼ at the boundary.
-        # TODO replace with analytical formula?
-        bs = evaluate.(B, is, x, opn)
-        for l = 1:q
-            b0, b1 = bs[l], bs[l + 1]
-            @assert !(b0 ≈ b1)
-            r = 2 / (b0 - b1)  # normalisation factor
-            Ca[l + Nc - 1, l] = -b1 * r
-            Ca[l + Nc, l] = b0 * r
-        end
-    end
-
-    let x = b
-        M = N - m  # index of last undropped B-spline
-        is = ntuple(d -> M - d + 1, Val(q + 1))
-        opn = dot(op, RightNormal())
-        @assert opn === op  # the right normal is in the x direction
-        bs = evaluate.(B, is, x, opn)
-        for l = 1:q
-            b0, b1 = bs[q - l + 2], bs[q - l + 1]
-            @assert !(b0 ≈ b1)
-            r = 2 / (b0 - b1)
-            Cb[l, l] = -b1 * r
-            Cb[l + 1, l] = b0 * r
-        end
-    end
-
-    ul = SMatrix(Ca)
-    lr = SMatrix(Cb)
-
-    _RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (m, m))
-end
 
 # Verify that the B-spline order is compatible with the given differential
 # operators.
@@ -435,8 +506,9 @@ function _check_bspline_order(ops::Tuple, B::BSplineBasis)
     nothing
 end
 
-# Single BC: no B-splines are dropped.
-# (Except if op = Derivative{0}, but that case is treated separately.)
+_bsplines_to_drop(ops::Tuple) = _bsplines_to_drop(ops...)
+
+# Single BC: no B-splines are dropped (except if op = Derivative{0})
 _bsplines_to_drop(op::AbstractDifferentialOp) = 0
 
 _unval(::Val{n}) where {n} = n
