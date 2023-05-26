@@ -188,8 +188,7 @@ function test_basis_recombination()
     end
 
     @testset "Element type" begin
-        R = @inferred RecombineMatrix(B, Derivative(1), Float32)
-        M = recombination_matrix(R)
+        M = @inferred RecombineMatrix(B, Derivative(1), Float32)
         @test eltype(M) === Float32
     end
 
