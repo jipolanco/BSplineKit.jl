@@ -16,8 +16,7 @@ function parent_coefficients(R::RecombinedBSplineBasis, coefs::AbstractVector)
     M = recombination_matrix(R)
 
     # Upper-left and lower-right submatrices
-    A = M.ul
-    C = M.lr
+    A, C = submatrices(M)
 
     N = length(coefs)
     Na = size(A, 2)

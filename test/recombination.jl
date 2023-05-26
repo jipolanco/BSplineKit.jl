@@ -37,8 +37,9 @@ function test_recombine_matrix(A::RecombineMatrix)
         @test vec(sum(A, dims=1)) ≈ vcat(2 * ones(n), ones(M - 2n), 2 * ones(n))
 
         # Upper left corner, lower right corner, and centre.
-        @test @views A[1:(n + c), 1:n] == A.ul
-        @test @views A[(N - n - c + 1):N, (M - n + 1):M] == A.lr
+        (ul, lr) = Recombinations.submatrices(A)
+        @test @views A[1:(n + c), 1:n] == ul
+        @test @views A[(N - n - c + 1):N, (M - n + 1):M] == lr
         @test @views A[(n + c + 1):(N - n - c), (n + 1):(M - n)] == I
 
         u = rand(M)

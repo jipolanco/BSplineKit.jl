@@ -51,10 +51,13 @@ is not the case.
 
 ---
 
-    RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}},
-                    B::BSplineBasis, [T])
+    RecombineMatrix(ops::Tuple{Vararg{AbstractDifferentialOp}}, B::BSplineBasis, [T])
+    RecombineMatrix(ops_left, ops_right, B::BSplineBasis, [T])
 
 Construct recombination matrix describing a B-spline basis recombination.
+
+In the first case, `ops` is the boundary condition (BC) to be applied on both boundaries.
+The second case allows to set different BCs on each boundary.
 
 The default element type `T` is generally `Float64`, except for specific
 differential operators which yield a matrix of zeroes and ones, for which `Bool`
@@ -62,44 +65,67 @@ is the default.
 
 See the [`RecombinedBSplineBasis`](@ref) constructor for details on the
 `ops` argument.
+
 """
 struct RecombineMatrix{
-        T, DiffOps <: DiffOpList,
-        n, n1,   # nc = n1 - n
-        Corner <: SMatrix{n1,n,T},
+        T,
+        LeftBC  <: Pair{<:DiffOpList, <:SMatrix},
+        RightBC <: Pair{<:DiffOpList, <:SMatrix},
     } <: AbstractMatrix{T}
-    ops :: DiffOps  # list of differential operators for BCs
-    M :: Int      # length of recombined basis (= N - 2nc)
+    left  :: LeftBC
+    right :: RightBC
+    M :: Int      # length of recombined basis (= N - nc_left - nc_right)
     N :: Int      # length of B-spline basis
-    ul :: Corner  # upper-left corner of matrix, size (n1, n)
-    lr :: Corner  # lower-right corner of matrix, size (n1, n)
     allowed_nonzeros_per_column :: NTuple{2, Int}
 
-    function RecombineMatrix(
-            ops::DiffOpList, N::Integer,
-            ul::SMatrix{n1,n}, lr::SMatrix{n1,n};
+    global function _RecombineMatrix(
+            left::Pair{<:DiffOpList, <:SMatrix},
+            right::Pair{<:DiffOpList, <:SMatrix},
+            N::Integer;
             dropped_bsplines::NTuple{2, Integer},
-        ) where {n1,n}
-        if n1 < n
-            throw(ArgumentError("matrices must have dimensions (m, n) with m ≥ n"))
-        end
+        )
+        ops_l, ul = left    # left BC and corresponding upper-left submatrix
+        ops_r, lr = right  # right BC and corresponding lower-right submatrix
 
-        nc = length(ops)
-        @assert nc == n1 - n
-        M = N - 2nc
-        T = eltype(ul)
+        _check_BC_submatrix(left)
+        _check_BC_submatrix(right)
+
+        nc_l = length(ops_l)  # number of constraints on the left
+        nc_r = length(ops_r)
+        M = N - (nc_l + nc_r)
+        T = promote_type(eltype(ul), eltype(lr))
 
         # Locality condition: make sure corner arrays are as close to banded as possible.
-        allowed_nonzeros_per_column = (nc + 1) .- dropped_bsplines
+        nc = (nc_l, nc_r)
+        allowed_nonzeros_per_column = 1 .+ nc .- dropped_bsplines
 
         _check_locality(ul, :upper_left, allowed_nonzeros_per_column[1])
         _check_locality(lr, :lower_right, allowed_nonzeros_per_column[2])
 
-        Corner = typeof(ul)
-        Ops = typeof(ops)
+        LeftBC = typeof(left)
+        RightBC = typeof(right)
 
-        new{T, Ops, n, n1, Corner}(ops, M, N, ul, lr, allowed_nonzeros_per_column)
+        new{T, LeftBC, RightBC}(left, right, M, N, allowed_nonzeros_per_column)
     end
+end
+
+# For compatibility with previous versions (same BC on both sides)
+function _RecombineMatrix(
+        ops::DiffOpList, N::Integer,
+        ul::SMatrix{n1, n}, lr::SMatrix{n1, n};
+        kws...,
+    ) where {n1, n}
+    left = ops => ul
+    right = ops => lr
+    _RecombineMatrix(left, right, N; kws...)
+end
+
+function _check_BC_submatrix(bc::Pair)
+    ops, A = bc
+    m, n = size(A)
+    m ≥ n || throw(ArgumentError("submatrix must have dimensions (m, n) with m ≥ n"))
+    length(ops) == m - n || throw(ArgumentError("wrong dimensions of submatrix"))
+    nothing
 end
 
 function _check_locality(A, corner, allowed_nonzeros_per_column)
@@ -151,23 +177,21 @@ RecombineMatrix(r::DerivativeUnitRange, B::BSplineBasis, args...) =
     RecombineMatrix(Tuple(r), B, args...)
 
 # Specialisation for Dirichlet BCs.
-function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis,
-                         ::Type{T}) where {T}
+function RecombineMatrix(op::Tuple{Derivative{0}}, B::BSplineBasis, ::Type{T}) where {T}
     _check_bspline_order(op, B)
     N = length(B)
     ul = SMatrix{1,0,T}()
     lr = copy(ul)
-    RecombineMatrix(op, N, ul, lr; dropped_bsplines = (1, 1))
+    _RecombineMatrix(op, N, ul, lr; dropped_bsplines = (1, 1))
 end
 
 # Specialisation for Neumann BCs.
-function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis,
-                         ::Type{T}) where {T}
+function RecombineMatrix(op::Tuple{Derivative{1}}, B::BSplineBasis, ::Type{T}) where {T}
     _check_bspline_order(op, B)
     N = length(B)
     ul = SMatrix{2,1,T}(1, 1)
     lr = copy(ul)
-    RecombineMatrix(op, N, ul, lr; dropped_bsplines = (0, 0))
+    _RecombineMatrix(op, N, ul, lr; dropped_bsplines = (0, 0))
 end
 
 # Generalisation to higher orders and to more general differential operators
@@ -248,7 +272,7 @@ function RecombineMatrix(::Natural, B::BSplineBasis, ::Type{T}) where {T}
 
     ops = _natural_ops(Val(h))
 
-    RecombineMatrix(ops, N, Tl, Tr; dropped_bsplines = (0, 0))
+    _RecombineMatrix(ops, N, Tl, Tr; dropped_bsplines = (0, 0))
 end
 
 function _remove_near_zeros(A::SArray; rtol = 100 * eps(eltype(A)))
@@ -328,7 +352,7 @@ function _make_matrix(::Val{n}, ::Val{n}, ops, B, ::Type{T}) where {n,T}
     N = length(B)
     ul = SMatrix{Nc,0,T}()
     lr = copy(ul)
-    RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (n, n))
+    _RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (n, n))
 end
 
 _droplast(a) = ()
@@ -396,7 +420,7 @@ function _make_matrix(::Val{n1}, ::Val{m}, ops, B, ::Type{T}) where {n1,m,T}
     ul = SMatrix(Ca)
     lr = SMatrix(Cb)
 
-    RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (m, m))
+    _RecombineMatrix(ops, N, ul, lr; dropped_bsplines = (m, m))
 end
 
 # Verify that the B-spline order is compatible with the given differential
@@ -439,8 +463,9 @@ end
 
 Base.size(A::RecombineMatrix) = (A.N, A.M)
 
-constraints(A::RecombineMatrix) = (A.ops, A.ops)
+constraints(A::RecombineMatrix) = map(first, (A.left, A.right))
 constraints(::UniformScaling) = ((), ())
+submatrices(A::RecombineMatrix) = map(last, (A.left, A.right))
 
 num_constraints(A::RecombineMatrix) = map(length, constraints(A))
 num_constraints(::UniformScaling) = (0, 0)  # case of non-recombined bases
@@ -506,15 +531,16 @@ end
     @inbounds blk = something(block, which_recombine_block(A, j))
 
     cl, cr = num_constraints(A)  # left/right constraints
+    ul, lr = submatrices(A)
 
     if blk == 2
         return T(i == j + cl)  # δ_{i, j+c}
     end
 
     if blk == 1
-        C = A.ul
-        if i <= size(C, 1)
-            return @inbounds C[i, j] :: T
+        C_left = ul
+        if i <= size(C_left, 1)
+            return @inbounds C_left[i, j] :: T
         end
         return zero(T)
     end
@@ -525,10 +551,10 @@ end
     h = M - nr
 
     @assert j > h
-    C = A.lr
+    C_right = lr
     ii = i - h - cr
-    if ii ∈ axes(C, 1)
-        return @inbounds C[ii, j - h] :: T
+    if ii ∈ axes(C_right, 1)
+        return @inbounds C_right[ii, j - h] :: T
     end
 
     zero(T)
@@ -543,16 +569,17 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
 
     nl, nr = num_recombined(A)
     cl, cr = num_constraints(A)
+    ul, lr = submatrices(A)
     n1 = nl + cl
     h = M - nr
 
-    @inbounds y[1:n1] = A.ul * @view x[1:nl]
+    @inbounds y[1:n1] = ul * @view x[1:nl]
 
     for i = (nl + 1):h
         @inbounds y[i + cl] = x[i]
     end
 
-    @inbounds y[(N - nr - cr + 1):N] = A.lr * @view x[(h + 1):M]
+    @inbounds y[(N - nr - cr + 1):N] = lr * @view x[(h + 1):M]
 
     y
 end
@@ -568,10 +595,11 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
 
     nl, nr = num_recombined(A)
     cl, cr = num_constraints(A)
+    ul, lr = submatrices(A)
     n1 = nl + cl
     h = M - nr
 
-    @inbounds y[1:n1] = α * A.ul * view(x, 1:nl) + β * SVector{n1}(view(y, 1:n1))
+    @inbounds y[1:n1] = α * ul * view(x, 1:nl) + β * SVector{n1}(view(y, 1:n1))
 
     for i = (nl + 1):h
         @inbounds y[i + cl] = α * x[i] + β * y[i + cl]
@@ -579,7 +607,7 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
 
     js = (N - nr - cr + 1):N
     @inbounds y[js] =
-        α * A.lr * view(x, (h + 1):M) + β * SVector{n1}(view(y, js))
+        α * lr * view(x, (h + 1):M) + β * SVector{n1}(view(y, js))
 
     y
 end
@@ -591,17 +619,18 @@ function LinearAlgebra.ldiv!(x::AbstractVector, A::RecombineMatrix,
 
     nl, nr = num_recombined(A)
     cl, cr = num_constraints(A)
+    ul, lr = submatrices(A)
     n1 = nl + cl
     h = M - nr
 
-    @inbounds x[1:nl] = _ldiv_unique_solution(A.ul, view(y, 1:n1))
+    @inbounds x[1:nl] = _ldiv_unique_solution(ul, view(y, 1:n1))
 
     for i = (nl + 1):h
         @inbounds x[i] = y[i + cl]
     end
 
     js = (N - nr - cr + 1):N
-    @inbounds x[(h + 1):M] = _ldiv_unique_solution(A.lr, view(y, js))
+    @inbounds x[(h + 1):M] = _ldiv_unique_solution(lr, view(y, js))
 
     x
 end
