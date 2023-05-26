@@ -307,4 +307,18 @@ end
     @testset "Natural BCs" begin
         test_natural_recombination()
     end
+    @testset "Hybrid BCs" begin
+        B = BSplineBasis(BSplineOrder(4), 0:0.1:1)
+        R = @inferred RecombinedBSplineBasis(B, Derivative(0), Derivative(1))
+        cs = @inferred constraints(R)
+        @test cs[1] === (Derivative(0),)  # left BCs
+        @test cs[2] === (Derivative(1),)  # right BCs
+        coefs = sqrt.(1:length(R))
+        S = Spline(R, coefs)
+        S′ = Derivative() * S
+        @test S(0.0) == 0   # Dirichlet condition
+        @test S(1.0) > 0.1  # no condition (but all coefs are positive)
+        @test S′(0.0) > 0.1 # no condition (but function quickly increases from 0 to 1, so positive derivative)
+        @test S′(1.0) == 0  # Neumann condition
+    end
 end
