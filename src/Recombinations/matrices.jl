@@ -193,7 +193,6 @@ end
 _normalise_ops(op::Derivative, B) = (op,)
 _normalise_ops(op::Tuple, B) = op
 _normalise_ops(op::BoundaryCondition, B) = op
-_normalise_ops(op::Natural, B) = _natural_ops(B)
 
 RecombineMatrix(bc::BoundaryCondition, B::BSplineBasis) = RecombineMatrix(bc, B, _default_eltype(bc))
 RecombineMatrix(ops::DiffOpList, B::BSplineBasis) = RecombineMatrix(ops, B, _default_eltype(ops))
@@ -205,14 +204,14 @@ RecombineMatrix(r::DerivativeUnitRange, B::BSplineBasis, args...) =
     RecombineMatrix(Tuple(r), B, args...)
 
 # Specialisation for Dirichlet BCs: we simply drop the first/last B-spline.
-function _make_submatrix(::Tuple{Derivative{0}}, B, ::Type{T}) where {T}
+function _make_submatrix(::Tuple{Derivative{0}}, Bdata::Tuple, ::Type{T}) where {T}
     ndrop = 1
     A = SMatrix{1, 0, T}()
     ndrop, A
 end
 
 # Specialisation for Neumann BCs: we combine the first/last 2 B-splines, without dropping any of them.
-function _make_submatrix(::Tuple{Derivative{1}}, B, ::Type{T}) where {T}
+function _make_submatrix(::Tuple{Derivative{1}}, Bdata::Tuple, ::Type{T}) where {T}
     ndrop = 0
     A = SMatrix{2, 1, T}(1, 1)
     ndrop, A
@@ -314,181 +313,6 @@ function _make_submatrix_manyops(::Val{n1}, ::Val{ndrop}, ops, Bdata::Tuple, ::T
     end
 
     SMatrix(A)
-end
-
-# Generalised natural boundary conditions.
-#
-# This is equivalent to:
-#
-#       ops = (Derivative(2), Derivative(3), …, Derivative(k ÷ 2))
-#
-function _make_submatrix(::Natural, Bdata::Tuple, ::Type{T}) where {T}
-    B, side = Bdata
-    k = order(B)
-    isodd(k) && throw(ArgumentError(
-        lazy"`Natural` boundary condition only supported for even-order splines (got k = $k)"
-    ))
-    h = k ÷ 2
-
-    # rhs = [h, 0, 0, …, 0] (the `h` at the beginning is kind of arbitrary)
-    rhs = SVector(ntuple(i -> i == 1 ? T(h) : zero(T), Val(h + 1))...)
-
-    A = if side === Val(:left)
-        x = first(boundaries(B))
-        js = 1:(h + 1)  # indices of left B-splines
-
-        # Evaluate B-spline derivatives at boundary.
-        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
-
-        # Construct linear systems for determining recombination matrix
-        # coefficients.
-        C1 = _natural_system_matrix(bs, 1)
-        T1 = C1 \ rhs  # coefficients associated to recombined function ϕ₁
-
-        C2 = _natural_system_matrix(bs, 2)
-        T2 = C2 \ rhs  # coefficients associated to recombined function ϕ₂
-
-        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
-    elseif side === Val(:right)
-        x = last(boundaries(B))
-        N = length(B)
-        js = (N - h):N
-        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
-
-        C1 = _natural_system_matrix(bs, 1)
-        T1 = C1 \ rhs
-
-        C2 = _natural_system_matrix(bs, 2)
-        T2 = C2 \ rhs
-
-        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
-    end
-
-    ndrop = 0
-    ndrop, A
-end
-
-function RecombineMatrix_old(::Natural, B::BSplineBasis, ::Type{T}) where {T}
-    k = order(B)
-    isodd(k) && throw(ArgumentError(
-        "`Natural` boundary condition only supported for even-order splines (got k = $k)"
-    ))
-
-    h = k ÷ 2
-    xleft, xright = boundaries(B)
-    N = length(B)
-
-    # rhs = [h, 0, 0, …, 0] (the `h` at the beginning is kind of arbitrary)
-    rhs = SVector(ntuple(i -> i == 1 ? T(h) : zero(T), Val(h + 1))...)
-
-    # Left boundary
-    Tl = let x = xleft
-        js = 1:(h + 1)  # indices of left B-splines
-
-        # Evaluate B-spline derivatives at boundary.
-        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
-
-        # Construct linear systems for determining recombination matrix
-        # coefficients.
-        A = _natural_system_matrix(bs, 1)
-        T1 = A \ rhs  # coefficients associated to recombined function ϕ₁
-
-        A = _natural_system_matrix(bs, 2)
-        T2 = A \ rhs  # coefficients associated to recombined function ϕ₂
-
-        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
-    end
-
-    Tr = let x = xright
-        js = (N - h):N
-        bs = _natural_eval_derivatives(B, x, js, Val(h), T)
-
-        A = _natural_system_matrix(bs, 1)
-        T1 = A \ rhs
-
-        A = _natural_system_matrix(bs, 2)
-        T2 = A \ rhs
-
-        hcat(_remove_near_zeros(T1), _remove_near_zeros(T2))
-    end
-
-    ops = _natural_ops(Val(h))
-
-    _RecombineMatrix(ops, N, Tl, Tr; dropped_bsplines = (0, 0))
-end
-
-function _remove_near_zeros(A::SArray; rtol = 100 * eps(eltype(A)))
-    v = maximum(abs, A)
-    ϵ = rtol * v
-    typeof(A)((abs(x) < ϵ ? zero(x) : x) for x ∈ A)
-end
-
-@inline _natural_ops(B::BSplineBasis) = _natural_ops(BSplineOrder(order(B)))
-@inline function _natural_ops(::BSplineOrder{k}) where {k}
-    isodd(k) && throw(ArgumentError(
-        lazy"`Natural` boundary condition only supported for even-order splines (got k = $k)"
-    ))
-    _natural_ops(Val(k ÷ 2))
-end
-@inline function _natural_ops(::Val{h}) where {h}
-    @assert h ≥ 2
-    (_natural_ops(Val(h - 1))..., Derivative(h))
-end
-@inline _natural_ops(::Val{1}) = ()
-
-# Case h = 1: return empty (0 × 2) matrix.
-_natural_eval_derivatives(B, x, js, ::Val{1}, ::Type{T}) where {T} =
-    zero(SMatrix{0, 2, T})
-
-# Evaluate derivatives 2:h of B-splines 1:(h + 1) at the boundaries.
-@generated function _natural_eval_derivatives(
-        B, x, js, ::Val{h}, ::Type{T},
-    ) where {h, T}
-    @assert h ≥ 2
-    ex = quote
-        @assert length(js) == $h + 1
-        M = zero(MMatrix{$h - 1, $h + 1, $T})
-    end
-    for i ∈ 1:(h - 1)
-        jlast = Symbol(:jlast_, i)
-        bs = Symbol(:bs_, i)
-        ileft = i == 1 ? :(nothing) : Symbol(:jlast_, i - 1)
-        ex = quote
-            $ex
-            $jlast, $bs = evaluate_all(B, x, Derivative($i + 1), $T; ileft = $ileft)
-            @assert length($bs) == order(B)
-            for n ∈ axes(M, 2)
-                j = js[n]
-                δj = $jlast + 1 - j
-                if δj ∈ eachindex($bs)
-                    @inbounds M[$i, n] = $bs[δj]
-                end
-            end
-        end
-    end
-    quote
-        $ex
-        SMatrix(M)
-    end
-end
-
-# On the left boundary, `i` is the index of the resulting recombined basis
-# function ϕᵢ.
-function _natural_system_matrix(bs::SMatrix{hm, hp}, i) where {hm, hp}
-    h = hm + 1
-    @assert hp == h + 1
-    M = similar(bs, Size(hp, hp))
-    fill!(M, 0)
-    M[1, :] .= 1  # arbitrary condition
-    M[2:h, :] .= bs
-    @assert i ∈ (1, 2)
-    # This is a locality condition: we want the matrix to be kind of banded.
-    if i == 1
-        M[hp, hp] = 1
-    elseif i == 2
-        M[hp, 1] = 1
-    end
-    SMatrix(M)
 end
 
 _droplast(a) = ()
