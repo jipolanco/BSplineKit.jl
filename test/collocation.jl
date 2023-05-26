@@ -76,8 +76,8 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
         N = length(B)
 
         # Recombined basis for Dirichlet BCs (u = 0)
-        @inferred RecombinedBSplineBasis(Derivative(0), B)
-        R0 = RecombinedBSplineBasis(Derivative(0), B)
+        @inferred RecombinedBSplineBasis(B, Derivative(0))
+        R0 = RecombinedBSplineBasis(B, Derivative(0))
         Nr = length(R0)
         @test Nr == N - 2
 
@@ -97,7 +97,7 @@ function test_collocation(B::BSplineBasis, ::Type{T} = Float64) where {T}
         end
 
         # Neumann BCs (du/dx = 0)
-        R1 = RecombinedBSplineBasis(Derivative(1), B)
+        R1 = RecombinedBSplineBasis(B, Derivative(1))
         @test collocation_points(R1) == x  # same as for Dirichlet
         C1 = collocation_matrix(R1, x)
         @test size(C1) == (Nr, Nr)

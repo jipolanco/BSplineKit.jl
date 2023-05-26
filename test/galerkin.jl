@@ -56,9 +56,9 @@ function test_galerkin_recombined()
     B = BSplineBasis(6, copy(knots_base))
 
     @testset "Basis recombination" begin
-        R0 = RecombinedBSplineBasis(Derivative(0), B)
-        R1 = RecombinedBSplineBasis(Derivative(1), B)
-        R2 = RecombinedBSplineBasis(Derivative(2), B)
+        R0 = RecombinedBSplineBasis(B, Derivative(0))
+        R1 = RecombinedBSplineBasis(B, Derivative(1))
+        R2 = RecombinedBSplineBasis(B, Derivative(2))
 
         @testset "3D tensor" begin
             test_galerkin_tensor(R0)
@@ -159,7 +159,7 @@ function test_galerkin_recombined()
             # simply related as H = -Q.
             # We test both boundary conditions.
             @testset "BC: $D" for D in Derivative.((0, 1))
-                R = RecombinedBSplineBasis(D, B)
+                R = RecombinedBSplineBasis(B, D)
                 H = galerkin_matrix(R, Derivative.((0, 2)))
                 Q = galerkin_matrix(R, Derivative.((1, 1)))
                 N = length(R)
@@ -179,7 +179,7 @@ function test_galerkin_recombined()
 
         bcs = (Derivative.((0, )), Derivative.((0, 1)))
         @testset "Combining bases ($bc)" for bc in bcs
-            R = RecombinedBSplineBasis(bc, B)
+            R = RecombinedBSplineBasis(B, bc)
             M = galerkin_matrix((R, B))
             @testset "3D tensor" begin
                 test_galerkin_tensor(R)

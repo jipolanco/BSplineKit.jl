@@ -99,7 +99,7 @@ fig
 # recombined bases for many different BCs.
 # In this example we generate a basis satisfying homogeneous Neumann BCs:
 
-R = RecombinedBSplineBasis(Derivative(1), B)
+R = RecombinedBSplineBasis(B, Derivative(1))
 
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"ϕ_i(x)")
@@ -438,7 +438,7 @@ fig
 hi_res = let
     knots_in = range(-1, 1; length = 101)
     B = BSplineBasis(BSplineOrder(6), knots_in)
-    R = RecombinedBSplineBasis(Derivative(1), B)
+    R = RecombinedBSplineBasis(B, Derivative(1))
     θ₀_spline = approximate(θ₀, R)
     u_init = coefficients(θ₀_spline)
     xcol = collocation_points(R)

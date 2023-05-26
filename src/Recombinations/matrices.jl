@@ -169,17 +169,21 @@ _default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool  
 _default_eltype(ops::DiffOpList) = _default_eltype(ops...)
 
 # Same BCs on both sides.
-RecombineMatrix(ops, B::BSplineBasis, args...) = RecombineMatrix(ops, ops, B, args...)
+RecombineMatrix(B::BSplineBasis, ops) = RecombineMatrix(B, ops, ops)
+RecombineMatrix(B::BSplineBasis, ops, ::Type{T}) where {T} = RecombineMatrix(B, ops, ops, T)
+
+# Old constructor (may be removed in the future)
+RecombineMatrix(ops, B::BSplineBasis, args...) = RecombineMatrix(B, ops, args...)
 
 # No element type specified.
-function RecombineMatrix(ops_l, ops_r, B::BSplineBasis)
+function RecombineMatrix(B::BSplineBasis, ops_l, ops_r)
     Tl = _default_eltype(ops_l)
     Tr = _default_eltype(ops_r)
     T = promote_type(Tl, Tr)
-    RecombineMatrix(ops_l, ops_r, B::BSplineBasis, T)
+    RecombineMatrix(B, ops_l, ops_r, T)
 end
 
-function RecombineMatrix(left, right, B::BSplineBasis, ::Type{T}) where {T}
+function RecombineMatrix(B::BSplineBasis, left, right, ::Type{T}) where {T}
     ops_l = _normalise_ops(left, B)
     ops_r = _normalise_ops(right, B)
     _check_bspline_order(ops_l, B)

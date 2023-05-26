@@ -36,7 +36,7 @@ B0 = BSplineBasis(BSplineOrder(4), xbreaks)
 
 # ╔═╡ 823cb81a-79c6-11eb-1e4d-75eb02469abf
 # Impose u' = 0 at the boundaries
-B = RecombinedBSplineBasis(Derivative(1), B0)
+B = RecombinedBSplineBasis(B0, Derivative(1))
 # B = B0
 
 # ╔═╡ 2b263ef0-79af-11eb-3243-eb0ac08d1a46

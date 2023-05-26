@@ -173,29 +173,29 @@ function test_basis_recombination()
     B = BSplineBasis(k, knots_base)
     @test constraints(B) === ((), ())
     @testset "Mixed derivatives" begin
-        @inferred RecombineMatrix(Derivative.((0, 1)), B)
-        @inferred RecombineMatrix(Derivative.((0, 2)), B)
+        @inferred RecombineMatrix(B, Derivative.((0, 1)))
+        @inferred RecombineMatrix(B, Derivative.((0, 2)))
 
         # Derivative orders must be in increasing order.
-        @test_throws ArgumentError RecombineMatrix(Derivative.((1, 0)), B)
+        @test_throws ArgumentError RecombineMatrix(B, Derivative.((1, 0)))
 
         # Unsupported combinations of derivatives.
-        @test_throws ArgumentError RecombineMatrix(Derivative.((1, 2)), B)
+        @test_throws ArgumentError RecombineMatrix(B, Derivative.((1, 2)))
 
-        M = RecombineMatrix(Derivative.((0, 1)), B)
+        M = RecombineMatrix(B, Derivative.((0, 1)))
         test_recombine_matrix(M)
     end
 
-    @test_throws ArgumentError RecombinedBSplineBasis(Derivative(k), B)
+    @test_throws ArgumentError RecombinedBSplineBasis(B, Derivative(k))
 
     @testset "Spline" begin
-        R = RecombinedBSplineBasis(Derivative(1), B)
+        R = RecombinedBSplineBasis(B, Derivative(1))
         coefs = rand(length(R))
 
         @testset "Equality" begin
             @test R != B
-            @test R != RecombinedBSplineBasis(Derivative(0), B)
-            @test R == RecombinedBSplineBasis(Derivative(1), B)
+            @test R != RecombinedBSplineBasis(B, Derivative(0))
+            @test R == RecombinedBSplineBasis(B, Derivative(1))
         end
 
         # This constructs a Spline using the recombined basis.
@@ -222,7 +222,7 @@ function test_basis_recombination()
     end
 
     @testset "Order $D" for D = 0:(k - 1)
-        R = @inferred RecombinedBSplineBasis(Derivative(D), B)
+        R = @inferred RecombinedBSplineBasis(B, Derivative(D))
         ops = (Derivative(D), )
         @test constraints(R) === (ops, ops)
 
@@ -263,9 +263,9 @@ function test_basis_recombination()
             @test BSplineKit.max_order(op) == D + 1
             if D + 1 == k
                 # "cannot resolve operators (...) with B-splines of order 4"
-                @test_throws ArgumentError RecombinedBSplineBasis(op, B)
+                @test_throws ArgumentError RecombinedBSplineBasis(B, op)
             else
-                let Rs = RecombinedBSplineBasis(op, B)
+                let Rs = RecombinedBSplineBasis(B, op)
                     @test constraints(Rs) === ((op, ), (op, ))
                     test_recombine_matrix(recombination_matrix(Rs))
                     test_boundary_conditions(Rs)
@@ -273,7 +273,7 @@ function test_basis_recombination()
                 if D != 0
                     # Combine with Dirichlet BCs
                     ops = (Derivative(0), op)
-                    Rs = RecombinedBSplineBasis(ops, B)
+                    Rs = RecombinedBSplineBasis(B, ops)
                     @test constraints(Rs) === (ops, ops)
                     test_recombine_matrix(recombination_matrix(Rs))
                     test_boundary_conditions(Rs)
@@ -284,7 +284,7 @@ function test_basis_recombination()
         # Simultaneously satisfies BCs of orders 0 to D.
         @testset "Mixed BCs" begin
             ops = ntuple(d -> Derivative(d - 1), D + 1)
-            Rs = RecombinedBSplineBasis(ops, B)
+            Rs = RecombinedBSplineBasis(B, ops)
             @test constraints(Rs) === (ops, ops)
             test_recombine_matrix(recombination_matrix(Rs))
             test_boundary_conditions(Rs)
@@ -296,7 +296,7 @@ end
 function test_natural_recombination()
     knots_base = gauss_lobatto_points(40)
     B = BSplineBasis(BSplineOrder(6), knots_base)
-    R = RecombinedBSplineBasis(Natural(), B)
+    R = RecombinedBSplineBasis(B, Natural())
     M = recombination_matrix(R)
     test_nzrows(M)
     nothing
