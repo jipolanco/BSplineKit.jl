@@ -1,7 +1,7 @@
 name = "BSplineKit"
 uuid = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 authors = ["Juan Ignacio Polanco <juan-ignacio.polanco@cnrs.fr>"]
-version = "0.15.2"
+version = "0.16.0"
 
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
@@ -18,7 +18,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StaticArraysCore = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 
 [compat]
-ArrayLayouts = "0.8, 1"
+ArrayLayouts = "1"
 BandedMatrices = "0.17"
 FastGaussQuadrature = "0.5"
 LazyArrays = "0.22, 1"
