@@ -12,13 +12,13 @@ function test_natural(ord::BSplineOrder)
     k = order(B)
     if isodd(k)
         # `Natural` boundary condition only supported for even-order splines (got k = $k)
-        @test_throws ArgumentError RecombinedBSplineBasis(Natural(), B)
+        @test_throws ArgumentError RecombinedBSplineBasis(B, Natural())
         return
     end
 
     rng = MersenneTwister(42)
 
-    R = @inferred RecombinedBSplineBasis(Natural(), B)
+    R = @inferred RecombinedBSplineBasis(B, Natural())
     S = Spline(R, 1 .+ rand(rng, length(R)))  # coefficients in [1, 2]
 
     M = recombination_matrix(R)

@@ -38,7 +38,7 @@ breaks =
 B = BSplineBasis(BSplineOrder(6), copy(breaks))
 
 # ╔═╡ e4b55060-6936-11eb-336d-7f6d75edabff
-R = RecombinedBSplineBasis(Derivative(0), B)
+R = RecombinedBSplineBasis(B, Derivative(0))
 
 # ╔═╡ 06d6d560-6937-11eb-03e3-5b2be0c46741
 xs = collocation_points(B);

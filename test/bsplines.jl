@@ -141,7 +141,7 @@ rng = MersenneTwister(42)
     ops = (Derivative(0), Derivative(1), Natural())
     @testset "Recombined (op = $op)" for op ∈ ops
         op == Natural() && isodd(k) && continue
-        R = RecombinedBSplineBasis(op, B)
+        R = RecombinedBSplineBasis(B, op)
         test_bsplines(R)
     end
 end

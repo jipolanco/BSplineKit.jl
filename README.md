@@ -66,7 +66,7 @@ by this package.
 
   ```julia
   bc = Derivative(0) + 3Derivative(1)
-  R = RecombinedBSplineBasis(bc, B)  # satisfies u ∓ 3u' = 0 on the left/right boundary
+  R = RecombinedBSplineBasis(B, bc)  # satisfies u ∓ 3u' = 0 on the left/right boundary
   ```
 
 - Construct [mass matrix](https://en.wikipedia.org/wiki/Mass_matrix) and

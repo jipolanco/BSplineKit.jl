@@ -14,7 +14,7 @@ function test_airy_equation()
     N = 100
     breaks = collect(range(-1, 1; length = N + 1))
     B = @inferred BSplineBasis(BSplineOrder(6), breaks)
-    R = @inferred RecombinedBSplineBasis(Derivative(0), B)  # for Dirichlet BCs
+    R = @inferred RecombinedBSplineBasis(B, Derivative(0))  # for Dirichlet BCs
 
     # Exact solution
     u_exact(x) = airyai(x / cbrt(ε))

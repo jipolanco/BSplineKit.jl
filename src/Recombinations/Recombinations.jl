@@ -27,6 +27,7 @@ import ..BSplines:
     boundaries, knots, order, evaluate, nonzero_in_segment, support, summary_basis
 
 include("matrices.jl")
+include("natural.jl")
 include("bases.jl")
 include("splines.jl")
 

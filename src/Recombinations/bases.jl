@@ -97,10 +97,13 @@ For more details on the supported combinations of BCs, see the different
 
 ---
 
-    RecombinedBSplineBasis(op::AbstractDifferentialOp, B::BSplineBasis)
+    RecombinedBSplineBasis(B::BSplineBasis, op::AbstractDifferentialOp)
+    RecombinedBSplineBasis(B::BSplineBasis, op_left, op_right)
 
 Construct `RecombinedBSplineBasis` from B-spline basis `B`, satisfying
-homogeneous boundary conditions associated to the given differential operator.
+homogeneous boundary conditions (BCs) associated to the given differential operator.
+
+The second case allows setting different BCs on each boundary.
 
 For instance, `op = Derivative(0)` and `op = Derivative(1)` correspond to
 homogeneous Dirichlet and Neumann BCs, respectively.
@@ -119,13 +122,13 @@ julia> B = BSplineBasis(BSplineOrder(4), -1:0.2:1)
 13-element BSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
 
-julia> R_neumann = RecombinedBSplineBasis(Derivative(1), B)
+julia> R_neumann = RecombinedBSplineBasis(B, Derivative(1))
 11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{1},)
  BCs right: (D{1},)
 
-julia> R_robin = RecombinedBSplineBasis(Derivative(0) + 3Derivative(1), B)
+julia> R_robin = RecombinedBSplineBasis(B, Derivative(0) + 3Derivative(1))
 11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{0} + 3 * D{1},)
@@ -134,7 +137,8 @@ julia> R_robin = RecombinedBSplineBasis(Derivative(0) + 3Derivative(1), B)
 
 ---
 
-    RecombinedBSplineBasis(ops, B::BSplineBasis)
+    RecombinedBSplineBasis(B::BSplineBasis, ops)
+    RecombinedBSplineBasis(B::BSplineBasis, ops_left, ops_right)
 
 Construct `RecombinedBSplineBasis` simultaneously satisfying homogeneous BCs
 associated to multiple differential operators.
@@ -184,7 +188,7 @@ For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
 julia> ops = (Derivative(0), Derivative(1));
 
 
-julia> R1 = RecombinedBSplineBasis(ops, B)
+julia> R1 = RecombinedBSplineBasis(B, ops)
 9-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{0}, D{1})
@@ -193,13 +197,13 @@ julia> R1 = RecombinedBSplineBasis(ops, B)
 julia> ops = (Derivative(0), Derivative(1) - 4Derivative(2));
 
 
-julia> R2 = RecombinedBSplineBasis(ops, B)
+julia> R2 = RecombinedBSplineBasis(B, ops)
 9-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{0}, D{1} + -4 * D{2})
  BCs right: (D{0}, D{1} + -4 * D{2})
 
-julia> R3 = RecombinedBSplineBasis(Natural(), B)
+julia> R3 = RecombinedBSplineBasis(B, Natural())
 11-element RecombinedBSplineBasis of order 4, domain [-1.0, 1.0]
  knots: [-1.0, -1.0, -1.0, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0, 1.0, 1.0]
  BCs left:  (D{2},)
@@ -213,13 +217,19 @@ struct RecombinedBSplineBasis{
     B :: Parent   # original B-spline basis
     M :: RMatrix  # basis recombination matrix
 
-    function RecombinedBSplineBasis(ops, B::BSplineBasis{k,T}) where {k,T}
+    function RecombinedBSplineBasis(B::BSplineBasis{k,T}, ops_left, ops_right) where {k,T}
         Parent = typeof(B)
-        M = RecombineMatrix(ops, B)
+        M = RecombineMatrix(B, ops_left, ops_right)
         RMatrix = typeof(M)
         new{k,T,Parent,RMatrix}(B, M)
     end
 end
+
+# Same BCs on both boundaries.
+RecombinedBSplineBasis(B::BSplineBasis, ops) = RecombinedBSplineBasis(B, ops, ops)
+
+# This is the old constructor and will be deprecated/removed in the future.
+RecombinedBSplineBasis(ops, B::BSplineBasis) = RecombinedBSplineBasis(B, ops)
 
 BSplines.has_parent_basis(::Type{<:RecombinedBSplineBasis}) = true
 
@@ -244,18 +254,6 @@ function Base.show(io::IO, R::RecombinedBSplineBasis)
         print(io, "\n BCs right: ", cr)
     end
 end
-
-"""
-    RecombinedBSplineBasis(ops, args...; kwargs...)
-
-Construct [`RecombinedBSplineBasis`](@ref) from B-spline basis, satisfying
-homogeneous boundary conditions associated one or more differential operators.
-
-This variant does not require a previously constructed [`BSplineBasis`](@ref).
-Arguments are passed to the `BSplineBasis` constructor.
-"""
-RecombinedBSplineBasis(ops, args...; kwargs...) =
-    RecombinedBSplineBasis(ops, BSplineBasis(args...; kwargs...))
 
 """
     parent(R::RecombinedBSplineBasis)
