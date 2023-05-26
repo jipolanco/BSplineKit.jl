@@ -173,8 +173,9 @@ function test_basis_recombination()
     B = BSplineBasis(k, knots_base)
     @test constraints(B) === ((), ())
     @testset "Mixed derivatives" begin
-        @inferred RecombineMatrix(B, Derivative.((0, 1)))
-        @inferred RecombineMatrix(B, Derivative.((0, 2)))
+        M01 = @inferred RecombineMatrix(B, Derivative.((0, 1)))
+        M02 = @inferred RecombineMatrix(B, Derivative.((0, 2)))
+        @test M01 == @inferred RecombineMatrix(B, Derivative(0:1))
 
         # Derivative orders must be in increasing order.
         @test_throws ArgumentError RecombineMatrix(B, Derivative.((1, 0)))
@@ -184,6 +185,12 @@ function test_basis_recombination()
 
         M = RecombineMatrix(B, Derivative.((0, 1)))
         test_recombine_matrix(M)
+    end
+
+    @testset "Element type" begin
+        R = @inferred RecombineMatrix(B, Derivative(1), Float32)
+        M = recombination_matrix(R)
+        @test eltype(M) === Float32
     end
 
     @test_throws ArgumentError RecombinedBSplineBasis(B, Derivative(k))

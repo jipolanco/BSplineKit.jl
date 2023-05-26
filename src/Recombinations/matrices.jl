@@ -109,17 +109,6 @@ struct RecombineMatrix{
     end
 end
 
-# For compatibility with previous versions (same BC on both sides)
-function _RecombineMatrix(
-        ops::DiffOpList, N::Integer,
-        ul::SMatrix{n1, n}, lr::SMatrix{n1, n};
-        kws...,
-    ) where {n1, n}
-    left = ops => ul
-    right = ops => lr
-    _RecombineMatrix(left, right, N; kws...)
-end
-
 function _check_BC_submatrix(bc::Pair)
     ops, A = bc
     m, n = size(A)
@@ -184,8 +173,8 @@ function RecombineMatrix(B::BSplineBasis, ops_l, ops_r)
 end
 
 function RecombineMatrix(B::BSplineBasis, left, right, ::Type{T}) where {T}
-    ops_l = _normalise_ops(left, B)
-    ops_r = _normalise_ops(right, B)
+    ops_l = _normalise_ops(left, B)  :: DiffOpList
+    ops_r = _normalise_ops(right, B) :: DiffOpList
     _check_bspline_order(ops_l, B)
     _check_bspline_order(ops_r, B)
     N = length(B)
@@ -195,17 +184,8 @@ function RecombineMatrix(B::BSplineBasis, left, right, ::Type{T}) where {T}
 end
 
 _normalise_ops(op::AbstractDifferentialOp, B) = (op,)
+_normalise_ops(op::DerivativeUnitRange, B) = Tuple(op)  # Derivative(0:1) -> (Derivative(0), Derivative(1))
 _normalise_ops(op::Tuple, B) = op
-_normalise_ops(op::BoundaryCondition, B) = op
-
-RecombineMatrix(bc::BoundaryCondition, B::BSplineBasis) = RecombineMatrix(bc, B, _default_eltype(bc))
-RecombineMatrix(ops::DiffOpList, B::BSplineBasis) = RecombineMatrix(ops, B, _default_eltype(ops))
-
-RecombineMatrix(op::AbstractDifferentialOp, B::BSplineBasis, args...) =
-    RecombineMatrix((op,), B, args...)
-
-RecombineMatrix(r::DerivativeUnitRange, B::BSplineBasis, args...) =
-    RecombineMatrix(Tuple(r), B, args...)
 
 # Specialisation for Dirichlet BCs: we simply drop the first/last B-spline.
 function _make_submatrix(::Tuple{Derivative{0}}, Bdata::Tuple, ::Type{T}) where {T}
@@ -334,8 +314,6 @@ function _check_bspline_order(ops::Tuple, B::BSplineBasis)
     end
     nothing
 end
-
-_bsplines_to_drop(ops::Tuple) = _bsplines_to_drop(ops...)
 
 # Single BC: no B-splines are dropped (except if op = Derivative{0})
 _bsplines_to_drop(op::AbstractDifferentialOp) = 0
