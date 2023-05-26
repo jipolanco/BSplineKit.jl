@@ -226,7 +226,7 @@ struct RecombinedBSplineBasis{
 end
 
 # Same BCs on both boundaries.
-RecombinedBSplineBasis(B::BSplineBasis, ops) = RecombinedBSplineBasis(ops, ops, B)
+RecombinedBSplineBasis(B::BSplineBasis, ops) = RecombinedBSplineBasis(B, ops, ops)
 
 # This is the old constructor and will be deprecated/removed in the future.
 RecombinedBSplineBasis(ops, B::BSplineBasis) = RecombinedBSplineBasis(B, ops)

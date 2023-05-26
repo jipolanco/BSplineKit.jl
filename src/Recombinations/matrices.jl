@@ -162,7 +162,7 @@ end
 _default_eltype(::BoundaryCondition) = Float64
 _default_eltype(::Derivative{0}) = Bool  # Dirichlet BCs
 _default_eltype(::Derivative{1}) = Bool  # Neumann BCs
-_default_eltype(::Vararg{Derivative}) = Float64
+_default_eltype(::Vararg{AbstractDifferentialOp}) = Float64
 
 # Case (D(0), D(1), D(2), ...)
 _default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool  # TODO this isn't always right, is it?
@@ -194,7 +194,7 @@ function RecombineMatrix(B::BSplineBasis, left, right, ::Type{T}) where {T}
     _RecombineMatrix(ops_l => ul, ops_r => lr, N; dropped_bsplines = (ldrop, rdrop))
 end
 
-_normalise_ops(op::Derivative, B) = (op,)
+_normalise_ops(op::AbstractDifferentialOp, B) = (op,)
 _normalise_ops(op::Tuple, B) = op
 _normalise_ops(op::BoundaryCondition, B) = op
 
@@ -244,11 +244,11 @@ function _make_submatrix(ops::DiffOpList, Bdata::Tuple, ::Type{T}) where {T}
     op = last(ops)
     n = max_order(op)
     ndrop = _bsplines_to_drop(ops...)
-    A = _make_submatrix_manyops(Val(n + 1), Val(ndrop), ops, B, T)
+    A = _make_submatrix_manyops(Val(n + 1), Val(ndrop), ops, Bdata, T)
     ndrop, A
 end
 
-function _make_submatrix_manyops(::Val{ndrop}, ::Val{ndrop}, ops, B, ::Type{T}) where {ndrop, T}
+function _make_submatrix_manyops(::Val{ndrop}, ::Val{ndrop}, ops, Bdata::Tuple, ::Type{T}) where {ndrop, T}
     # Case of mixed BCs (D(0), D(1), ..., D(n - 1)).
     # B-splines are dropped, and new functions are not created.
     # This is a generalisation of the Dirichlet case.
@@ -259,6 +259,7 @@ function _make_submatrix_manyops(::Val{ndrop}, ::Val{ndrop}, ops, B, ::Type{T}) 
 end
 
 function _make_submatrix_manyops(::Val{n1}, ::Val{ndrop}, ops, Bdata::Tuple, ::Type{T}) where {n1, ndrop, T}
+    @assert n1 !== ndrop
     B, side = Bdata
     @assert B isa BSplineBasis
     @assert side isa Val  # either Val{:left} or Val{:right}
