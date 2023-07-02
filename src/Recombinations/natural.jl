@@ -109,19 +109,26 @@ end
 
 # On the left boundary, `i` is the index of the resulting recombined basis
 # function ϕᵢ.
-function _natural_system_matrix(bs::SMatrix{hm, hp}, i) where {hm, hp}
-    h = hm + 1
-    @assert hp == h + 1
-    M = similar(bs, Size(hp, hp))
+function _natural_system_matrix(bs::SMatrix{h⁻, h⁺}, i) where {h⁻, h⁺}
+    h = h⁻ + 1
+    @assert h⁺ == h + 1
+    M = similar(bs, Size(h⁺, h⁺))
     fill!(M, 0)
-    M[1, :] .= 1  # arbitrary condition
-    M[2:h, :] .= bs
-    @assert i ∈ (1, 2)
+    @views M[1, :] .= 1  # arbitrary condition
+    for i ∈ 2:h
+        # This corresponds to the zero condition for the i-th derivative (with i ∈ 2:h)
+        derivs = @view bs[i - 1, :]      # i-th derivative of B-splines {b[1], ..., b[h + 1]}
+        dnorm = sqrt(sum(abs2, derivs))  # normalisation factor (improves condition number)
+        for j ∈ axes(M, 2)
+            M[i, j] = derivs[j] / dnorm
+        end
+    end
     # This is a locality condition: we want the matrix to be kind of banded.
+    @assert i ∈ (1, 2)
     if i == 1
-        M[hp, hp] = 1
+        M[end, end] = 1
     elseif i == 2
-        M[hp, 1] = 1
+        M[end, 1] = 1
     end
     SMatrix(M)
 end
