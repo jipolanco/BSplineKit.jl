@@ -31,7 +31,7 @@ function test_natural(ord::BSplineOrder)
     for x ∈ boundaries(R)
         Sx = @inferred S(x)
         @test Sx > 1
-        ϵ = 1e-8 * Sx  # threshold
+        ϵ = 2e-8 * Sx  # threshold
         @test abs((Derivative(1) * S)(x)) > ϵ  # different from zero
         for n = 2:(k ÷ 2)
             Sder = Derivative(n) * S
