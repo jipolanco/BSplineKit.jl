@@ -18,6 +18,7 @@ order
 knots
 getindex
 length(::BSplineBasis)
+isindomain
 ```
 
 ## Periodic B-spline bases

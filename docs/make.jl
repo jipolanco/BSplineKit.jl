@@ -7,7 +7,7 @@ const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
 
 docmeta = quote
     using BSplineKit
-    import Random
+    using Random: Random
     Random.seed!(42)
 end
 
@@ -15,6 +15,8 @@ end
 DocMeta.setdocmeta!(BSplineKit, :DocTestSetup, docmeta; recursive=true)
 DocMeta.setdocmeta!(BSplineKit.BandedTensors, :DocTestSetup,
                     :(using BSplineKit.BandedTensors); recursive=true)
+
+doctest(BSplineKit; fix = false)
 
 with_checks = !MAKE_FAST
 
