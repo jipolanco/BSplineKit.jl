@@ -10,7 +10,7 @@ OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-Documenter = "0.27"
+Documenter = "0.27.25"
 Makie = "0.19"
 
 [extras]

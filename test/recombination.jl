@@ -1,3 +1,23 @@
+using Test
+using BSplineKit
+using SparseArrays
+using LinearAlgebra
+using Random
+
+using BSplineKit:
+    AbstractDifferentialOp,
+    DifferentialOpSum,
+    LeftNormal,
+    RightNormal
+
+using BSplineKit.Recombinations:
+    NoUniqueSolutionError,
+    num_constraints,
+    num_recombined
+
+# Chebyshev (Gauss-Lobatto) points.
+gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
+
 function test_nzrows(A::RecombineMatrix)
     # Compare output of nzrows with similar functions for sparse arrays.
     # See ?nzrange.
@@ -308,10 +328,44 @@ function test_natural_recombination()
     nothing
 end
 
+# Matrix conditioning issue fixed in #73
+function test_natural_recombination_conditioning()
+    xdata = [
+        0.1825841576261027
+        0.21745398548214934
+        0.2574540006430478
+        0.37073734805196445
+        0.3949709205453995
+        0.41683805923570205
+        0.4669292800550542
+        0.5484125029182643
+        0.8956857209308366
+        0.9088143561930421
+    ]
+    ydata = [
+        -0.8662273184639824
+        1.4644999406051766
+        -2.4972734631605986
+        -0.579356630251197
+        0.9412609863223902
+        0.843508283506621
+        0.798971854937239
+        3.0575214498226995
+        -0.05574466652240026
+        -0.10031429900815753
+    ]
+    itp = interpolate(xdata, ydata, BSplineOrder(6), Natural())  # used to fail with assertion error
+    @test itp.(xdata) ≈ ydata
+    @test (Derivative(2) * itp)(xdata[begin]) < 1e-10
+    @test (Derivative(2) * itp)(xdata[end]) < 1e-10
+    nothing
+end
+
 @testset "Basis recombination" begin
     test_basis_recombination()
     @testset "Natural BCs" begin
         test_natural_recombination()
+        test_natural_recombination_conditioning()
     end
     @testset "Hybrid BCs" begin
         B = BSplineBasis(BSplineOrder(4), 0:0.1:1)
