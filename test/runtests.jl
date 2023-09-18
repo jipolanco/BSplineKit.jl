@@ -6,13 +6,13 @@ using Random
 using SparseArrays
 using Test
 
-import BSplineKit:
+using BSplineKit:
     AbstractDifferentialOp,
     DifferentialOpSum,
     LeftNormal,
     RightNormal
 
-import BSplineKit.Recombinations:
+using BSplineKit.Recombinations:
     NoUniqueSolutionError,
     num_constraints,
     num_recombined
