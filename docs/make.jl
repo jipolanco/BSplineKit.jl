@@ -3,8 +3,6 @@ using BSplineKit
 using Documenter
 using Literate
 
-const MAKE_FAST = "--fast" in ARGS  # skip some checks in makedocs
-
 docmeta = quote
     using BSplineKit
     using Random: Random
@@ -12,13 +10,16 @@ docmeta = quote
 end
 
 # This is to make sure that doctests in docstrings are executed correctly.
-DocMeta.setdocmeta!(BSplineKit, :DocTestSetup, docmeta; recursive=true)
-DocMeta.setdocmeta!(BSplineKit.BandedTensors, :DocTestSetup,
-                    :(using BSplineKit.BandedTensors); recursive=true)
+DocMeta.setdocmeta!(
+    BSplineKit, :DocTestSetup, docmeta;
+    recursive = true,
+)
+DocMeta.setdocmeta!(
+    BSplineKit.BandedTensors, :DocTestSetup, :(using BSplineKit.BandedTensors);
+    recursive = true,
+)
 
 doctest(BSplineKit; fix = false)
-
-with_checks = !MAKE_FAST
 
 # Generate examples using Literate
 # See https://github.com/fredrikekre/Literate.jl/blob/master/docs/make.jl
@@ -59,9 +60,6 @@ end
             "Internals" => ["diffops.md"],
         ],
     ],
-    doctest = with_checks,
-    linkcheck = with_checks,
-    checkdocs = :all,
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.

@@ -313,6 +313,7 @@ params_col = (
 
 tspan = (0.0, 10.0)
 prob = ODEProblem(heat_rhs!, u_init, tspan, params_col)
+prob = ODEProblem{true}(heat_rhs!, u_init, tspan, params_col)
 sol_collocation = solve(prob, Tsit5(); saveat = 0.5)
 
 function plot_heat_solution(sol, R)
@@ -395,7 +396,7 @@ params_gal = (
     L = Rgal,
 )
 
-prob = ODEProblem(heat_rhs!, u_init, tspan, params_gal)
+prob = ODEProblem{true}(heat_rhs!, u_init, tspan, params_gal)
 sol_galerkin = solve(prob, Tsit5(); saveat = 0.5)
 
 plot_heat_solution(sol_galerkin, R)
@@ -445,7 +446,7 @@ hi_res = let
     Acol = collocation_matrix(R, xcol)
     Lcol = ν .* collocation_matrix(R, xcol, Derivative(2))
     params_col = (A = lu(Acol), L = Lcol)
-    prob = ODEProblem(heat_rhs!, u_init, tspan, params_col)
+    prob = ODEProblem{true}(heat_rhs!, u_init, tspan, params_col)
     sol = solve(prob, Tsit5(); saveat = 0.5)
     (; R, sol)
 end
