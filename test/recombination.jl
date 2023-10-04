@@ -15,9 +15,6 @@ using BSplineKit.Recombinations:
     num_constraints,
     num_recombined
 
-# Chebyshev (Gauss-Lobatto) points.
-gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
-
 function test_nzrows(A::RecombineMatrix)
     # Compare output of nzrows with similar functions for sparse arrays.
     # See ?nzrange.

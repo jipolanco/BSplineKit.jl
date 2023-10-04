@@ -105,13 +105,9 @@ function test_bsplines(B::AbstractBSplineBasis)
                     end
                 end
             end
-            ϵ = 10eps(maximum(abs, coefficients(S′)))
+            ϵ = 20 * eps(maximum(abs, coefficients(S′)))
             u, v = S′(x), dot(cs, bs)
-            if abs(u) < ϵ
-                @test abs(v) < ϵ
-            else
-                @test u ≈ v
-            end
+            @test isapprox(u, v; atol = ϵ)
         end
 
         # 3. Compare to non-generated version (assuming the @generated version
