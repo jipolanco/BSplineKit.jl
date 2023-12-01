@@ -18,6 +18,8 @@ function test_galerkin_analytical()
     t = knots(B)
     G = galerkin_matrix(B)
 
+    @inferred Galerkin.default_quadrature((B, B))
+
     let i = 8
         @test G[i, i] ≈ (t[i + 2] - t[i]) / 3
         @test G[i - 1, i] ≈ (t[i + 1] - t[i]) / 6
@@ -27,6 +29,40 @@ function test_galerkin_analytical()
         # "all bases must share the same parent B-spline basis"
         @test_throws ArgumentError galerkin_matrix((B, B3))
     end
+
+    nothing
+end
+
+function test_galerkin_with_function()
+    N = 32
+    xs = [-cospi(n / N) for n = 0:N]
+    f(x) = x^2
+    B = BSplineBasis(BSplineOrder(4), copy(xs))
+    G_base = @inferred galerkin_matrix(B)
+    G = @inferred galerkin_matrix(f, B)
+
+    # In all cases, multiplying the integrand by x^2 should result in a smaller integral
+    # value, since x ∈ [-1, 1].
+    @test all(zip(G_base.data, G.data)) do (u, v)
+        iszero(u) || u > v
+    end
+
+    # By default quadratures use `k` quadrature nodes, which is enough to "exactly"
+    # integrate a product of two B-splines in a knot segment (polynomial of degree 2k - 2).
+    k = order(B)
+    quad_base = Galerkin.default_quadrature((B, B))
+    n_base = length(quad_base[1])
+    @test n_base == k
+
+    # However this quadrature is no longer exact when we multiply by an extra term.
+    # If we multiply by x^2, then we have a polynomial of degree 2k, and we need (k + 1)
+    # quadrature nodes.
+    G_improved = @inferred galerkin_matrix(f, B; quadrature = Galerkin.gausslegendre(Val(k + 1)))
+    @test maximum(abs, G - G_improved) > 1e-8  # values slightly changed!
+
+    # Further increasing the number of quadrature nodes is unnecessary...
+    G2 = @inferred galerkin_matrix(f, B; quadrature = Galerkin.gausslegendre(Val(k + 2)))
+    @test maximum(abs, G2 - G_improved) < 1e-16  # basically nothing changed!
 
     nothing
 end
@@ -260,12 +296,10 @@ end
 
 @testset "Galerkin" begin
     test_galerkin_analytical()
-
+    test_galerkin_with_function()
     gauss_lobatto_points(N) = [-cos(π * n / N) for n = 0:N]
-
     knots_base = gauss_lobatto_points(41)
     B = BSplineBasis(5, copy(knots_base))
     test_galerkin_projection(B)
-
     test_galerkin_recombined()
 end
