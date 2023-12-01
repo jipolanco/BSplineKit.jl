@@ -1,8 +1,10 @@
 """
     galerkin_matrix(
+        [f::Function],
         B::AbstractBSplineBasis,
-        [deriv = (Derivative(0), Derivative(0))],
-        [MatrixType = BandedMatrix{Float64}],
+        [derivatives = (Derivative(0), Derivative(0))],
+        [MatrixType = BandedMatrix{Float64}];
+        [quadrature = default_quadrature((B, B))],
     )
 
 Compute Galerkin mass or stiffness matrix, as well as more general variants
@@ -55,8 +57,8 @@ See [`collocation_matrix`](@ref) for a discussion on matrix types.
 ## Derivatives of basis functions
 
 Galerkin matrices associated to the derivatives of basis functions may be
-constructed using the optional `deriv` parameter.
-For instance, if `deriv = (Derivative(0), Derivative(2))`, the matrix
+constructed using the optional `derivatives` parameter.
+For instance, if `derivatives = (Derivative(0), Derivative(2))`, the matrix
 ``⟨ ϕ_i, ϕ_j'' ⟩`` is constructed, where primes denote derivatives.
 Note that, if the derivative orders are different, the resulting matrix is not
 symmetric, and a `Hermitian` view is not returned in those cases.
@@ -77,12 +79,36 @@ will not even be square if the bases have different lengths.
 
 In practice, this feature may be used to combine a B-spline basis `B`, with a
 recombined basis `R` generated from `B` (see [Basis recombination](@ref basis-recombination-api)).
+
+## Integrating more general functions
+
+Say we wanted to integrate the more general term
+
+```math
+L_{ij} = ⟨ f(x) ϕ_i(x), ϕ_j(x) ⟩ = ∫_{a}^{b} f(x) ϕ_i(x) ϕ_j(x) \\, \\mathrm{d}x
+```
+
+To obtain an approximation of this matrix, one would pass the ``f(x)`` function as a first
+positional argument to `galerkin_matrix` (or [`galerkin_matrix!`](@ref)).
+This can also be combined with the `derivatives` argument if one wants to consider
+derivatives of ``ϕ_i`` or ``ϕ_j``.
+
+Note that, in this case, the computation of the integrals is not guaranteed to be exact,
+since Gauss--Legendre quadratures are only "exact" when the integrand is a polynomial (the
+product of two B-splines is a piecewise polynomial).
+To improve accuracy, one may want to increase the number `n` of quadrature nodes.
+For this, pass `quadrature = Galerkin.gausslegendre(Val(n))` as a keyword argument.
+
 """
+function galerkin_matrix end
+
 function galerkin_matrix(
+        f::F,
         Bs::NTuple{2,AbstractBSplineBasis},
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{M} = _default_matrix_type(first(Bs)),
-    ) where {M <: AbstractMatrix}
+        ::Type{M} = _default_matrix_type(first(Bs));
+        kwargs...,
+    ) where {F <: Function, M <: AbstractMatrix}
     B1, B2 = Bs
     symmetry = M <: Hermitian
     if symmetry && (deriv[1] !== deriv[2] || B1 !== B2)
@@ -90,22 +116,29 @@ function galerkin_matrix(
             "input matrix type incorrectly assumes symmetry"))
     end
     A = allocate_galerkin_matrix(M, Bs)
-    galerkin_matrix!(A, Bs, deriv)
+    galerkin_matrix!(f, A, Bs, deriv; kwargs...)
 end
 
 function galerkin_matrix(
+        f::F,
         B::AbstractBSplineBasis,
         deriv::DerivativeCombination{2} = Derivative.((0, 0)),
-        ::Type{Min} = _default_matrix_type(B),
-    ) where {Min <: AbstractMatrix}
+        ::Type{Min} = _default_matrix_type(B);
+        kwargs...,
+    ) where {F <: Function, Min <: AbstractMatrix}
     symmetry = deriv[1] === deriv[2]
     T = eltype(Min)
     M = symmetry ? Hermitian{T,Min} : Min
-    galerkin_matrix((B, B), deriv, M)
+    galerkin_matrix(f, (B, B), deriv, M; kwargs...)
 end
 
-galerkin_matrix(B, ::Type{M}) where {M <: AbstractMatrix} =
-    galerkin_matrix(B, Derivative.((0, 0)), M)
+galerkin_matrix(f::F, B, ::Type{M}; kwargs...) where {F <: Function, M <: AbstractMatrix} =
+    galerkin_matrix(f, B, Derivative.((0, 0)), M; kwargs...)
+
+galerkin_matrix(B::AbstractBSplineBasis, args...; kws...) =
+    galerkin_matrix(Returns(true), B, args...; kws...)
+galerkin_matrix(B::NTuple{2, AbstractBSplineBasis}, args...; kws...) =
+    galerkin_matrix(Returns(true), B, args...; kws...)
 
 _default_matrix_type(::Type{<:AbstractBSplineBasis}) = BandedMatrix{Float64}
 _default_matrix_type(::Type{<:PeriodicBSplineBasis}) = SparseMatrixCSC{Float64}
@@ -158,8 +191,10 @@ function allocate_galerkin_matrix(::Type{M}, Bs, symmetry) where {M <: BandedMat
 end
 
 """
-    galerkin_matrix!(A::AbstractMatrix, B::AbstractBSplineBasis,
-                     deriv = (Derivative(0), Derivative(0)))
+    galerkin_matrix!(
+        [f::Function], A::AbstractMatrix, B::AbstractBSplineBasis, [deriv = (Derivative(0), Derivative(0))];
+        [quadrature],
+    )
 
 Fill preallocated Galerkin matrix.
 
@@ -170,17 +205,22 @@ in `deriv` must be the same.
 More generally, it is possible to combine different functional bases by passing
 a tuple of `AbstractBSplineBasis` as `B`.
 
-See [`galerkin_matrix`](@ref) for details.
+See [`galerkin_matrix`](@ref) for details on arguments.
 """
 function galerkin_matrix! end
 
-galerkin_matrix!(M, B::AbstractBSplineBasis, args...) =
-    galerkin_matrix!(M, (B, B), args...)
+galerkin_matrix!(M::AbstractMatrix, args...; kwargs...) =
+    galerkin_matrix!(Returns(true), M, args...; kwargs...)
+
+galerkin_matrix!(f::F, M::AbstractMatrix, B::AbstractBSplineBasis, args...; kwargs...) where {F <: Function} =
+    galerkin_matrix!(f, M, (B, B), args...; kwargs...)
 
 function galerkin_matrix!(
+        f::F,
         S::AbstractMatrix, Bs::Tuple{Vararg{AbstractBSplineBasis,2}},
-        deriv = Derivative.((0, 0)),
-    )
+        deriv = Derivative.((0, 0));
+        quadrature = default_quadrature(Bs),
+    ) where {F <: Function}
     _check_bases(Bs)
     B1, B2 = Bs
     same_ij = B1 == B2 && deriv[1] == deriv[2]
@@ -198,8 +238,10 @@ function galerkin_matrix!(
     @assert k == order(B2) && ts === knots(B2)
 
     # Quadrature information (nodes, weights).
-    quadx, quadw = _quadrature_prod(Val(2k - 2))
-    @assert length(quadx) == k  # we need k quadrature points per knot segment
+    quadx, quadw = quadrature
+    if length(quadx) < k
+        @warn lazy"quadrature: it is recommended use at least k = $k quadrature nodes (using n = $(length(quadx)))"
+    end
 
     A = if S isa Hermitian
         deriv[1] === deriv[2] ||
@@ -262,7 +304,7 @@ function galerkin_matrix!(
                     @assert iszero(bj)
                     continue
                 end
-                @inbounds A[i, j] += y * bi * bj
+                @inbounds A[i, j] += y * bi * bj * f(x)  # if `f` was not passed, the default is f(x) = true (= 1)
             end
         end
     end

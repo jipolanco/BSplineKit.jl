@@ -19,13 +19,19 @@
 # Here, p is the polynomial order (p = 2k - 2 for the product of two B-splines).
 function _quadrature_prod(::Val{p}) where {p}
     n = cld(p + 1, 2)
-    _gausslegendre(Val(n))
+    gausslegendre(Val(n))
+end
+
+function default_quadrature(Bs::Tuple{Vararg{AbstractBSplineBasis}})
+    # Polynomial order of integrand (the value is usually inferred).
+    polynomial_order = sum(B -> order(B) - 1, Bs)
+    _quadrature_prod(Val(polynomial_order))
 end
 
 # Compile-time computation of Gauss--Legendre nodes and weights.
 # If the @generated branch is taken, then the computation is done at compile
 # time, making sure that no runtime allocations are performed.
-function _gausslegendre(::Val{n}) where {n}
+function gausslegendre(::Val{n}) where {n}
     if @generated
         vecs = _gausslegendre_impl(Val(n))
         :( $vecs )
@@ -35,7 +41,7 @@ function _gausslegendre(::Val{n}) where {n}
 end
 
 function _gausslegendre_impl(::Val{n}) where {n}
-    data = gausslegendre(n)
+    data = FastGaussQuadrature.gausslegendre(n)
     map(SVector{n}, data)
 end
 

@@ -15,7 +15,7 @@ using ..Recombinations: num_constraints
 using ..Collocation: collocation_matrix  # for Documenter
 
 using BandedMatrices
-using FastGaussQuadrature: gausslegendre
+using FastGaussQuadrature: FastGaussQuadrature
 using LinearAlgebra: Hermitian, ⋅
 using SparseArrays
 using StaticArrays
