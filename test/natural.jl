@@ -36,7 +36,6 @@ function test_natural(::Type{T}, ord::BSplineOrder) where {T}
 
     for x ∈ boundaries(R)
         Sx = @inferred S(x)
-        @show Sx
         @test Sx > 1
         rtol = if T === Float64
             2e-8
