@@ -148,14 +148,14 @@ end
 
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
-_default_eltype(::BoundaryCondition) = Float64
-_default_eltype(::Derivative{0}) = Bool  # Dirichlet BCs
-_default_eltype(::Derivative{1}) = Bool  # Neumann BCs
-_default_eltype(::Vararg{AbstractDifferentialOp}) = Float64
+_default_eltype(::Type{T}, ::BoundaryCondition) where {T <: AbstractFloat} = T
+_default_eltype(::Type{T}, ::Derivative{0}) where {T} = Bool  # Dirichlet BCs
+_default_eltype(::Type{T}, ::Derivative{1}) where {T} = Bool  # Neumann BCs
+_default_eltype(::Type{T}, ::Vararg{AbstractDifferentialOp}) where {T <: AbstractFloat} = T
 
 # Case (D(0), D(1), D(2), ...)
-_default_eltype(::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) = Bool  # TODO this isn't always right, is it?
-_default_eltype(ops::DiffOpList) = _default_eltype(ops...)
+_default_eltype(::Type{T}, ::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative}) where {T} = Bool  # TODO this isn't always right, is it?
+_default_eltype(::Type{T}, ops::DiffOpList) where {T} = _default_eltype(T, ops...)
 
 # Same BCs on both sides.
 RecombineMatrix(B::BSplineBasis, ops) = RecombineMatrix(B, ops, ops)
@@ -166,8 +166,9 @@ RecombineMatrix(ops, B::BSplineBasis, args...) = RecombineMatrix(B, ops, args...
 
 # No element type specified.
 function RecombineMatrix(B::BSplineBasis, ops_l, ops_r)
-    Tl = _default_eltype(ops_l)
-    Tr = _default_eltype(ops_r)
+    S = eltype(knots(B))
+    Tl = _default_eltype(S, ops_l)
+    Tr = _default_eltype(S, ops_r)
     T = promote_type(Tl, Tr)
     RecombineMatrix(B, ops_l, ops_r, T)
 end
