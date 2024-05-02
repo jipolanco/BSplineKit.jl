@@ -70,7 +70,7 @@ Broadcast.broadcastable(S::Spline) = Ref(S)
 
 Base.copy(S::Spline) = Spline(basis(S), copy(coefficients(S)))
 
-function Base.show(io::IO, S::Spline)
+function Base.show(io::IO, ::MIME"text/plain", S::Spline)
     println(io, length(S), "-element ", nameof(typeof(S)), '{', eltype(S), '}', ':')
     print(io, " basis: ")
     summary(io, basis(S))
@@ -81,6 +81,8 @@ function Base.show(io::IO, S::Spline)
     end
     nothing
 end
+
+Base.show(io::IO, S::Spline) = show(io, MIME("text/plain"), S)
 
 Base.:(==)(P::Spline, Q::Spline) =
     basis(P) == basis(Q) && coefficients(P) == coefficients(Q)

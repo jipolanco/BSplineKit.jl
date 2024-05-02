@@ -15,6 +15,8 @@ Returns the [`Spline`](@ref) wrapped by the object.
 """
 spline(w::SplineWrapper) = w.spline
 
+Base.show(io::IO, S::SplineWrapper) = show(io, MIME("text/plain"), S)
+
 Base.eltype(::Type{<:SplineWrapper{S}}) where {S} = eltype(S)
 
 (I::SplineWrapper)(x) = spline(I)(x)
