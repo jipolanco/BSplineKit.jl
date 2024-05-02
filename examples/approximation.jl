@@ -9,13 +9,13 @@
 # ``x ∈ [0, 1]``.
 
 using CairoMakie
-CairoMakie.activate!(type = "svg")
+CairoMakie.activate!(type = "svg", pt_per_unit = 2.0)
 
 x_interval = 0..1
 f(x) = exp(-x) * cospi(8x)
 
-fig = Figure(resolution = (800, 600))
-ax = Axis(fig[1, 1]; xlabel = "x")
+fig = Figure()
+ax = Axis(fig[1, 1]; xlabel = rich("x"; font = :italic))
 lines!(ax, x_interval, f)
 fig
 
@@ -73,8 +73,12 @@ function plot_basis!(ax, B; eval_args = (), kws...)
     ax
 end
 
-fig = Figure(resolution = (800, 600))
-ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "bᵢ(x)")
+fig = Figure()
+ax = Axis(
+    fig[1, 1];
+    xlabel = rich("x"; font = :italic),
+    ylabel = rich("b", subscript("i"), rich("(x)"; offset = (0.1, 0.0)); font = :italic),
+)
 plot_basis!(ax, B; knot_offset = 0.05)
 fig
 
@@ -175,17 +179,17 @@ S_minL2 = approximate(f, B, MinimiseL2Error())
 # Below, the approximations using the three methods are compared to the actual
 # function ``f``.
 
-fig = Figure(resolution = (1000, 750))
+fig = Figure(size = (950, 750))
 colours = theme(fig.scene).palette.color[]
 style_vd = (color = colours[3], label = "Variation diminishing")
 style_interp = (color = colours[2], label = "Interpolation")
 style_minL2 = (color = colours[1], label = "L² minimisation")
-let ax = Axis(fig[1:2, 1]; xlabel = "x", ylabel = "Approximation")
+let ax = Axis(fig[1:2, 1]; xlabel = rich("x"; font = :italic), ylabel = "Approximation")
     plot_knots!(ax, knots(B); knot_offset = nothing)
     lines!(ax, x_interval, f; color = :black, linewidth = 2, label = "Original")
-    lines!(ax, x_interval, x -> S_vd(x); style_vd...)
-    lines!(ax, x_interval, x -> S_interp(x); style_interp...)
-    lines!(ax, x_interval, x -> S_minL2(x); style_minL2...)
+    lines!(ax, x_interval, S_vd; style_vd...)
+    lines!(ax, x_interval, S_interp; style_interp...)
+    lines!(ax, x_interval, S_minL2; style_minL2...)
     axislegend(ax)
 end
 let ax = Axis(fig[1, 2]; ylabel = "Difference with original")
@@ -195,7 +199,7 @@ let ax = Axis(fig[1, 2]; ylabel = "Difference with original")
     hidexdecorations!(ax; grid = false)
     axislegend(ax; position = :rt, orientation = :horizontal)
 end
-let ax = Axis(fig[2, 2]; xlabel = "x", ylabel = "Squared difference", yscale = log10)
+let ax = Axis(fig[2, 2]; xlabel = rich("x"; font = :italic), ylabel = "Squared difference", yscale = log10)
     ylims!(1e-8, 1e-2)
     plot_knots!(ax, knots(B); knot_offset = nothing, ybase = 1e-6)
     lines!(ax, x_interval, x -> abs2(S_interp(x) - f(x)); style_interp...)
