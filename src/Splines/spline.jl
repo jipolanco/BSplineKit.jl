@@ -1,7 +1,7 @@
 using StaticArrays: MVector
 
 """
-    Spline{T}
+    Spline{T} <: Function
 
 Represents a spline function.
 
@@ -42,7 +42,7 @@ struct Spline{
         T,  # type of coefficient (e.g. Float64, ComplexF64)
         Basis <: AbstractBSplineBasis,
         CoefVector <: AbstractVector{T},
-    }
+    } <: Function
     basis :: Basis
     coefs :: CoefVector
 

@@ -1,12 +1,12 @@
 """
-    SplineWrapper{S <: Spline}
+    SplineWrapper{S <: Spline} <: Function
 
 Abstract type representing a type that wraps a [`Spline`](@ref).
 
 Such a type implements all common operations on splines, including evaluation,
 differentiation, etc…
 """
-abstract type SplineWrapper{S <: Spline} end
+abstract type SplineWrapper{S <: Spline} <: Function end
 
 """
     spline(w::SplineWrapper) -> Spline
