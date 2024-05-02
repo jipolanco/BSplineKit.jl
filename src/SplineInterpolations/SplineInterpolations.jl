@@ -111,7 +111,7 @@ interpolation_points(S::SplineInterpolation) = S.x
 SplineInterpolation(init, B, x::AbstractVector) =
     SplineInterpolation(init, B, x, eltype(x))
 
-function Base.show(io::IO, I::SplineInterpolation)
+function Base.show(io::IO, ::MIME"text/plain", I::SplineInterpolation)
     println(io, nameof(typeof(I)), " containing the ", spline(I))
     let io = IOContext(io, :compact => true, :limit => true)
         println(io, " interpolation points: ", interpolation_points(I))

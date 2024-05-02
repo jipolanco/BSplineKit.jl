@@ -51,9 +51,9 @@ knots(B)
 
 using CairoMakie
 using LaTeXStrings
-CairoMakie.activate!(type = "svg")
+CairoMakie.activate!(type = "svg", pt_per_unit = 2.0)
 
-function plot_knots!(ax, ts; knot_offset = 0.03, kws...)
+function plot_knots!(ax, ts; knot_offset = 0.05, kws...)
     ys = zero(ts)
     ## Add offset to distinguish knots with multiplicity > 1
     for i in eachindex(ts)[(begin + 1):end]
@@ -80,7 +80,11 @@ function plot_basis!(ax, B; eval_args = (), kws...)
 end
 
 fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"b_i(x)")
+ax = Axis(
+    fig[1, 1];
+    xlabel = rich("x"; font = :italic),
+    ylabel = rich("b", subscript("i"), rich("(x)"; offset = (0.1, 0.0)); font = :italic),
+)
 plot_basis!(ax, B)
 fig
 
@@ -102,7 +106,11 @@ fig
 R = RecombinedBSplineBasis(B, Derivative(1))
 
 fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"ϕ_i(x)")
+ax = Axis(
+    fig[1, 1];
+    xlabel = rich("x"; font = :italic),
+    ylabel = rich("ϕ", subscript("i"), rich("(x)"; offset = (0.1, 0.0)); font = :italic),
+)
 plot_basis!(ax, R)
 fig
 
@@ -112,7 +120,11 @@ fig
 # To verify this, we can plot the basis function derivatives:
 
 fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"ϕ_i^′(x)")
+ax = Axis(
+    fig[1, 1];
+    xlabel = rich("x"; font = :italic),
+    ylabel = rich("ϕ′", subscript("i"; offset = (-0.3, 0.0)), rich("(x)"; offset = (0.1, 0.0)); font = :italic),
+)
 plot_basis!(ax, R; eval_args = (Derivative(1), ), knot_offset = 0.4)
 fig
 
@@ -190,13 +202,13 @@ T = recombination_matrix(R)
 # To see that everything went well, we can plot the exact initial condition and
 # its spline approximation, which show no important differences.
 
-fig = Figure(resolution = (800, 400))
-let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"\theta")
-    lines!(ax, -1..1, θ₀; label = L"θ_0(x)", color = :blue)
-    lines!(ax, -1..1, x -> θ₀_spline(x); label = "Approximation", color = :orange, linestyle = :dash)
+fig = Figure(size = (800, 400))
+let ax = Axis(fig[1, 1]; xlabel = rich("x"; font = :italic), ylabel = rich("θ"; font = :italic))
+    lines!(ax, -1..1, θ₀; label = rich("θ", subscript("0"), rich("(x)"; offset = (0.1, 0.0)); font = :italic), color = :blue)
+    lines!(ax, -1..1, θ₀_spline; label = "Approximation", color = :orange, linestyle = :dash)
     axislegend(ax; position = :cb)
 end
-let ax = Axis(fig[1, 2]; xlabel = L"x", ylabel = "Difference")
+let ax = Axis(fig[1, 2]; xlabel = rich("x"; font = :italic), ylabel = "Difference")
     lines!(ax, -1..1, x -> θ₀(x) - θ₀_spline(x))
     plot_knots!(ax, knots(R); knot_offset = 0)
 end
@@ -318,19 +330,23 @@ sol_collocation = solve(prob, Tsit5(); saveat = 0.5)
 
 function plot_heat_solution(sol, R)
     fig = Figure()
-    ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = L"θ(x, t)")
+    ax = Axis(fig[1, 1]; xlabel = rich("x"; font = :italic), ylabel = rich("θ(x,t)"; font = :italic))
     colormap = cgrad(:viridis)
     tspan = sol.prob.tspan
     Δt = tspan[2] - tspan[1]
     for (u, t) in tuples(sol)
         S = Spline(R, u)
         color = colormap[(t - tspan[1]) / Δt]
-        lines!(ax, -1..1, x -> S(x); label = string(t), color, linewidth = 2)
+        lines!(ax, -1..1, S; label = string(t), color, linewidth = 2)
     end
     Colorbar(fig[1, 2]; colormap, limits = tspan, label = "Time")
     fig
 end
 
+## NOTE: there's an issue in CairoMakie 0.11.10 when saving SVGs with colourbars, so we fall
+## back to PNG output.
+## See https://github.com/MakieOrg/Makie.jl/issues/3016
+CairoMakie.activate!(type = "png", px_per_unit = 2.0)
 plot_heat_solution(sol_collocation, R)
 
 # ## Galerkin method
@@ -407,8 +423,9 @@ plot_heat_solution(sol_galerkin, R)
 # with the collocation method.
 # However, as seen below, there are non-negligible differences between the two.
 
-fig = Figure(resolution = (800, 400))
-let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = latexstring("θ(x, t = $(tspan[end]))"))
+CairoMakie.activate!(type = "svg", pt_per_unit = 2.0)  # hide
+fig = Figure(size = (800, 400))
+let ax = Axis(fig[1, 1]; xlabel = rich("x"; font = :italic), ylabel = rich("θ(x, t = $(tspan[end]))"; font = :italic))
     for pair in (
             "Collocation" => sol_collocation,
             "Galerkin" => sol_galerkin,
@@ -416,11 +433,11 @@ let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = latexstring("θ(x, t = $(tspan[
         label, sol = pair
         u = last(sol.u)
         S = Spline(R, u)
-        lines!(ax, -1..1, x -> S(x); label, linewidth = 2)
+        lines!(ax, -1..1, S; label, linewidth = 2)
     end
     axislegend(ax; position = :cb)
 end
-let ax = Axis(fig[1, 2]; xlabel = L"x", ylabel = "Difference")
+let ax = Axis(fig[1, 2]; xlabel = rich("x"; font = :italic), ylabel = "Difference")
     Sc = Spline(R, last(sol_collocation.u))
     Sg = Spline(R, last(sol_galerkin.u))
     lines!(ax, -1..1, x -> Sc(x) - Sg(x); linewidth = 2)
@@ -451,8 +468,10 @@ hi_res = let
     (; R, sol)
 end
 
-fig = Figure(resolution = (800, 400))
-let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = latexstring("θ(x, t = $(tspan[end]))"))
+fig = Figure(size = (800, 400))
+let ax = Axis(fig[1, 1])
+    ax.xlabel = rich("x"; font = :italic)
+    ax.ylabel = rich("θ(x, t = $(tspan[end]))"; font = :italic)
     for pair in (
             "Collocation" => sol_collocation,
             "Galerkin" => sol_galerkin,
@@ -460,20 +479,21 @@ let ax = Axis(fig[1, 1]; xlabel = L"x", ylabel = latexstring("θ(x, t = $(tspan[
         label, sol = pair
         u = last(sol.u)
         S = Spline(R, u)
-        lines!(ax, -1..1, x -> S(x); label, linewidth = 2)
+        lines!(ax, -1..1, S; label, linewidth = 2)
     end
     let u = last(hi_res.sol.u)
         S = Spline(hi_res.R, u)
-        lines!(ax, -1..1, x -> S(x); label = "Hi-res", linewidth = 2, linestyle = :dash, color = :gray)
+        lines!(ax, -1..1, S; label = "Hi-res", linewidth = 2, linestyle = :dash, color = :gray)
     end
     axislegend(ax; position = :cb)
 end
-let ax = Axis(fig[1, 2]; xlabel = L"x", ylabel = "Difference with hi-res solution")
+let ax = Axis(fig[1, 2]; ylabel = "Difference with hi-res solution")
+    ax.xlabel = rich("x"; font = :italic)
     Sc = Spline(R, last(sol_collocation.u))
     Sg = Spline(R, last(sol_galerkin.u))
     S_hi = Spline(hi_res.R, last(hi_res.sol.u))
-    lines!(ax, -1..1, x -> Sc(x) - S_hi(x); label = "Colloc.", linewidth = 2)
-    lines!(ax, -1..1, x -> Sg(x) - S_hi(x); label = "Galerkin", linewidth = 2)
+    lines!(ax, -1..1, x -> Sc(x) - S_hi(x); label = rich("Collocation"), linewidth = 2)
+    lines!(ax, -1..1, x -> Sg(x) - S_hi(x); label = rich("Galerkin"), linewidth = 2)
     axislegend(ax; position = :rb)
 end
 fig

@@ -69,7 +69,7 @@ method(f::SplineExtrapolation) = f.method
 
 SplineExtrapolation(S::SplineWrapper, args...) = SplineExtrapolation(spline(S), args...)
 
-function Base.show(io::IO, f::SplineExtrapolation)
+function Base.show(io::IO, ::MIME"text/plain", f::SplineExtrapolation)
     println(io, nameof(typeof(f)), " containing the ", spline(f))
     let io = IOContext(io, :compact => true, :limit => true)
         print(io, " extrapolation method: ", method(f))

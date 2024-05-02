@@ -48,7 +48,7 @@ method(a::SplineApproximation) = a.method
 SplineInterpolations.spline(a::SplineApproximation) = a.spline
 data(a::SplineApproximation) = a.data
 
-function Base.show(io::IO, A::SplineApproximation)
+function Base.show(io::IO, ::MIME"text/plain", A::SplineApproximation)
     print(io, nameof(typeof(A)), " containing the ", spline(A))
     print(io, "\n approximation method: ", method(A))
     nothing
@@ -76,7 +76,6 @@ This completely avoids allocations and strongly reduces computation time.
 
 ```jldoctest
 julia> B = BSplineBasis(BSplineOrder(3), -1:0.4:1);
-
 
 julia> S_interp = approximate(sin, B)
 SplineApproximation containing the 7-element Spline{Float64}:

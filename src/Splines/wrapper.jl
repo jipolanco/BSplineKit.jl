@@ -1,12 +1,12 @@
 """
-    SplineWrapper{S <: Spline}
+    SplineWrapper{S <: Spline} <: Function
 
 Abstract type representing a type that wraps a [`Spline`](@ref).
 
 Such a type implements all common operations on splines, including evaluation,
 differentiation, etc…
 """
-abstract type SplineWrapper{S <: Spline} end
+abstract type SplineWrapper{S <: Spline} <: Function end
 
 """
     spline(w::SplineWrapper) -> Spline
@@ -14,6 +14,8 @@ abstract type SplineWrapper{S <: Spline} end
 Returns the [`Spline`](@ref) wrapped by the object.
 """
 spline(w::SplineWrapper) = w.spline
+
+Base.show(io::IO, S::SplineWrapper) = show(io, MIME("text/plain"), S)
 
 Base.eltype(::Type{<:SplineWrapper{S}}) where {S} = eltype(S)
 

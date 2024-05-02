@@ -31,14 +31,14 @@ S = interpolate(xs, ys, BSplineOrder(4))
 
 # Let's plot the result:
 
-lines!(0..1, x -> S(x); label = "k = 4", color = Cycled(4 - 3))
+lines!(0..1, S; label = "k = 4", color = Cycled(4 - 3))
 current_figure()  # hide
 
 # We can also choose other interpolation orders for comparison:
 
 for k ∈ (5, 6, 8)
     S = interpolate(xs, ys, BSplineOrder(k))
-    lines!(0..1, x -> S(x); label = "k = $k", color = Cycled(k - 3))
+    lines!(0..1, S; label = "k = $k", color = Cycled(k - 3))
 end
 axislegend()
 current_figure()  # hide
@@ -78,8 +78,8 @@ Snat = interpolate(xs, ys, BSplineOrder(k), Natural())  # with natural BCs
 # Let's look at the result:
 
 scatter(xs, ys; label = "Data", color = :black)
-lines!(0..1, x -> S(x); label = "k = $k (original)", linewidth = 2)
-lines!(0..1, x -> Snat(x); label = "k = $k (natural)", linestyle = :dash, linewidth = 4)
+lines!(0..1, S; label = "k = $k (original)", linewidth = 2)
+lines!(0..1, Snat; label = "k = $k (natural)", linestyle = :dash, linewidth = 4)
 axislegend()
 current_figure()  # hide
 
@@ -114,12 +114,12 @@ E_smooth = extrapolate(S, Smooth())
 
 #
 
-fig = Figure(resolution = (600, 400))
+fig = Figure(size = (600, 400))
 ax = Axis(fig[1, 1])
 scatter!(ax, xs, ys; label = "Data", color = :black)
-lines!(ax, -0.5..1.5, x -> S(x); label = "No extrapolation", linewidth = 2)
-lines!(ax, -0.5..1.5, x -> E_smooth(x); label = "Smooth", linestyle = :dash, linewidth = 2)
-lines!(ax, -0.5..1.5, x -> E_flat(x); label = "Flat", linestyle = :dot, linewidth = 2)
+lines!(ax, -0.5..1.5, S; label = "No extrapolation", linewidth = 2)
+lines!(ax, -0.5..1.5, E_smooth; label = "Smooth", linestyle = :dash, linewidth = 2)
+lines!(ax, -0.5..1.5, E_flat; label = "Flat", linestyle = :dot, linewidth = 2)
 axislegend(ax)
 fig
 
