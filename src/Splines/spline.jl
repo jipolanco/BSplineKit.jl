@@ -141,7 +141,7 @@ knots(S::Spline) = knots(basis(S))
 order(::Type{<:Spline{T,Basis}}) where {T,Basis} = order(Basis)
 order(S::Spline) = order(typeof(S))
 
-(S::Spline)(x) = evaluate(S, x)
+(S::Spline)(x, args...) = evaluate(S, x, args...)
 
 @inline function evaluate(S::Spline, x, args...)
     B = basis(S)
