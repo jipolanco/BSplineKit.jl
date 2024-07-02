@@ -4,6 +4,7 @@ export
     SplineExtrapolation,
     extrapolate,
     Flat,
+    Linear,
     Smooth
 
 using ..BSplines
@@ -28,6 +29,27 @@ function extrapolate_at_point(::Flat, S::Spline, x)
     a, b = boundaries(basis(S))
     x′ = clamp(x, a, b)
     S(x′)
+end
+
+"""
+    Linear <: AbstractExtrapolationMethod
+
+Represents a linear extrapolation: splines are order 2 beyond the left and right boundaries.
+"""
+struct Linear <: AbstractExtrapolationMethod end
+
+function extrapolate_at_point(::Linear, S::Spline, x)
+    a, b = boundaries(basis(S))
+    if x < a
+        slope = (S(a + eps()) - S(a)) / eps()
+        S(a) + slope * (x - a)
+    elseif x > b
+        slope = (S(b) - S(b - eps())) / eps()
+        S(b) + slope * (x - b)
+    else
+        x′ = clamp(x, a, b)
+        S(x′)
+    end
 end
 
 """
