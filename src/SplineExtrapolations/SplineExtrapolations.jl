@@ -34,7 +34,7 @@ end
 """
     Linear <: AbstractExtrapolationMethod
 
-Represents a linear extrapolation: splines are order 2 beyond the left and right boundaries.
+Represents a linear extrapolation: splines values extend linearly beyond the left and right boundaries.
 """
 struct Linear <: AbstractExtrapolationMethod end
 
