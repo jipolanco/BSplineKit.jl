@@ -41,14 +41,13 @@ struct Linear <: AbstractExtrapolationMethod end
 function extrapolate_at_point(::Linear, S::Spline, x)
     a, b = boundaries(basis(S))
     if x < a
-        slope = (S(a + eps()) - S(a)) / eps()
+        slope = ForwardDiff.derivative(S, a)
         S(a) + slope * (x - a)
     elseif x > b
-        slope = (S(b) - S(b - eps())) / eps()
+        slope = ForwardDiff.derivative(S, b)
         S(b) + slope * (x - b)
     else
-        x′ = clamp(x, a, b)
-        S(x′)
+        S(x)
     end
 end
 
