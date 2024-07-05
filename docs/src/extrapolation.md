@@ -21,6 +21,7 @@ extrapolate
 
 ```@docs
 Flat
+Linear
 Smooth
 ```
 
