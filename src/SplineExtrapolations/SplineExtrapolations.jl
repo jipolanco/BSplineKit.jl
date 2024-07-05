@@ -9,6 +9,7 @@ export
 
 using ..BSplines
 using ..Splines
+using ForwardDiff
 
 """
     AbstractExtrapolationMethod

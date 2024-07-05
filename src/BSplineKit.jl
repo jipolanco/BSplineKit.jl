@@ -2,8 +2,7 @@ module BSplineKit
 
 using Reexport
 using PrecompileTools
-using LinearAlgebra: LinearAlgebra
-using ForwardDiff  # needed for docs
+using LinearAlgebra: LinearAlgebra 
 
 include("BandedTensors/BandedTensors.jl")
 @reexport using .BandedTensors

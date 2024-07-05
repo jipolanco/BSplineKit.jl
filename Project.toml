@@ -6,6 +6,7 @@ version = "0.17.3"
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

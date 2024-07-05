@@ -1,5 +1,6 @@
 [deps]
 BSplineKit = "093aae92-e908-43d7-9660-e50ee39d5a0a"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
