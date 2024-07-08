@@ -96,7 +96,7 @@ current_figure()  # hide
 #
 # First, we generate and interpolate new data:
 
-xs = 0:0.2:1
+xs = 0.2:0.2:1.2
 ys = 2 * cospi.(xs)
 S = interpolate(xs, ys, BSplineOrder(4))
 
@@ -110,6 +110,7 @@ S(-0.32)
 # Here we compare both [`Flat`](@ref) and [`Smooth`](@ref) methods:
 
 E_flat   = extrapolate(S, Flat())
+E_linear = extrapolate(S, Linear())
 E_smooth = extrapolate(S, Smooth())
 
 #
@@ -119,6 +120,7 @@ ax = Axis(fig[1, 1])
 scatter!(ax, xs, ys; label = "Data", color = :black)
 lines!(ax, -0.5..1.5, S; label = "No extrapolation", linewidth = 2)
 lines!(ax, -0.5..1.5, E_smooth; label = "Smooth", linestyle = :dash, linewidth = 2)
+lines!(ax, -0.5..1.5, E_linear; label = "Linear", linestyle = :dashdot, linewidth = 2)
 lines!(ax, -0.5..1.5, E_flat; label = "Flat", linestyle = :dot, linewidth = 2)
 axislegend(ax)
 fig
