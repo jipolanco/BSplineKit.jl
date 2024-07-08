@@ -1,7 +1,28 @@
 using BSplineKit
+using StaticArrays
 using LinearAlgebra
 using Random
 using Test
+
+# For now this only works for cubic splines.
+function test_parametric_curve(ord::BSplineOrder{4})
+    L = 2π
+    θs = range(0, L; length = 6)[1:5]  # input angles in [0, 2π)
+    points = [SVector(cos(θ), sin(θ)) for θ ∈ θs]
+    S = interpolate(θs, copy(points), ord, Periodic(L))
+    a, b = boundaries(basis(S))
+    @test a == 0
+    @test b == L
+    # Verify continuity of the curve
+    S′ = Derivative(1) * S
+    S″ = Derivative(2) * S
+    S‴ = Derivative(3) * S
+    @test S(a) == S(b)
+    @test S′(a) == S′(b)
+    @test S″(a) == S″(b)
+    @test S‴(a) == S‴(b)
+    nothing
+end
 
 function test_periodic_splines(ord::BSplineOrder)
     k = order(ord)
@@ -169,6 +190,10 @@ function test_periodic_splines(ord::BSplineOrder)
         @test all(axes(G, 2)) do j
             sum(view(G, :, j)) ≈ (ts[j+k] - ts[j]) / k
         end
+    end
+
+    if k == 4
+        @testset "Parametric closed curve" test_parametric_curve(ord)
     end
 
     nothing
