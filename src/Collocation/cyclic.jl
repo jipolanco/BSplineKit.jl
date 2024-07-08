@@ -127,9 +127,10 @@ function LinearAlgebra.ldiv!(x::AbstractVector, A::CyclicTridiagonalMatrix, d::A
     γ = sqrt(ac)  # value required to perturb b[1] and b[n] with the same offset
 
     u = x  # alias to avoid allocations
-    fill!(u, 0)
-    u[1] = γ
-    u[n] = cₙ
+    T = eltype(u)
+    fill!(u, zero(T))
+    u[1] = convert_scalar(T, γ)  # if T is e.g. a SVector{2}, this is the SVector [γ, γ]
+    u[n] = convert_scalar(T, cₙ)
 
     v1 = 1
     vn = a₁ / γ
@@ -151,13 +152,16 @@ function LinearAlgebra.ldiv!(x::AbstractVector, A::CyclicTridiagonalMatrix, d::A
     vy = v1 * y[1] + vn * y[n]
     vq = v1 * q[1] + vn * q[n]
 
-    α = vy / (1 + vq)
+    α = @. vy / (1 + vq)  # broadcast in case T <: StaticArray
     for i ∈ eachindex(x)
-        @inbounds x[i] = y[i] - α * q[i]
+        @inbounds x[i] = y[i] - α .* q[i]  # broadcast in case T <: StaticArray
     end
 
     x
 end
+
+convert_scalar(::Type{T}, x::Number) where {T <: Number} = T(x)
+convert_scalar(::Type{T}, x::Number) where {T <: AbstractArray} = fill(x, T)  # typically when T is a StaticArray
 
 # Simultaneously solve M (non-cyclic) tridiagonal linear systems using Thomas algorithm.
 # Note that xs[i] and ds[i] can be aliased.
