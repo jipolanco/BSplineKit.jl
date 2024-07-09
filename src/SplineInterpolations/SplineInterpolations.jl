@@ -2,7 +2,7 @@ module SplineInterpolations
 
 using ..BSplines
 using ..Collocation
-using ..Collocation: CyclicTridiagonalMatrix
+using ..Collocation: CyclicTridiagonalMatrix, IdentityMatrix
 using ..Splines
 
 using BandedMatrices
@@ -50,7 +50,7 @@ locations.
 """
 struct SplineInterpolation{
         S <: Spline,
-        F <: Factorization,
+        F <: Union{Factorization, IdentityMatrix},
         Points <: AbstractVector,
         ColMatCopy <: Union{Nothing, AbstractMatrix},
     } <: SplineWrapper{S}
@@ -66,12 +66,12 @@ struct SplineInterpolation{
     C_copy :: ColMatCopy
 
     function SplineInterpolation(
-            B::AbstractBSplineBasis, C::Factorization, x::AbstractVector,
+            B::AbstractBSplineBasis, C::Union{Factorization, IdentityMatrix}, x::AbstractVector,
             ::Type{T};
             C_copy = nothing,
         ) where {T}
         N = length(B)
-        size(C) == (N, N) ||
+        C isa IdentityMatrix || size(C) == (N, N) ||
             throw(DimensionMismatch("collocation matrix has wrong dimensions"))
         length(x) == N ||
             throw(DimensionMismatch("wrong number of collocation points"))
@@ -100,10 +100,12 @@ end
 
 # Factorise in-place when possible.
 _factorise!(C::AbstractMatrix) = lu!(C)
+_factorise!(I::IdentityMatrix) = I  # identity matrix (for periodic linear splines)
 _factorise!(C::SparseMatrixCSC) = lu(C)  # SparseMatrixCSC doesn't support `lu!`
 
 # Create copy if required by the matrix type.
 _maybe_copy_matrix(::AbstractMatrix) = nothing
+_maybe_copy_matrix(::IdentityMatrix) = nothing   # identity matrix (for periodic linear splines)
 _maybe_copy_matrix(C::CyclicTridiagonalMatrix) = copy(C)  # periodic cubic splines
 
 interpolation_points(S::SplineInterpolation) = S.x

@@ -12,12 +12,15 @@ using ..DifferentialOps
 using ..Recombinations: num_constraints
 
 using BandedMatrices
+using LinearAlgebra: LinearAlgebra
 using SparseArrays
 using StaticArrays: Size, SVector, MVector, SMatrix, MMatrix
 
 # For Documenter only:
 using ..Recombinations: RecombinedBSplineBasis
 using ..BoundaryConditions: Natural
+
+const IdentityMatrix = typeof(LinearAlgebra.I)
 
 include("matrix.jl")
 include("points.jl")
@@ -139,6 +142,19 @@ _default_matrix_type(::BSplineOrder, ::Type{<:PeriodicBSplineBasis}, ::Type{T}) 
     SparseMatrixCSC{T}
 _default_matrix_type(::BSplineOrder{4}, ::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
     CyclicTridiagonalMatrix{T}
+
+# In this case the collocation matrix is simply the identity matrix.
+# We assume knots are located at collocation points (otherwise this is not true).
+_default_matrix_type(::BSplineOrder{2}, ::Type{<:PeriodicBSplineBasis}, ::Type{T}) where {T} =
+    IdentityMatrix
+
+allocate_collocation_matrix(::Type{IdentityMatrix}, x, B) = LinearAlgebra.I
+
+function collocation_matrix!(C::IdentityMatrix, B::PeriodicBSplineBasis, x, ::Derivative{0}; kwargs...)
+    ts = @view parent(knots(B))[1:end-1]  # knot locations in [0, L)
+    ts == x || throw(ArgumentError("expected collocation points to match B-spline knots"))
+    C
+end
 
 allocate_collocation_matrix(::Type{M}, x, B) where {M <: AbstractMatrix} =
     M(undef, length(x), length(B))
