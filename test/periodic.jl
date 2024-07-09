@@ -4,23 +4,21 @@ using LinearAlgebra
 using Random
 using Test
 
-# For now this only works for cubic splines.
-function test_parametric_curve(ord::BSplineOrder{4})
+# For now this only works for linear (k = 2) and cubic (k = 4) splines.
+function test_parametric_curve(ord::BSplineOrder{k}) where {k}
     L = 2π
     θs = range(0, L; length = 6)[1:5]  # input angles in [0, 2π)
     points = [SVector(cos(θ), sin(θ)) for θ ∈ θs]
-    S = interpolate(θs, copy(points), ord, Periodic(L))
+    S = @inferred interpolate(θs, copy(points), ord, Periodic(L))
     a, b = boundaries(basis(S))
     @test a == 0
     @test b == L
     # Verify continuity of the curve
-    S′ = Derivative(1) * S
-    S″ = Derivative(2) * S
-    S‴ = Derivative(3) * S
     @test S(a) == S(b)
-    @test S′(a) == S′(b)
-    @test S″(a) == S″(b)
-    @test S‴(a) == S‴(b)
+    for n ∈ 1:(k - 1)
+        dS = Derivative(n) * S
+        @test dS(a) == dS(b)
+    end
     nothing
 end
 
@@ -117,7 +115,8 @@ function test_periodic_splines(ord::BSplineOrder)
         end
 
         @testset "Approximations" begin
-            @test isapprox(app_in(x), ftest(x); rtol=0.01)
+            rtol = k ≤ 2 ? 0.02 : 0.01
+            @test isapprox(app_in(x), ftest(x); rtol)  # requires slightly larger tolerance for k = 2
             @test isapprox(app_L2(x), ftest(x); rtol=0.01)
         end
     end
@@ -148,7 +147,9 @@ function test_periodic_splines(ord::BSplineOrder)
             coefficients(Sp) .= @view coefs[(δ+1):(δ+length(Sp))]
             @test Sn(x) == Sp(x)
             @test (Derivative(1) * Sn)(x) == (Derivative(1) * Sp)(x)
-            @test (Derivative(2) * Sn)(x) == (Derivative(2) * Sp)(x)
+            if k > 2
+                @test (Derivative(2) * Sn)(x) == (Derivative(2) * Sp)(x)
+            end
             ∫n = integral(Sn)
             ∫p = integral(Sp)
             @test ∫n(x′) - ∫n(x) ≈ ∫p(x′) - ∫p(x)
@@ -159,8 +160,10 @@ function test_periodic_splines(ord::BSplineOrder)
         xs = @inferred collocation_points(B)
         @test iseven(k) == (xs == breaks[begin:end-1])  # this is the default for even k
         C = @inferred collocation_matrix(B, xs)
-        @test cond(Array(C)) < 1e3
-        @test all(≈(1), sum(C; dims=2))  # partition of unity
+        if C !== LinearAlgebra.I  # case of linear splines (k = 2)
+            @test cond(Array(C)) < 1e3
+            @test all(≈(1), sum(C; dims=2))  # partition of unity
+        end
 
         # Interpolate manually
         ys = ftest.(xs)
@@ -192,7 +195,7 @@ function test_periodic_splines(ord::BSplineOrder)
         end
     end
 
-    if k == 4
+    if k ∈ (2, 4)
         @testset "Parametric closed curve" test_parametric_curve(ord)
     end
 
