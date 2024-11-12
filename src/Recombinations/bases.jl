@@ -178,9 +178,10 @@ Currently, the following cases are supported:
    where `k` is the spline order (which must be even).
    See [`Natural`](@ref) for details.
 
-4. "free" boundary conditions can simply be obtained by passing an empty tuple:
+4. "free" boundary conditions can simply be obtained by passing an empty tuple or `nothing`:
 
         ops = ()
+        ops = nothing
 
    This means that no recombination will be performed. Therefore, if applied at the two
    boundaries, the resulting basis will be identical to the original basis, which is not
@@ -228,11 +229,14 @@ struct RecombinedBSplineBasis{
 
     function RecombinedBSplineBasis(B::BSplineBasis{k,T}, ops_left, ops_right) where {k,T}
         Parent = typeof(B)
-        M = RecombineMatrix(B, ops_left, ops_right)
+        M = RecombineMatrix(B, normalise_ops(ops_left), normalise_ops(ops_right))
         RMatrix = typeof(M)
         new{k,T,Parent,RMatrix}(B, M)
     end
 end
+
+normalise_ops(ops) = ops
+normalise_ops(::Nothing) = ()  # convert `nothing` to empty tuple (free BCs)
 
 # Same BCs on both boundaries.
 RecombinedBSplineBasis(B::BSplineBasis, ops) = RecombinedBSplineBasis(B, ops, ops)

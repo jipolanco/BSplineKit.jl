@@ -361,7 +361,7 @@ end
 function test_free_bcs()
     knots_base = 0:0.1:2
     B = BSplineBasis(BSplineOrder(4), knots_base)
-    op = ()  # free BCs
+    op = nothing  # free BCs (same as passing an empty tuple)
     # This "recombined" basis is in fact identical to the original basis.
     R = @inferred RecombinedBSplineBasis(B, op)
     @test length(R) == length(B)  # same number of degrees of freedom (trivial)

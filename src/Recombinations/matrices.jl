@@ -149,6 +149,7 @@ end
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
 _default_eltype(::Type{T}, ::BoundaryCondition) where {T <: AbstractFloat} = T
+_default_eltype(::Type{T}) where {T <: AbstractFloat} = Bool  # free BC
 _default_eltype(::Type{T}, ::Derivative{0}) where {T <: AbstractFloat} = Bool  # Dirichlet BCs
 _default_eltype(::Type{T}, ::Derivative{1}) where {T <: AbstractFloat} = Bool  # Neumann BCs
 _default_eltype(::Type{T}, ::Vararg{AbstractDifferentialOp}) where {T <: AbstractFloat} = T
