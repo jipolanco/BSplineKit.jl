@@ -178,6 +178,15 @@ Currently, the following cases are supported:
    where `k` is the spline order (which must be even).
    See [`Natural`](@ref) for details.
 
+4. "free" boundary conditions can simply be obtained by passing an empty tuple:
+
+        ops = ()
+
+   This means that no recombination will be performed. Therefore, if applied at the two
+   boundaries, the resulting basis will be identical to the original basis, which is not
+   very useful. In practice it can make sense to apply this on one of the boundaries,
+   complemented by an actual boundary condition on the other end.
+
 In the first two cases, the degrees of the differential operators must be in
 increasing order.
 For instance, `ops = (Derivative(1), Derivative(0))` fails with an error.
