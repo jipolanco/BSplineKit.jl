@@ -358,11 +358,29 @@ function test_natural_recombination_conditioning()
     nothing
 end
 
+function test_free_bcs()
+    knots_base = 0:0.1:2
+    B = BSplineBasis(BSplineOrder(4), knots_base)
+    op = ()  # free BCs
+    # This "recombined" basis is in fact identical to the original basis.
+    R = @inferred RecombinedBSplineBasis(B, op)
+    @test length(R) == length(B)  # same number of degrees of freedom (trivial)
+    @test B(0.02) == R(0.02)
+    @test B(0.34) == R(0.34)
+    @test B(1.99) == R(1.99)
+    M = recombination_matrix(R)
+    @test M == LinearAlgebra.I
+    nothing
+end
+
 @testset "Basis recombination" begin
     test_basis_recombination()
     @testset "Natural BCs" begin
         test_natural_recombination()
         test_natural_recombination_conditioning()
+    end
+    @testset "Free BCs" begin
+        test_free_bcs()
     end
     @testset "Hybrid BCs" begin
         B = BSplineBasis(BSplineOrder(4), 0:0.1:1)
