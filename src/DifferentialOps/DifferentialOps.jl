@@ -78,7 +78,7 @@ dot(op::AbstractDifferentialOp, dir::AbstractNormalDirection) = dot(dir, op)
 dot(::RightNormal, op) = op
 
 max_order(ops::Vararg{AbstractDifferentialOp}) = max(max_order.(ops)...)
-max_order() = 0  # no operators
+max_order() = -1  # no operators (-1 needed for free BCs => means that no B-spline is recombined)
 
 """
     Derivative{n} <: AbstractDifferentialOp

@@ -149,6 +149,7 @@ end
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
 _default_eltype(::Type{T}, ::BoundaryCondition) where {T <: AbstractFloat} = T
+_default_eltype(::Type{T}) where {T <: AbstractFloat} = Bool  # free BC
 _default_eltype(::Type{T}, ::Derivative{0}) where {T <: AbstractFloat} = Bool  # Dirichlet BCs
 _default_eltype(::Type{T}, ::Derivative{1}) where {T <: AbstractFloat} = Bool  # Neumann BCs
 _default_eltype(::Type{T}, ::Vararg{AbstractDifferentialOp}) where {T <: AbstractFloat} = T
@@ -190,6 +191,13 @@ end
 _normalise_ops(op::AbstractDifferentialOp, B) = (op,)
 _normalise_ops(op::DerivativeUnitRange, B) = Tuple(op)  # Derivative(0:1) -> (Derivative(0), Derivative(1))
 _normalise_ops(op::Tuple, B) = op
+
+# Specialisation for free BCs (trivial!)
+function _make_submatrix(::Tuple{}, Bdata::Tuple, ::Type{T}) where {T}
+    ndrop = 0
+    A = SMatrix{0, 0, T}()
+    ndrop, A
+end
 
 # Specialisation for Dirichlet BCs: we simply drop the first/last B-spline.
 function _make_submatrix(::Tuple{Derivative{0}}, Bdata::Tuple, ::Type{T}) where {T}
