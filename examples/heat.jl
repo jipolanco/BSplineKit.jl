@@ -305,11 +305,11 @@ Lcol = collocation_matrix(R, xcol, Derivative(2))
 ν = 0.01
 Lcol *= ν
 
-# Finally, for the time integration, we use OrdinaryDiffEq.jl from the
+# Finally, for the time integration, we use OrdinaryDiffEqTsit5.jl from the
 # [DifferentialEquations.jl suite](https://diffeq.sciml.ai/stable/).
 
 using LinearAlgebra
-using OrdinaryDiffEq
+using OrdinaryDiffEqTsit5
 
 function heat_rhs!(du, u, params, t)
     mul!(du, params.L, u)    # du = ν * L * u
