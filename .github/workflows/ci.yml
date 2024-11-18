@@ -64,6 +64,9 @@ jobs:
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1.11'
+      - uses: julia-actions/cache@v2
+        with:
+          cache-registries: "true"
       - name: Install dependencies
         run: |
           julia --project=docs -e '
