@@ -3,6 +3,7 @@ module SplineInterpolations
 using ..BSplines
 using ..Collocation
 using ..Collocation: CyclicTridiagonalMatrix, IdentityMatrix
+using ..DifferentialOps: Derivative
 using ..Splines
 
 using BandedMatrices
@@ -21,7 +22,9 @@ using ..Recombinations:
 using ..BoundaryConditions
 
 export
-    SplineInterpolation, spline, interpolate, interpolate!
+    SplineInterpolation, spline, interpolate, interpolate!, fit
+
+include("smoothing.jl")
 
 """
     SplineInterpolation

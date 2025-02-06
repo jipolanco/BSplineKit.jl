@@ -86,6 +86,58 @@ current_figure()  # hide
 # Clearly, the spurious oscillations are strongly suppressed near the
 # boundaries.
 
+# ## [Smoothing cubic splines](@id smoothing-example)
+#
+# One can use [smoothing splines](https://en.wikipedia.org/wiki/Smoothing_spline)
+# to fit noisy data.
+# A smoothing spline is a curve which passes close to the input data, while avoiding strong
+# fluctuations due to possible noise.
+# The smoothign strength is controlled by a regularisation parameter ``λ``.
+# Setting ``λ = 0`` corresponds to a regular interpolation (the obtained spline passes
+# through all the points), while increasing ``λ`` leads to a smoother curve which roughly
+# approximates the data.
+#
+# Given a set of data points ``(x_i, y_i)``, the idea is to construct a spline ``S(x)`` that
+# minimises:
+# 
+# ```math
+# ∑_{i = 1}^N w_i |y_i - S(x_i)|^2 + λ ∫_{x_1}^{x_N} \left[ S''(x) \right]^2 \, \mathrm{d}x
+# ```
+#
+# Here ``w_i`` are optional weights that may be used to give "priority" to certain data
+# points.
+#
+# Note that only cubic splines (order ``k = 4``) are currently supported.
+
+rng = MersenneTwister(42)
+Ndata = 20
+xs = sort!(rand(rng, Ndata))
+xs[begin] = 0; xs[end] = 1;   # not strictly necessary; just to set the data limits
+ys = cospi.(2 .* xs) .+ 0.04 .* randn(rng, Ndata);
+
+# Create smoothing spline from data:
+
+λ = 1e-3
+S_fit = fit(xs, ys, λ)
+
+# If we want the spline to pass very near a single data point, we can assign a
+# larger weight to that point:
+
+weights = fill!(similar(xs), 1)
+weights[12] = 100  # larger weight to point i = 12
+S_fit_weight = fit(xs, ys, λ; weights)
+
+# Plot results and compare with natural cubic spline interpolation:
+
+S_interp = interpolate(xs, ys, BSplineOrder(4), Natural())
+
+scatter(xs, ys; label = "Data", color = :black)
+lines!(0..1, S_interp; label = "Interpolation", linewidth = 2)
+lines!(0..1, S_fit; label = "Fit (λ = $λ)", linewidth = 2)
+lines!(0..1, S_fit_weight; label = "Fit (λ = $λ) with weight", linestyle = :dash, linewidth = 2)
+axislegend(position = (0.5, 1))
+current_figure()  # hide
+
 # ## [Extrapolations](@id extrapolation-example)
 #
 # One can use extrapolation to evaluate splines outside of their domain of definition.
