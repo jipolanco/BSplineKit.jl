@@ -12,8 +12,8 @@ This package provides:
 - evaluation of [splines](@ref Splines-api) and their derivatives and
   integrals;
 
-- [spline interpolations](@ref interpolation-api) and
-  [function approximation](@ref function-approximation-api);
+- [spline interpolations](@ref interpolation-example), [smoothing splines](@ref smoothing-example) and
+  [function approximation](@ref function-approximation-example);
 
 - [basis recombination](@ref basis-recombination-api), for generating bases
   satisfying homogeneous boundary conditions using linear combinations of

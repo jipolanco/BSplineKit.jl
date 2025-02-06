@@ -17,7 +17,7 @@ This package provides:
 
 - evaluation of splines and their derivatives and integrals;
 
-- spline interpolations and function approximation;
+- spline interpolations, smoothing splines and function approximation;
 
 - basis recombination, for generating bases satisfying homogeneous boundary
   conditions using linear combinations of B-splines.
