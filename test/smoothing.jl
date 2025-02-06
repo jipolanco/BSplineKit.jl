@@ -4,7 +4,7 @@ using BSplineKit
 using QuadGK: quadgk
 using Test
 
-# Returns the integral of S''(x) (the "curvature") over the whole spline.
+# Returns the integral of |S''(x)| (the "curvature") over the whole spline.
 function total_curvature(S::Spline)
     ts = knots(S)
     k = order(S)
