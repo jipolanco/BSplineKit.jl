@@ -85,7 +85,7 @@ function fit(
         A' * Diagonal(weights) * A  # = A' * W * A
     end
 
-    @. buf_1 = buf_1 + 2 *  buf_2  # (H'D + D'H) * (λ / 6) + 2 * A' * W * A
+    @. buf_1 = buf_1 + 2 * buf_2  # (H'D + D'H) * (λ / 6) + 2 * A' * W * A
     M = Hermitian(buf_1)  # the matrix is actually symmetric (usually positive definite)
     F = cholesky!(M)      # factorise matrix (assuming posdef)
 
