@@ -21,12 +21,21 @@ function smoothing_objective(cs, R::AbstractBSplineBasis, xs, ys; weights = noth
         loss += w * abs2(ys[i] - S(xs[i]))
     end
 
+    ts = knots(S)
+    k = order(S)
+    h = k ÷ 2
+    ts_intervals = if R isa PeriodicBSplineBasis
+        (firstindex(ts) + h):(lastindex(ts) - h)
+    else
+        (firstindex(ts) + k - 1):(lastindex(ts) - k)
+    end
+
     # Integrate roughness term interval by interval
-    for i in eachindex(xs)[1:end-1]
+    for i in ts_intervals
         # Note: S″(x) is linear within each interval, and thus the integrand is quadratic.
         # Therefore, a two-point GL quadrature is exact (weights = 1 and locations = ±1/√3).
-        a = xs[i]
-        b = xs[i + 1]
+        a = ts[i]
+        b = ts[i + 1]
         Δ = (b - a) / 2
         xc = (a + b) / 2
         gl_weight = 1
@@ -41,8 +50,8 @@ function smoothing_objective(cs, R::AbstractBSplineBasis, xs, ys; weights = noth
 end
 
 function check_zero_gradient(S::Spline, xs, ys; weights = nothing, λ)
-    cs = coefficients(S)
     R = basis(S)  # usually a RecombinedBSplineBasis
+    cs = parent(coefficients(S))  # `parent` is useful if this is a PeriodicBSplineBasis
 
     # Not sure how useful this is...
     ∇f = similar(cs)  # gradient wrt coefficients
@@ -124,5 +133,19 @@ end
         @test abs(Sw(xs[3]) - ys[3]) < abs(S(xs[3]) - ys[3])  # the new curve is closer to the data point i = 3
         @test total_curvature(Sw) > total_curvature(S)  # since we give more importance to data fitting (basically, the sum of weights is larger)
         @test distance_from_data(Sw, xs, ys) < distance_from_data(S, xs, ys)
+    end
+
+    @testset "Periodic" begin
+        λ = 1e-4
+        N = 100
+        xs = [-cospi(n / N) for n = 0:(N - 1)]
+        ys = @. cospi(xs) + 0.1 * sinpi(200 * xs)  # smooth + highly fluctuating components
+        S = @inferred fit(xs, ys, λ, Periodic(2))
+        check_zero_gradient(S, xs, ys; λ)
+        # With weights
+        weights = fill!(similar(xs), 1)
+        weights[3] = 1000
+        Sw = fit(xs, ys, λ; weights)
+        check_zero_gradient(Sw, xs, ys; λ, weights)
     end
 end
