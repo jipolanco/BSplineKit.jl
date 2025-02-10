@@ -1,9 +1,9 @@
 @doc raw"""
-    fit(xs, ys, λ::Real, [BSplineOrder(4)]; [weights = nothing])
+    fit(xs, ys, λ::Real, [BSplineOrder(4)], [bc = Natural()]; [weights = nothing])
 
 Fit a cubic smoothing spline to the given data.
 
-Returns a natural cubic spline which roughly passes through the data (points `(xs[i], ys[i])`)
+Returns a cubic spline which roughly passes through the data (points `(xs[i], ys[i])`)
 given some smoothing parameter ``λ``.
 Note that ``λ = 0`` means no smoothing and the results are equivalent to
 all the data.
@@ -19,6 +19,9 @@ More precisely, the returned spline ``S(x)`` minimises:
 ```
 
 Only cubic splines (`BSplineOrder(4)`) are currently supported.
+Moreover, the boundary condition (`bc`) must be [`Periodic`](@ref) for a periodic spline
+or [`Natural`](@ref) otherwise (this is the default).
+(Currently, the periodic case can be much slower than the default natural condition.)
 
 # Examples
 
@@ -39,8 +42,9 @@ julia> S = fit(xs, ys, λ)
 """
 function fit end
 
+# Natural BCs
 function fit(
-        xs::AbstractVector, ys::AbstractVector, λ::Real, order::BSplineOrder{4};
+        xs::AbstractVector, ys::AbstractVector, λ::Real, order::BSplineOrder{4}, ::Natural;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -107,4 +111,76 @@ function fit(
     Spline(R, cs)
 end
 
-fit(x, y, λ; kws...) = fit(x, y, λ, BSplineOrder(4); kws...)
+# Periodic BCs: similar to natural case but we use sparse arrays since matrices are not perfectly banded.
+# This is slower, but could be optimised in the future using some specialised algorithm.
+function fit(
+        xs::AbstractVector, ys::AbstractVector, λ::Real, order_in::BSplineOrder{4}, bc::Periodic;
+        weights::Union{Nothing, AbstractVector} = nothing,
+    )
+    λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
+    eachindex(xs) == eachindex(ys) || throw(DimensionMismatch("x and y vectors must have the same length"))
+    N = length(xs)
+    cs = similar(xs)
+
+    T = eltype(cs)
+    ts_in = make_knots(xs, order_in, bc)
+    R = PeriodicBSplineBasis(order_in, ts_in)
+    k = order(R)  # = 4
+
+    A = spzeros(T, N, N)
+    D = similar(A)
+    collocation_matrix!(A, R, xs, Derivative(0))
+    collocation_matrix!(D, R, xs, Derivative(2))
+
+    ts = knots(R)
+    h = k ÷ 2  # knot offset: ts[i + h] == xs[i]
+
+    # Matrix containing grid steps.
+    Δ = spzeros(T, N, N)
+    let i = 1
+        Δ[i, N] = ts[i + h] - ts[i - 1 + h]
+        Δ[i, i] = 2 * (ts[i + 1 + h] - ts[i - 1 + h])
+        Δ[i, i + 1] = ts[i + 1 + h] - ts[i + h]
+    end
+    @inbounds for i in 2:(N - 1)
+        Δ[i, i - 1] = ts[i + h] - ts[i - 1 + h]
+        Δ[i, i] = 2 * (ts[i + 1 + h] - ts[i - 1 + h])
+        Δ[i, i + 1] = ts[i + 1 + h] - ts[i + h]
+    end
+    let i = N
+        Δ[i, i - 1] = ts[i + h] - ts[i - 1 + h]
+        Δ[i, i] = 2 * (ts[i + 1 + h] - ts[i - 1 + h])
+        Δ[i, 1] = ts[i + 1 + h] - ts[i + h]
+    end
+
+    # The integral of the squared second derivative is (H * cs) ⋅ (D * cs) / 6.
+    H = Δ * D
+
+    # Construct LHS matrix trying to reduce computations
+    B = H' * D  # this matrix has 5 bands
+    buf_1 = (B .+ B') .* (λ / 6)  # = (H'D + D'H) * (λ / 6)
+    buf_2 = if weights === nothing
+        A' * A
+    else
+        A' * Diagonal(weights) * A  # = A' * W * A
+    end
+
+    @. buf_1 = buf_1 + 2 * buf_2  # (H'D + D'H) * (λ / 6) + 2 * A' * W * A
+    M = Hermitian(buf_1)  # the matrix is actually symmetric (usually positive definite)
+    F = cholesky(M)      # factorise matrix (assuming posdef)
+
+    # Construct RHS trying to reduce allocations
+    zs = copy(ys)
+    if weights !== nothing
+        eachindex(weights) == eachindex(xs) || throw(DimensionMismatch("the `weights` vector must have the same length as the data"))
+        lmul!(Diagonal(weights), zs)  # zs = W * ys
+    end
+    mul!(cs, A', zs)  # cs = A' * (W * ys)
+    lmul!(2, cs)      # cs = 2 * A' * (W * ys)
+
+    cs .= F \ cs  # solve linear system (allocates intermediate array)
+
+    Spline(R, cs)
+end
+
+fit(x, y, λ, bc = Natural(); kws...) = fit(x, y, λ, BSplineOrder(4), bc; kws...)
