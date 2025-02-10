@@ -20,6 +20,7 @@ using ..Recombinations:
     RecombinedBSplineBasis
 
 using ..BoundaryConditions
+using ..BoundaryConditions: BoundaryCondition
 
 export
     SplineInterpolation, spline, interpolate, interpolate!, fit
