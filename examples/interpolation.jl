@@ -92,7 +92,7 @@ current_figure()  # hide
 # to fit noisy data.
 # A smoothing spline is a curve which passes close to the input data, while avoiding strong
 # fluctuations due to possible noise.
-# The smoothign strength is controlled by a regularisation parameter ``λ``.
+# The smoothing strength is controlled by a regularisation parameter ``λ``.
 # Setting ``λ = 0`` corresponds to a regular interpolation (the obtained spline passes
 # through all the points), while increasing ``λ`` leads to a smoother curve which roughly
 # approximates the data.
@@ -200,9 +200,9 @@ ys = @. f_slow(xs) + f_fast(xs);
 L = 2
 S_interp = interpolate(xs, copy(ys), BSplineOrder(4), Periodic(L))
 
-# Create a periodic cubic smoothing spline. Note that `BSplineOrder(4)` is assumed (it's
-# currently the only supported choice). We also compare with a smoothing spline which
-# doesn't assume periodic boundary conditions.
+# Create a periodic [cubic smoothing spline](@ref smoothing-example). Note that
+# `BSplineOrder(4)` is assumed (it's currently the only supported choice). We also compare
+# with a smoothing spline which doesn't assume periodic boundary conditions.
 
 λ = 0.001  # smoothing parameter
 S_fit_natural = fit([xs; xs[begin] + L], [ys; ys[begin]], λ)  # for comparison, compute a natural spline (no implied periodicity)
