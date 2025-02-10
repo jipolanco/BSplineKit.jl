@@ -15,6 +15,8 @@ This package provides:
 - [spline interpolations](@ref interpolation-example), [smoothing splines](@ref smoothing-example) and
   [function approximation](@ref function-approximation-example);
 
+- [periodic splines](@ref interpolation-periodic-example);
+
 - [basis recombination](@ref basis-recombination-api), for generating bases
   satisfying homogeneous boundary conditions using linear combinations of
   B-splines.

@@ -37,7 +37,7 @@ current_figure()  # hide
 # We can also choose other interpolation orders for comparison:
 
 for k ∈ (5, 6, 8)
-    S = interpolate(xs, ys, BSplineOrder(k))
+    local S = interpolate(xs, ys, BSplineOrder(k))
     lines!(0..1, S; label = "k = $k", color = Cycled(k - 3))
 end
 axislegend()
@@ -176,4 +176,52 @@ lines!(ax, -0.5..1.5, E_linear; label = "Linear", linestyle = :dashdot, linewidt
 lines!(ax, -0.5..1.5, E_flat; label = "Flat", linestyle = :dot, linewidth = 2)
 axislegend(ax)
 fig
+
+# ## [Periodic data](@id interpolation-periodic-example)
+#
+# It is also possible to interpolate or fit data which is expected to result from a periodic
+# function, such that ``f(x + L) = f(x)`` for some period ``L``.
+# For this, one can pass [`Periodic(L)`](@ref Periodic) as a boundary condition to
+# [`interpolate`](@ref) or [`fit`](@ref).
+#
+# The following example starts from data at points ``x_j`` within the ``[-1, 1]`` interval,
+# and assumes the resulting spline can be extended periodically outside of this interval.
+
+# We start by generating some data:
+
+N = 40
+f_slow(x) = cospi(x)
+f_fast(x) = 0.2 * sinpi(40x)
+xs = [-cospi(n / N) for n = 0:(N - 1)]  # in [-1, 1) // NOTE: the endpoint (x = 1) must be excluded!!
+ys = @. f_slow(xs) + f_fast(xs);
+
+# Interpolate the data:
+
+L = 2
+S_interp = interpolate(xs, copy(ys), BSplineOrder(4), Periodic(L))
+
+# Create a periodic cubic smoothing spline. Note that `BSplineOrder(4)` is assumed (it's
+# currently the only supported choice). We also compare with a smoothing spline which
+# doesn't assume periodic boundary conditions.
+
+λ = 0.001  # smoothing parameter
+S_fit_natural = fit([xs; xs[begin] + L], [ys; ys[begin]], λ)  # for comparison, compute a natural spline (no implied periodicity)
+S_fit_periodic = fit(xs, ys, λ, Periodic(L))
+
+# Plot the results:
+
+fig = Figure()
+ax = Axis(fig[1, 1])
+scatter!(ax, xs, ys; label = "Data")
+lines!(ax, -1..1, S_interp; label = "Interpolation", color = (:grey, 0.5))
+lines!(ax, -1..1, S_fit_periodic; linewidth = 3, label = "Smoothing (periodic)")
+lines!(ax, -1..1, S_fit_natural; linewidth = 3, linestyle = :dash, label = "Smoothing (natural)")
+axislegend(ax)
+fig
+
+# As can be expected, the smoothing spline with periodic boundary conditions mostly differs
+# from the "natural" smoothing spline near the boundaries.
+# In particular, the natural smoothing spline simply does not satisfy periodic boundary
+# conditions (even at the level of the zero-th derivative!), so it's not very adapted for
+# constructing periodic functions.
 

@@ -19,6 +19,8 @@ This package provides:
 
 - spline interpolations, smoothing splines and function approximation;
 
+- periodic splines;
+
 - basis recombination, for generating bases satisfying homogeneous boundary
   conditions using linear combinations of B-splines.
   Supported boundary conditions include Dirichlet, Neumann, Robin, and
