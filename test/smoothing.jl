@@ -2,6 +2,7 @@
 
 using BSplineKit
 using QuadGK: quadgk
+using StaticArrays
 using ReverseDiff
 using Test
 
@@ -49,7 +50,8 @@ function smoothing_objective(cs, R::AbstractBSplineBasis, xs, ys; weights = noth
     loss
 end
 
-function check_zero_gradient(S::Spline, xs, ys; weights = nothing, λ)
+# Scalar data
+function _check_zero_gradient(::Type{T}, S::Spline, xs, ys; weights = nothing, λ, rtol = 1e-12) where {T <: Real}
     R = basis(S)  # usually a RecombinedBSplineBasis
     cs = parent(coefficients(S))  # `parent` is useful if this is a PeriodicBSplineBasis
 
@@ -67,9 +69,25 @@ function check_zero_gradient(S::Spline, xs, ys; weights = nothing, λ)
     # f ~ Y² and therefore ∂f/∂cⱼ ~ Y. So we compare it with the sum of |y_i|².
     reference = sum(abs2, ys)
     err = sum(abs2, ∇f)
-    @test err / reference < 1e-12
+    @test err / reference < rtol
 
     nothing
+end
+
+# Vector data (e.g. parametric splines)
+# Currently all components are separately smoothed, so we verify them as separate scalar functions.
+function _check_zero_gradient(::Type{SVector{N, T}}, S::Spline, xs, ys; kws...) where {N, T}
+    R = basis(S)
+    cs = coefficients(S)
+    for i in 1:N
+        Si = Spline(R, getindex.(cs, i))
+        check_zero_gradient(Si, xs, getindex.(ys, i); kws...)
+    end
+    nothing
+end
+
+function check_zero_gradient(S::Spline, xs, ys; kws...)
+    _check_zero_gradient(eltype(ys), S, xs, ys; kws...)
 end
 
 # Returns the integral of |S''(x)| (the "curvature") over the whole spline.
@@ -147,5 +165,28 @@ end
         weights[3] = 1000
         Sw = fit(xs, ys, λ; weights)
         check_zero_gradient(Sw, xs, ys; λ, weights)
+    end
+
+    @testset "Parametric" begin
+        λ = 1e-2
+        N = 100
+        ts = range(0, 2π; length = N + 1)[1:N]
+        vs = [0.1 * SVector(cos(t), sin(t)) .+ 0.01 * sin(10 * t) for t in ts]
+        S_nat = @inferred fit(ts, vs, λ, Natural())
+        S_per = @inferred fit(ts, vs, λ, Periodic(2π))
+
+        @testset "Natural" check_zero_gradient(S_nat, ts, vs; λ)
+        @testset "Periodic" check_zero_gradient(S_per, ts, vs; λ)
+
+        @testset "With weights" begin
+            weights = fill!(similar(ts), 1)
+            weights[3] = 1000
+
+            S_nat = @inferred fit(ts, vs, λ, Natural(); weights)
+            S_per = @inferred fit(ts, vs, λ, Periodic(2π); weights)
+
+            @testset "Natural" check_zero_gradient(S_nat, ts, vs; λ, weights)
+            @testset "Periodic" check_zero_gradient(S_per, ts, vs; λ, weights)
+        end
     end
 end
