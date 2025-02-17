@@ -50,9 +50,9 @@ function fit(
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
     eachindex(xs) == eachindex(ys) || throw(DimensionMismatch("x and y vectors must have the same length"))
     N = length(xs)
-    cs = similar(xs)
+    cs = similar(ys)
 
-    T = eltype(cs)
+    T = eltype(xs)
 
     # Create natural cubic B-spline basis with knots = input points
     B = BSplineBasis(order, copy(xs))
@@ -98,15 +98,24 @@ function fit(
     # ldiv!(cs, F, z)
 
     # Construct RHS trying to reduce allocations
-    zs = copy(ys)
+    Y = eltype(ys)
+    if ndims(Y) == 0  # scalar data -- this includes float types (ndims(Float64) == 0)
+        cs_lin = cs
+        zs = copy(ys)
+    else  # vector or multidimensional data, for example for SVector values
+        Z = eltype(eltype(ys))  # for example, if eltype(ys) <: SVector{D,Z}
+        @assert Z <: Number
+        cs_lin = reinterpret(reshape, Z, cs)'
+        zs = copy(reinterpret(reshape, Z, ys)')  # dimensions (N, D)
+    end
     if weights !== nothing
         eachindex(weights) == eachindex(xs) || throw(DimensionMismatch("the `weights` vector must have the same length as the data"))
         lmul!(Diagonal(weights), zs)  # zs = W * ys
     end
-    mul!(cs, A', zs)  # cs = A' * (W * ys)
-    lmul!(2, cs)      # cs = 2 * A' * (W * ys)
+    mul!(cs_lin, A', zs)  # cs = A' * (W * ys)
+    lmul!(2, cs_lin)      # cs = 2 * A' * (W * ys)
 
-    ldiv!(F, cs)      # solve linear system
+    ldiv!(F, cs_lin)      # solve linear system
 
     Spline(R, cs)
 end
@@ -120,9 +129,9 @@ function fit(
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
     eachindex(xs) == eachindex(ys) || throw(DimensionMismatch("x and y vectors must have the same length"))
     N = length(xs)
-    cs = similar(xs)
+    cs = similar(ys)
 
-    T = eltype(cs)
+    T = eltype(xs)
     ts_in = make_knots(xs, order_in, bc)
     R = PeriodicBSplineBasis(order_in, ts_in)
     k = order(R)  # = 4
@@ -170,15 +179,25 @@ function fit(
     F = cholesky(M)      # factorise matrix (assuming posdef)
 
     # Construct RHS trying to reduce allocations
-    zs = copy(ys)
+    Y = eltype(ys)
+    if ndims(Y) == 0  # scalar data
+        cs_lin = cs
+        zs = copy(ys)
+    else  # multidimensional data
+        Z = eltype(eltype(ys))  # for example, if eltype(ys) <: SVector{D,Z}
+        @assert Z <: Number
+        cs_lin = reinterpret(reshape, Z, cs)'
+        zs = copy(reinterpret(reshape, Z, ys)')  # dimensions (N, D)
+    end
     if weights !== nothing
         eachindex(weights) == eachindex(xs) || throw(DimensionMismatch("the `weights` vector must have the same length as the data"))
         lmul!(Diagonal(weights), zs)  # zs = W * ys
     end
-    mul!(cs, A', zs)  # cs = A' * (W * ys)
-    lmul!(2, cs)      # cs = 2 * A' * (W * ys)
+    @show summary(cs_lin) summary(A) summary(zs)
+    mul!(cs_lin, A', zs)  # cs = A' * (W * ys)
+    lmul!(2, cs_lin)      # cs = 2 * A' * (W * ys)
 
-    cs .= F \ cs  # solve linear system (allocates intermediate array)
+    cs_lin .= F \ cs_lin  # solve linear system (allocates intermediate array)
 
     Spline(R, cs)
 end
