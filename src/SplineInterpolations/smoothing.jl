@@ -193,7 +193,6 @@ function fit(
         eachindex(weights) == eachindex(xs) || throw(DimensionMismatch("the `weights` vector must have the same length as the data"))
         lmul!(Diagonal(weights), zs)  # zs = W * ys
     end
-    @show summary(cs_lin) summary(A) summary(zs)
     mul!(cs_lin, A', zs)  # cs = A' * (W * ys)
     lmul!(2, cs_lin)      # cs = 2 * A' * (W * ys)
 
