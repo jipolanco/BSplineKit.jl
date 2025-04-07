@@ -1,4 +1,3 @@
-# Natural BCs
 @doc raw"""
     fit(BSplineOrder(4), xs, ys, λ::Real, [bc = Natural()]; [weights = nothing])
 
@@ -44,8 +43,11 @@ julia> S = fit(BSplineOrder(4), xs, ys, λ)
  coefficients: [0.946872, 0.631018, 1.05101, 1.04986, 1.04825, 1.04618, 1.04366, 1.04067, 1.03722, 1.03331  …  0.437844, 0.534546, 0.627651, 0.716043, 0.798813, 0.875733, 0.947428, 1.01524, 0.721199, 0.954231]
 ```
 """
+StatsAPI.fit(order::BSplineOrder, xs, ys, λ::Real; kws...) = fit(order, xs, ys, λ, Natural(); kws...)  # Natural BCs by default
+
+# Natural BCs
 function StatsAPI.fit(
-        ::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, ::Natural;
+        order::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, ::Natural;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -124,7 +126,7 @@ end
 # Periodic BCs: similar to natural case but we use sparse arrays since matrices are not perfectly banded.
 # This is slower, but could be optimised in the future using some specialised algorithm.
 function StatsAPI.fit(
-        order_in::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, bc::Periodic;
+        order::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, bc::Periodic;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -133,9 +135,9 @@ function StatsAPI.fit(
     cs = similar(ys)
 
     T = eltype(xs)
-    ts_in = make_knots(xs, order_in, bc)
-    R = PeriodicBSplineBasis(order_in, ts_in)
-    k = order(R)  # = 4
+    ts_in = make_knots(xs, order, bc)
+    R = PeriodicBSplineBasis(order, ts_in)
+    k = BSplines.order(R)  # = 4
 
     A = spzeros(T, N, N)
     D = similar(A)
