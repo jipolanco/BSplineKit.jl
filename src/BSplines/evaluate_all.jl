@@ -4,6 +4,7 @@
 using Base.Cartesian: @ntuple
 using Base: @propagate_inbounds
 using StaticArrays: MVector
+using ForwardDiff: ForwardDiff
 
 """
     evaluate_all(
@@ -95,6 +96,9 @@ to be computed.
 """
 function find_knot_interval end
 
+_isless(a, b) = a < b
+_isless(a, b::ForwardDiff.Dual) = a < b.value  # workaround changes in ForwardDiff 1.0 (https://github.com/JuliaDiff/ForwardDiff.jl/pull/481)
+
 function find_knot_interval(ts::AbstractVector, x::Real, ::Nothing = nothing)
     if x < first(ts)
         return firstindex(ts), -1
@@ -107,7 +111,7 @@ function find_knot_interval(ts::AbstractVector, x::Real, ::Nothing = nothing)
             i -= 1
             ts[i] ≠ tlast && break
         end
-        zone = (x > tlast) ? 1 : 0
+        zone = _isless(tlast, x) ? 1 : 0
         return i, zone
     else
         return i, 0  # usual case
