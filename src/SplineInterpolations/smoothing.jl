@@ -1,3 +1,4 @@
+# Natural BCs
 @doc raw"""
     fit(BSplineOrder(4), xs, ys, λ::Real, [bc = Natural()]; [weights = nothing])
 
@@ -43,9 +44,6 @@ julia> S = fit(BSplineOrder(4), xs, ys, λ)
  coefficients: [0.946872, 0.631018, 1.05101, 1.04986, 1.04825, 1.04618, 1.04366, 1.04067, 1.03722, 1.03331  …  0.437844, 0.534546, 0.627651, 0.716043, 0.798813, 0.875733, 0.947428, 1.01524, 0.721199, 0.954231]
 ```
 """
-function fit end
-
-# Natural BCs
 function StatsAPI.fit(
         ::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, ::Natural;
         weights::Union{Nothing, AbstractVector} = nothing,
