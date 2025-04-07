@@ -118,14 +118,16 @@ ys = cospi.(2 .* xs) .+ 0.04 .* randn(rng, Ndata);
 # Create smoothing spline from data:
 
 λ = 1e-3
-S_fit = fit(xs, ys, λ)
+S_fit = fit(BSplineOrder(4), xs, ys, λ)
 
+# Passing `BSplineOrder(4)` is mandatory, even if it's the only allowed value currently.
+#
 # If we want the spline to pass very near a single data point, we can assign a
 # larger weight to that point:
 
 weights = fill!(similar(xs), 1)
 weights[12] = 100  # larger weight to point i = 12
-S_fit_weight = fit(xs, ys, λ; weights)
+S_fit_weight = fit(BSplineOrder(4), xs, ys, λ; weights)
 
 # Plot results and compare with natural cubic spline interpolation:
 
@@ -205,8 +207,8 @@ S_interp = interpolate(xs, copy(ys), BSplineOrder(4), Periodic(L))
 # with a smoothing spline which doesn't assume periodic boundary conditions.
 
 λ = 0.001  # smoothing parameter
-S_fit_natural = fit([xs; xs[begin] + L], [ys; ys[begin]], λ)  # for comparison, compute a natural spline (no implied periodicity)
-S_fit_periodic = fit(xs, ys, λ, Periodic(L))
+S_fit_natural = fit(BSplineOrder(4), [xs; xs[begin] + L], [ys; ys[begin]], λ)  # for comparison, compute a natural spline (no implied periodicity)
+S_fit_periodic = fit(BSplineOrder(4), xs, ys, λ, Periodic(L))
 
 # Plot the results:
 

@@ -1,5 +1,5 @@
 @doc raw"""
-    fit(xs, ys, λ::Real, [BSplineOrder(4)], [bc = Natural()]; [weights = nothing])
+    fit(BSplineOrder(4), xs, ys, λ::Real, [bc = Natural()]; [weights = nothing])
 
 Fit a cubic smoothing spline to the given data.
 
@@ -19,7 +19,10 @@ More precisely, the returned spline ``S(x)`` minimises:
 ```
 
 Only cubic splines (`BSplineOrder(4)`) are currently supported.
-Moreover, the boundary condition (`bc`) must be [`Periodic`](@ref) for a periodic spline
+One must explicitly pass `BSplineOrder(4)` as a first argument to avoid collisions with
+other implementations of `StatsAPI.fit`.
+
+The boundary condition (`bc`) must be [`Periodic`](@ref) for a periodic spline
 or [`Natural`](@ref) otherwise (this is the default).
 (Currently, the periodic case can be much slower than the default natural condition.)
 
@@ -32,7 +35,7 @@ julia> ys = @. cospi(2 * xs) + 0.1 * sinpi(200 * xs);  # smooth + highly fluctua
 
 julia> λ = 0.001;  # smoothing parameter
 
-julia> S = fit(xs, ys, λ)
+julia> S = fit(BSplineOrder(4), xs, ys, λ)
 101-element Spline{Float64}:
  basis: 101-element RecombinedBSplineBasis of order 4, domain [0.0, 1.0], BCs {left => (D{2},), right => (D{2},)}
  order: 4
@@ -40,11 +43,11 @@ julia> S = fit(xs, ys, λ)
  coefficients: [0.946872, 0.631018, 1.05101, 1.04986, 1.04825, 1.04618, 1.04366, 1.04067, 1.03722, 1.03331  …  0.437844, 0.534546, 0.627651, 0.716043, 0.798813, 0.875733, 0.947428, 1.01524, 0.721199, 0.954231]
 ```
 """
-function fit end
+StatsAPI.fit(order::BSplineOrder, xs, ys, λ::Real; kws...) = fit(order, xs, ys, λ, Natural(); kws...)  # Natural BCs by default
 
 # Natural BCs
-function fit(
-        xs::AbstractVector, ys::AbstractVector, λ::Real, order::BSplineOrder{4}, ::Natural;
+function StatsAPI.fit(
+        order::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, ::Natural;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -122,8 +125,8 @@ end
 
 # Periodic BCs: similar to natural case but we use sparse arrays since matrices are not perfectly banded.
 # This is slower, but could be optimised in the future using some specialised algorithm.
-function fit(
-        xs::AbstractVector, ys::AbstractVector, λ::Real, order_in::BSplineOrder{4}, bc::Periodic;
+function StatsAPI.fit(
+        order::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, bc::Periodic;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -132,9 +135,9 @@ function fit(
     cs = similar(ys)
 
     T = eltype(xs)
-    ts_in = make_knots(xs, order_in, bc)
-    R = PeriodicBSplineBasis(order_in, ts_in)
-    k = order(R)  # = 4
+    ts_in = make_knots(xs, order, bc)
+    R = PeriodicBSplineBasis(order, ts_in)
+    k = BSplines.order(R)  # = 4
 
     A = spzeros(T, N, N)
     D = similar(A)
@@ -200,5 +203,3 @@ function fit(
 
     Spline(R, cs)
 end
-
-fit(x, y, λ, bc = Natural(); kws...) = fit(x, y, λ, BSplineOrder(4), bc; kws...)
