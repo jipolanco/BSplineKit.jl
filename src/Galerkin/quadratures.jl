@@ -28,6 +28,11 @@ function default_quadrature(Bs::Tuple{Vararg{AbstractBSplineBasis}})
     _quadrature_prod(Val(polynomial_order))
 end
 
+function _gausslegendre_impl(::Val{n}) where {n}
+    data = FastGaussQuadrature.gausslegendre(n)
+    map(SVector{n}, data)
+end
+
 # Compile-time computation of Gauss--Legendre nodes and weights.
 # If the @generated branch is taken, then the computation is done at compile
 # time, making sure that no runtime allocations are performed.
@@ -38,11 +43,6 @@ function gausslegendre(::Val{n}) where {n}
     else
         _gausslegendre_impl(Val(n))
     end
-end
-
-function _gausslegendre_impl(::Val{n}) where {n}
-    data = FastGaussQuadrature.gausslegendre(n)
-    map(SVector{n}, data)
 end
 
 # Metric for integration on interval [a, b].

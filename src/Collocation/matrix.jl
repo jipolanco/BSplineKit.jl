@@ -1,4 +1,4 @@
-using ArrayLayouts: MemoryLayout
+using ArrayLayouts: ArrayLayouts, MemoryLayout
 using BandedMatrices
 
 import BandedMatrices:
@@ -65,7 +65,7 @@ function Base.convert(::Type{BandedMatrix}, C::CollocationMatrix)
 end
 
 # This affects printing e.g. in the REPL.
-MemoryLayout(::Type{<:CollocationMatrix{T,M}}) where {T,M} = MemoryLayout(M)
+ArrayLayouts.MemoryLayout(::Type{<:CollocationMatrix{T,M}}) where {T,M} = MemoryLayout(M)
 
 factorize(A::CollocationMatrix) = lu(A)
 bandeddata(A::CollocationMatrix) = parent(A)
