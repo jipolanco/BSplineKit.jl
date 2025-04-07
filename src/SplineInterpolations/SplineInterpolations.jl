@@ -9,6 +9,7 @@ using ..Splines
 using BandedMatrices
 using LinearAlgebra
 using SparseArrays
+using StatsAPI: StatsAPI, fit  # we define and export StatsAPI.fit
 
 import ..BSplines:
     order, knots, basis

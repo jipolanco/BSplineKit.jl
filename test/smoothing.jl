@@ -114,11 +114,12 @@ end
 @testset "Smoothing cubic splines" begin
     xs = (0:0.01:1).^2
     ys = @. cospi(2 * xs) + 0.1 * sinpi(200 * xs)  # smooth + highly fluctuating components
+    order = BSplineOrder(4)  # mandatory, even if it's currently the only allowed value
 
     # Check that smoothing with λ = 0 is equivalent to interpolation
     @testset "Fit λ = 0" begin
         λ = 0
-        S = @inferred fit(xs, ys, λ)
+        S = @inferred fit(order, xs, ys, λ)
         S_interp = spline(interpolate(xs, ys, BSplineOrder(4), Natural()))
         @test coefficients(S) ≈ coefficients(S_interp)
     end
@@ -128,7 +129,7 @@ end
         curvatures = similar(λs)
         distances = similar(λs)
         for (i, λ) in pairs(λs)
-            S = @inferred fit(xs, ys, λ)
+            S = @inferred fit(order, xs, ys, λ)
             curvatures[i] = total_curvature(S)
             distances[i] = distance_from_data(S, xs, ys)
             check_zero_gradient(S, xs, ys; λ)
@@ -140,13 +141,13 @@ end
     @testset "Weights" begin
         λ = 1e-3
         weights = fill!(similar(xs), 1)
-        S = fit(xs, ys, λ)
-        Sw = @inferred fit(xs, ys, λ; weights)  # equivalent to the default (all weights are 1)
+        S = fit(order, xs, ys, λ)
+        Sw = @inferred fit(order, xs, ys, λ; weights)  # equivalent to the default (all weights are 1)
         check_zero_gradient(Sw, xs, ys; λ, weights)
         @test coefficients(S) == coefficients(Sw)
         # Now give more weight to point i = 3
         weights[3] = 1000
-        Sw = fit(xs, ys, λ; weights)
+        Sw = fit(order, xs, ys, λ; weights)
         check_zero_gradient(Sw, xs, ys; λ, weights)
         @test abs(Sw(xs[3]) - ys[3]) < abs(S(xs[3]) - ys[3])  # the new curve is closer to the data point i = 3
         @test total_curvature(Sw) > total_curvature(S)  # since we give more importance to data fitting (basically, the sum of weights is larger)
@@ -158,12 +159,12 @@ end
         N = 100
         xs = [-cospi(n / N) for n = 0:(N - 1)]
         ys = @. cospi(xs) + 0.1 * sinpi(200 * xs)  # smooth + highly fluctuating components
-        S = @inferred fit(xs, ys, λ, Periodic(2))
+        S = @inferred fit(order, xs, ys, λ, Periodic(2))
         check_zero_gradient(S, xs, ys; λ)
         # With weights
         weights = fill!(similar(xs), 1)
         weights[3] = 1000
-        Sw = fit(xs, ys, λ; weights)
+        Sw = fit(order, xs, ys, λ; weights)
         check_zero_gradient(Sw, xs, ys; λ, weights)
     end
 
@@ -172,8 +173,8 @@ end
         N = 100
         ts = range(0, 2π; length = N + 1)[1:N]
         vs = [0.1 * SVector(cos(t), sin(t)) .+ 0.01 * sin(10 * t) for t in ts]
-        S_nat = @inferred fit(ts, vs, λ, Natural())
-        S_per = @inferred fit(ts, vs, λ, Periodic(2π))
+        S_nat = @inferred fit(order, ts, vs, λ, Natural())
+        S_per = @inferred fit(order, ts, vs, λ, Periodic(2π))
 
         @testset "Natural" check_zero_gradient(S_nat, ts, vs; λ)
         @testset "Periodic" check_zero_gradient(S_per, ts, vs; λ)
@@ -182,8 +183,8 @@ end
             weights = fill!(similar(ts), 1)
             weights[3] = 1000
 
-            S_nat = @inferred fit(ts, vs, λ, Natural(); weights)
-            S_per = @inferred fit(ts, vs, λ, Periodic(2π); weights)
+            S_nat = @inferred fit(order, ts, vs, λ, Natural(); weights)
+            S_per = @inferred fit(order, ts, vs, λ, Periodic(2π); weights)
 
             @testset "Natural" check_zero_gradient(S_nat, ts, vs; λ, weights)
             @testset "Periodic" check_zero_gradient(S_per, ts, vs; λ, weights)

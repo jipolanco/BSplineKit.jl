@@ -1,5 +1,5 @@
 @doc raw"""
-    fit(xs, ys, λ::Real, [BSplineOrder(4)], [bc = Natural()]; [weights = nothing])
+    fit(BSplineOrder(4), xs, ys, λ::Real, [bc = Natural()]; [weights = nothing])
 
 Fit a cubic smoothing spline to the given data.
 
@@ -19,7 +19,10 @@ More precisely, the returned spline ``S(x)`` minimises:
 ```
 
 Only cubic splines (`BSplineOrder(4)`) are currently supported.
-Moreover, the boundary condition (`bc`) must be [`Periodic`](@ref) for a periodic spline
+One must explicitly pass `BSplineOrder(4)` as a first argument to avoid collisions with
+other implementations of `StatsAPI.fit`.
+
+The boundary condition (`bc`) must be [`Periodic`](@ref) for a periodic spline
 or [`Natural`](@ref) otherwise (this is the default).
 (Currently, the periodic case can be much slower than the default natural condition.)
 
@@ -32,7 +35,7 @@ julia> ys = @. cospi(2 * xs) + 0.1 * sinpi(200 * xs);  # smooth + highly fluctua
 
 julia> λ = 0.001;  # smoothing parameter
 
-julia> S = fit(xs, ys, λ)
+julia> S = fit(BSplineOrder(4), xs, ys, λ)
 101-element Spline{Float64}:
  basis: 101-element RecombinedBSplineBasis of order 4, domain [0.0, 1.0], BCs {left => (D{2},), right => (D{2},)}
  order: 4
@@ -43,8 +46,8 @@ julia> S = fit(xs, ys, λ)
 function fit end
 
 # Natural BCs
-function fit(
-        xs::AbstractVector, ys::AbstractVector, λ::Real, order::BSplineOrder{4}, ::Natural;
+function StatsAPI.fit(
+        ::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, ::Natural;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -122,8 +125,8 @@ end
 
 # Periodic BCs: similar to natural case but we use sparse arrays since matrices are not perfectly banded.
 # This is slower, but could be optimised in the future using some specialised algorithm.
-function fit(
-        xs::AbstractVector, ys::AbstractVector, λ::Real, order_in::BSplineOrder{4}, bc::Periodic;
+function StatsAPI.fit(
+        order_in::BSplineOrder{4}, xs::AbstractVector, ys::AbstractVector, λ::Real, bc::Periodic;
         weights::Union{Nothing, AbstractVector} = nothing,
     )
     λ ≥ 0 || throw(DomainError(λ, "the smoothing parameter λ must be non-negative"))
@@ -200,5 +203,3 @@ function fit(
 
     Spline(R, cs)
 end
-
-fit(x, y, λ, bc = Natural(); kws...) = fit(x, y, λ, BSplineOrder(4), bc; kws...)
