@@ -443,7 +443,7 @@ end
 
     @assert j > h
     C_right = lr
-    ii = i - h - cr
+    ii = i - h - cl
     if ii ∈ axes(C_right, 1)
         return @inbounds C_right[ii, j - h] :: T
     end
@@ -496,9 +496,10 @@ function LinearAlgebra.mul!(y::AbstractVector, A::RecombineMatrix,
         @inbounds y[i + cl] = α * x[i] + β * y[i + cl]
     end
 
+    n2 = nr + cr
     js = (N - nr - cr + 1):N
     @inbounds y[js] =
-        α * lr * view(x, (h + 1):M) + β * SVector{n1}(view(y, js))
+        α * lr * view(x, (h + 1):M) + β * SVector{n2}(view(y, js))
 
     y
 end
