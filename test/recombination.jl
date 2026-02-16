@@ -396,4 +396,58 @@ end
         @test S′(0.0) > 0.1 # no condition (but function quickly increases from 0 to 1, so positive derivative)
         @test S′(1.0) == 0  # Neumann condition
     end
+    @testset "Asymmetric BC RecombineMatrix" begin
+        # Test getindex, Matrix conversion, and 5-arg mul! for asymmetric BCs
+        # where the left and right constraint counts differ (cₗ ≠ cᵣ).
+        for (order, knots) in [
+            (BSplineOrder(4), 0.0:0.2:1.0),
+            (BSplineOrder(6), 0.0:0.1:1.0),
+        ]
+            B = BSplineBasis(order, knots)
+            asymmetric_cases = [
+                # (left_ops, right_ops, description)
+                ((),                            (Derivative(1),),              "Free + D(1)"),
+                ((Derivative(0),),              (Derivative(1),),              "D(0) + D(1)"),
+                ((Derivative(0), Derivative(1)),(Derivative(1),),              "D(0,1) + D(1)"),
+                ((Derivative(1),),              (),                            "D(1) + Free"),
+                ((Derivative(1),),              (Derivative(0),),              "D(1) + D(0)"),
+                ((Derivative(1),),              (Derivative(0), Derivative(1)),"D(1) + D(0,1)"),
+            ]
+            for (ops_l, ops_r, desc) in asymmetric_cases
+                R = RecombineMatrix(B, ops_l, ops_r)
+                N, M = size(R)
+                cl, cr = num_constraints(R)
+                @testset "$(desc) (order=$(order), cl=$cl, cr=$cr)" begin
+                    # Build ground-truth matrix via 3-arg mul! (known correct)
+                    R_mul = zeros(N, M)
+                    for j in 1:M
+                        ej = zeros(M); ej[j] = 1.0
+                        mul!(view(R_mul, :, j), R, ej)
+                    end
+
+                    # Bug 1: getindex / Matrix conversion must match mul!
+                    R_dense = Matrix{Float64}(R)
+                    @test R_dense ≈ R_mul
+
+                    # Spot-check individual getindex calls
+                    for j in 1:M, i in 1:N
+                        @test R[i, j] ≈ R_mul[i, j] atol=1e-14
+                    end
+
+                    # Bug 2: 5-arg mul! must not throw and must be correct
+                    x = randn(M)
+                    y = randn(N)
+                    y_copy = copy(y)
+                    α, β = 2.5, -1.3
+
+                    y3 = zeros(N)
+                    mul!(y3, R, x)
+                    expected = α .* y3 .+ β .* y_copy
+
+                    mul!(y, R, x, α, β)
+                    @test y ≈ expected atol=1e-12
+                end
+            end
+        end
+    end
 end
