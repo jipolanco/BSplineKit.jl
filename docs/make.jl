@@ -26,17 +26,15 @@ doctest(BSplineKit; fix = false)
 example_dir = joinpath(@__DIR__, "..", "examples")
 output_dir = joinpath(@__DIR__, "src/generated")
 
-for example in ["interpolation.jl", "approximation.jl", "heat.jl", ]
+for example in ["interpolation.jl", "approximation.jl", "heat.jl"]
     filename = joinpath(example_dir, example)
-    Literate.markdown(filename, output_dir, documenter=true)
+    Literate.markdown(filename, output_dir; documenter = true)
 end
 
 @time makedocs(
     sitename = "BSplineKit.jl",
     format = Documenter.HTML(
         prettyurls = true,
-        # load assets in <head>
-        assets = ["assets/tomate.js"],
     ),
     modules = [BSplineKit],
     pages = [

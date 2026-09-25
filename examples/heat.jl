@@ -51,7 +51,6 @@ knots(B)
 
 using CairoMakie
 using LaTeXStrings
-CairoMakie.activate!(type = "svg", pt_per_unit = 2.0)
 
 function plot_knots!(ax, ts; knot_offset = 0.05, kws...)
     ys = zero(ts)
@@ -334,8 +333,9 @@ function plot_heat_solution(sol, R)
     colormap = cgrad(:viridis)
     tspan = sol.prob.tspan
     Δt = tspan[2] - tspan[1]
-    for (u, t) in tuples(sol)
-        S = Spline(R, u)
+    for i in eachindex(sol.t)
+        t = sol.t[i]
+        S = Spline(R, sol.u[i])
         color = colormap[(t - tspan[1]) / Δt]
         lines!(ax, -1..1, S; label = string(t), color, linewidth = 2)
     end
@@ -343,10 +343,6 @@ function plot_heat_solution(sol, R)
     fig
 end
 
-## NOTE: there's an issue in CairoMakie 0.11.10 when saving SVGs with colourbars, so we fall
-## back to PNG output.
-## See https://github.com/MakieOrg/Makie.jl/issues/3016
-CairoMakie.activate!(type = "png", px_per_unit = 2.0)
 plot_heat_solution(sol_collocation, R)
 
 # ## Galerkin method
@@ -423,7 +419,6 @@ plot_heat_solution(sol_galerkin, R)
 # with the collocation method.
 # However, as seen below, there are non-negligible differences between the two.
 
-CairoMakie.activate!(type = "svg", pt_per_unit = 2.0)  # hide
 fig = Figure(size = (800, 400))
 let ax = Axis(fig[1, 1]; xlabel = rich("x"; font = :italic), ylabel = rich("θ(x, t = $(tspan[end]))"; font = :italic))
     for pair in (
