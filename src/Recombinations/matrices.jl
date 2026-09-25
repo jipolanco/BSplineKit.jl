@@ -157,7 +157,7 @@ _default_eltype(::Type{T}, ::Vararg{AbstractDifferentialOp}) where {T <: Abstrac
 # Case (D(0), D(1), D(2), ...)
 _default_eltype(
     ::Type{T}, ::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative},
-) where {T <: AbstractFloat} = Bool  # TODO this isn't always right, is it?
+) where {T <: Real} = Bool  # TODO this isn't always right, is it?
 _default_eltype(::Type{T}, ops::DiffOpList) where {T <: AbstractFloat} =
     _default_eltype(T, ops...)
 
