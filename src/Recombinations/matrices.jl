@@ -148,17 +148,17 @@ end
 
 # Default element type of recombination matrix.
 # In some specific cases we can use Bool...
-_default_eltype(::Type{T}, ::BoundaryCondition) where {T <: AbstractFloat} = T
+_default_eltype(::Type{T}, ::BoundaryCondition) where {T <: Real} = float(T)
 _default_eltype(::Type{T}) where {T <: AbstractFloat} = Bool  # free BC
 _default_eltype(::Type{T}, ::Derivative{0}) where {T <: AbstractFloat} = Bool  # Dirichlet BCs
 _default_eltype(::Type{T}, ::Derivative{1}) where {T <: AbstractFloat} = Bool  # Neumann BCs
-_default_eltype(::Type{T}, ::Vararg{AbstractDifferentialOp}) where {T <: AbstractFloat} = T
+_default_eltype(::Type{T}, ::Vararg{AbstractDifferentialOp}) where {T <: Real} = float(T)
 
 # Case (D(0), D(1), D(2), ...)
 _default_eltype(
     ::Type{T}, ::Derivative{0}, ::Derivative{1}, ::Vararg{Derivative},
 ) where {T <: Real} = Bool  # TODO this isn't always right, is it?
-_default_eltype(::Type{T}, ops::DiffOpList) where {T <: AbstractFloat} =
+_default_eltype(::Type{T}, ops::DiffOpList) where {T <: Real} =
     _default_eltype(T, ops...)
 
 # Same BCs on both sides.
