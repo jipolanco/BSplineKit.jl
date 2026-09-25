@@ -9,6 +9,9 @@ Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[sources]
+BSplineKit = {path = ".."}
+
 [compat]
 Documenter = "1"
 Makie = "0.22"

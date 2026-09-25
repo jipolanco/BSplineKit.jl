@@ -1,4 +1,5 @@
 [deps]
+BSplineKit = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -10,3 +11,6 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+BSplineKit = {path = ".."}

@@ -3,6 +3,9 @@ uuid = "093aae92-e908-43d7-9660-e50ee39d5a0a"
 authors = ["Juan Ignacio Polanco <juan-ignacio.polanco@cnrs.fr>"]
 version = "0.19.3"
 
+[workspace]
+projects = ["test", "docs"]
+
 [deps]
 ArrayLayouts = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
 BandedMatrices = "aae01518-5342-5314-be14-df237901396f"
@@ -32,4 +35,4 @@ Static = "0.8, 1"
 StaticArrays = "1.0"
 StaticArraysCore = "1.4"
 StatsAPI = "1.7"
-julia = "1.9"
+julia = "1.10"
