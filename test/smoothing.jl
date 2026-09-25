@@ -3,7 +3,7 @@
 using BSplineKit
 using QuadGK: quadgk
 using StaticArrays
-using ReverseDiff
+using Mooncake: Mooncake
 using Test
 
 # This is the objective function that `fit` is supposed to minimise.
@@ -55,15 +55,10 @@ function _check_zero_gradient(::Type{T}, S::Spline, xs, ys; weights = nothing, �
     R = basis(S)  # usually a RecombinedBSplineBasis
     cs = parent(coefficients(S))  # `parent` is useful if this is a PeriodicBSplineBasis
 
-    # Not sure how useful this is...
-    ∇f = similar(cs)  # gradient wrt coefficients
-    inputs = (cs,)
-    results = (∇f,)
-    # all_results = map(DiffResults.GradientResult, results)
-    cfg = ReverseDiff.GradientConfig(inputs)
-
-    # Compute gradient
-    ReverseDiff.gradient!(results, cs -> smoothing_objective(cs, R, xs, ys; weights, λ), inputs, cfg)
+    f(coefs) = smoothing_objective(coefs, R, xs, ys; weights, λ)
+    cache = Mooncake.prepare_gradient_cache(f, cs)
+    val, grad = Mooncake.value_and_gradient!!(cache, f, cs)
+    df, ∇f = grad
 
     # Verify that |∇f|² is negligible. Note that is has the same units as |y_i|² ≡ Y², since
     # f ~ Y² and therefore ∂f/∂cⱼ ~ Y. So we compare it with the sum of |y_i|².
